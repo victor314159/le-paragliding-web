@@ -11,3 +11,5 @@ node_modules/
 .playwright-mcp/
 # stdout/stderr of oracle runs are reference DATA
 !oracle/reference/**/*.log
+# npm package: docker build --target engine-pkg --output pkg .
+pkg/

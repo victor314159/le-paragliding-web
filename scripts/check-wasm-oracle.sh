@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# check-wasm-oracle.sh — Runs build/wasm/lepara.js (Node) on the designs of
-# oracle/designs/index.json and compares the WHOLE output tree BYTE FOR BYTE
+# check-wasm-oracle.sh — Runs the npm package (scripts/assemble-engine.sh,
+# build/wasm/lepara.js + the packages/engine/ wrapper) in Node on the designs
+# of oracle/designs/index.json and compares the WHOLE output tree BYTE FOR BYTE
 # (sha256) with oracle/reference/<id>/MANIFEST.sha256: same files (run
 # directory, stl/, xflr5/), same content. The manifest is versioned for every
 # output; the large ones (DXF, STL, SCAD) are not (run-oracle.sh regenerates
@@ -16,6 +17,7 @@ set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 source "$ROOT/scripts/oracle-lib.sh"
+"$ROOT/scripts/assemble-engine.sh" || exit 1
 mapfile -t DESIGNS < <(design_ids)
 
 # "<design>/<file>" -> reason

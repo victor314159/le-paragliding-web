@@ -1,0 +1,14 @@
+{
+  "name": "leparagliding-wasm-smoke",
+  "private": true,
+  "type": "module",
+  "description": "Checks the packed engine (scripts/pack-engine.sh): installs it like a user would, type-checks a consumer, runs it in Node and bundles it with Vite and esbuild.",
+  "devDependencies": {
+    "@arethetypeswrong/cli": "0.18.5",
+    "@types/node": "24.19.2",
+    "esbuild": "0.28.2",
+    "publint": "0.3.25",
+    "typescript": "6.0.2",
+    "vite": "8.3.3"
+  }
+}

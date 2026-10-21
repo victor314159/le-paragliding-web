@@ -6,6 +6,10 @@
 #   wasm -> oracle-check -> site -> dist/ (the static site). Any failing step
 #   (WASM build, WASM vs native oracle, lint, Angular build) stops the build.
 #
+# npm package (what CI publishes on engine-v* tags):
+#   docker build --target engine-pkg --output pkg .
+#   wasm -> oracle-check -> engine-pack -> pkg/<name>-<version>.tgz
+#
 # Development images (docker-compose.yml), the repository bind-mounted at /work:
 #   flang  : Fortran -> WASM toolchain
 #   oracle : native gfortran oracle + WASM-in-Node check
@@ -74,16 +78,31 @@ COPY fortran fortran
 COPY scripts/make-patched.sh scripts/build-flang-wasm.sh scripts/closure-externs.js scripts/
 RUN scripts/build-flang-wasm.sh
 
-# Every WASM output byte-identical to the committed native references.
-FROM base AS oracle-check
+# The project's dependencies: tsc for the engine package, then the site.
+FROM base AS deps
+COPY package.json package-lock.json .npmrc ./
+RUN npm ci
+
+# Every WASM output byte-identical to the committed native references, run
+# through the npm package (build/engine/).
+FROM deps AS oracle-check
 COPY oracle oracle
 COPY scripts scripts
+COPY LICENSE ./
+COPY packages/engine packages/engine
 COPY --from=wasm /work/build/wasm build/wasm
 RUN scripts/check-wasm-oracle.sh && touch /oracle-ok
 
-FROM base AS site
-COPY package.json package-lock.json .npmrc ./
-RUN npm ci
+# --- npm package: oracle-check -> engine-pack -> engine-pkg -------------------
+# The package the oracle check ran, packed and checked as installed by a user.
+FROM oracle-check AS engine-pack
+RUN scripts/pack-engine.sh
+
+FROM scratch AS engine-pkg
+COPY --from=engine-pack /work/build/pkg/ /
+
+# --- site (the default target: keep it last) ---------------------------------
+FROM deps AS site
 COPY . .
 COPY --from=wasm /work/build/wasm build/wasm
 # Only the site is kept: this COPY makes the oracle check a required step.

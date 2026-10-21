@@ -23,7 +23,7 @@
             "allowedCommonJsDependencies": ["jszip", "loglevel", "opentype.js"],
             "assets": [
               { "glob": "**/*", "input": "public" },
-              { "glob": "lepara.{js,wasm}", "input": "build/wasm", "output": "engine" },
+              { "glob": "*.{js,wasm}", "input": "build/engine", "output": "engine" },
               { "glob": "*/*.txt", "input": "oracle/designs", "output": "examples" },
               {
                 "glob": "roboto-latin-400-normal.woff",
