@@ -86,4 +86,4 @@ jobs:
           target: engine-pkg
           outputs: type=local,dest=pkg
           cache-from: type=gha
-      - run: npm publish pkg/*.tgz --access public
+      - run: npm publish ./pkg/*.tgz --access public
