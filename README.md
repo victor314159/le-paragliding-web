@@ -40,6 +40,7 @@ it changes), installs the dependencies and serves the app with live reload.
 docker build --output dist .                # release build -> dist/
 docker compose run --rm web npm test        # browser tests against dist/
 docker compose run --rm web npm run check   # lint + format
+docker build --target engine-pkg --output pkg .   # npm package -> pkg/
 ```
 
 The release build checks the WASM engine against the native references and
@@ -56,6 +57,7 @@ Generated files live in a Docker volume (`docker compose down -v` deletes it).
 | `tests/`            | Playwright tests                                                      |
 | `fortran/original/` | Official source zip, docs and example designs, unmodified             |
 | `fortran/patches/`  | Fixes applied before compiling ([details](fortran/patches/README.md)) |
+| `packages/engine/`  | The engine as an npm package ([details](packages/engine/README.md))   |
 | `oracle/`           | Example designs and the native outputs the WASM build must match      |
 | `scripts/`          | Engine build and oracle scripts                                       |
 

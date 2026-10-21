@@ -26,7 +26,12 @@ Each patch adds a `PATCH lepara-web NNN` comment to the source.
 Outside the patches:
 
 - The flang runtime wraps list-directed records at 80 columns, gfortran does
-  not. The runner sets `FORT_FMT_RECL=100000` (`scripts/run-wasm-node.ts`).
+  not. The engine wrapper sets `FORT_FMT_RECL=100000`
+  (`packages/engine/src/run.ts`).
+- The program creates `../stl` and `../xflr5` with `call system('mkdir ...')`.
+  Emscripten's `system()` does nothing: the glue is built for browsers only,
+  and Node runs that same glue (`scripts/build-flang-wasm.sh`). The wrapper
+  creates the directories in the virtual file system.
 - flang compiles with `-fno-automatic` (`scripts/build-flang-wasm.sh`). gfortran
   makes local arrays larger than 64 KB static, so they keep their value between
   calls; the code relies on it (`vredis` reads `xlin2(1)` left by the previous

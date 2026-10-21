@@ -43,8 +43,10 @@ services:
         condition: service_completed_successfully
     ports:
       - '4200:4200'
-    # npm ci only when package-lock.json changed since the last install.
-    command: sh -c '[ node_modules/.package-lock.json -nt package-lock.json ] || npm ci; npm start'
+    # npm ci only when package-lock.json changed since the last install. The
+    # app serves the engine package build/engine/: rerun
+    # scripts/assemble-engine.sh after changing packages/engine/.
+    command: sh -c '([ node_modules/.package-lock.json -nt package-lock.json ] || npm ci) && scripts/assemble-engine.sh && npm start'
 
   web:
     <<: *web

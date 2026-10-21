@@ -10,7 +10,7 @@ test('worker memory updates during synchronous computation and clears on cancell
   await page.route('**/engine/lepara.js', (route) =>
     route.fulfill({
       contentType: 'text/javascript',
-      body: `self.createLepara = async (options) => {
+      body: `export default async (options) => {
       const engine = {
         ENV: {},
         HEAPU8: new Uint8Array(64 * 1024 * 1024),
@@ -74,7 +74,7 @@ test('missing engine and input files show recoverable errors', async ({ page }) 
   );
   await page.getByRole('button', { name: 'Compute design' }).click();
   await expect(page.getByTestId('compute-status')).toHaveAttribute('data-state', 'error');
-  await expect(page.getByRole('alert')).toContainText('lepara.js');
+  await expect(page.getByRole('alert')).toContainText('Could not load the engine');
   await expectReady(page);
   await page.unroute(missingEngine);
 

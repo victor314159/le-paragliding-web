@@ -1,0 +1,47 @@
+{
+  "name": "@victor314159/leparagliding-wasm",
+  "version": "0.1.0",
+  "description": "LEparagliding 3.29, the paraglider design program by Pere Casellas, compiled to WebAssembly. Unofficial port.",
+  "keywords": [
+    "paraglider",
+    "paragliding",
+    "leparagliding",
+    "webassembly",
+    "wasm",
+    "fortran"
+  ],
+  "license": "GPL-3.0-only",
+  "author": "victor314159",
+  "homepage": "https://github.com/victor314159/le-paragliding-web/tree/main/packages/engine#readme",
+  "bugs": "https://github.com/victor314159/le-paragliding-web/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/victor314159/le-paragliding-web.git",
+    "directory": "packages/engine"
+  },
+  "type": "module",
+  "exports": {
+    ".": {
+      "node": {
+        "types": "./node.d.ts",
+        "default": "./node.js"
+      },
+      "default": {
+        "types": "./index.d.ts",
+        "default": "./index.js"
+      }
+    },
+    "./lepara.wasm": "./lepara.wasm",
+    "./package.json": "./package.json"
+  },
+  "types": "./index.d.ts",
+  "files": [
+    "*.js",
+    "*.d.ts",
+    "lepara.wasm"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  }
+}

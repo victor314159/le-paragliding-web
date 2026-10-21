@@ -1,0 +1,19 @@
+{
+  // Compiled by scripts/assemble-engine.sh into build/engine/, the package.
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "../../build/engine",
+    "target": "ES2022",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "lib": ["ES2022", "DOM"],
+    "types": ["node"],
+    "strict": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "verbatimModuleSyntax": true,
+    "declaration": true,
+    "skipLibCheck": false
+  },
+  "include": ["src"]
+}

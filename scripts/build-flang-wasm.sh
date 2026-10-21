@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
 # build-flang-wasm.sh — Compiles build/fortran/leparagliding.f to WebAssembly
 # with flang 21.1.8 + emscripten 5.0.7 (compose service `wasm`, r-wasm/flang-wasm
-# image pinned by digest). Compiled at build time: the browser only loads
+# image pinned by digest). Compiled at build time: browsers and Node only load
 # lepara.js + lepara.wasm.
 #
 # Usage: docker compose run --rm wasm
 # The patched source is regenerated first (scripts/make-patched.sh).
-# Output: build/wasm/lepara.js (`createLepara` factory, MODULARIZE) +
-#         lepara.wasm (+ compile.log, link.log; lepara.o is cached and only
-#         recompiled when the source or this script is newer, the link skipped
-#         when lepara.wasm is newer than lepara.o, this script, the closure
-#         externs and the runtime library) + package.json, which keeps
-#         lepara.js CommonJS for Node under the root `"type": "module"`.
+# Output: build/wasm/lepara.js (ES module, default export: the `createLepara`
+#         factory, MODULARIZE) + lepara.wasm (+ compile.log, link.log;
+#         lepara.o is cached and only recompiled when the source or this
+#         script is newer, the link skipped when lepara.wasm is newer than
+#         lepara.o, this script, the closure externs and the runtime
+#         library).
+#         packages/engine/ wraps them (scripts/assemble-engine.sh).
 #
 # Key flags:
 #   -O3 (compile, link) : -O0 fails (wasm allows at most 65 535 locals/function).
@@ -34,9 +35,21 @@
 #                         to calculate total initial memory (~1.32 GiB).
 #                         A 256 MiB total cannot fit the fixed arrays/stack.
 #   MAXIMUM_MEMORY=4 GiB: wasm32 ceiling
+#   EXPORT_ES6          : finds lepara.wasm with new URL(..., import.meta.url),
+#                         which bundlers follow
+#   ENVIRONMENT=web,worker: with node, the glue has `await import('node:module')`,
+#                         which esbuild (Angular) cannot bundle for browsers,
+#                         and system() would run a real shell under Node (the
+#                         program calls system('mkdir ...')).
+#                         Node runs this glue as well (Node >= 20 has the web
+#                         APIs it uses) when given the .wasm bytes, which it
+#                         cannot fetch from a file: URL: the package's Node
+#                         entry reads them (packages/engine/src/node.ts). Not
+#                         an Emscripten-supported setup: the oracle check
+#                         (Node) covers it.
 #   ASSERTIONS=0        : otherwise emscripten prints a warning on stderr when
 #                         main returns (EXIT_RUNTIME=0)
-#   ENV exported        : the runner sets FORT_FMT_RECL (see run-wasm-node.ts)
+#   ENV exported        : the wrapper sets FORT_FMT_RECL (packages/engine/src/run.ts)
 #   HEAPU8 exported     : report the current WASM allocation in the browser UI
 #
 # Time: ~1.5 min compile + ~1 min link (amd64 emulated on Apple Silicon).
@@ -79,12 +92,12 @@ emcc lepara.o -L/opt/flang/wasm/lib -lFortranRuntime -o lepara.js -O3 --closure 
   -sFORCE_FILESYSTEM=1 \
   -sMODULARIZE=1 \
   -sEXPORT_NAME=createLepara \
-  -sENVIRONMENT=web,worker,node \
+  -sEXPORT_ES6=1 \
+  -sENVIRONMENT=web,worker \
   -sINVOKE_RUN=0 \
   -sEXIT_RUNTIME=0 \
   -sASSERTIONS=0 \
   -sEXPORTED_RUNTIME_METHODS=callMain,FS,ENV,HEAPU8 \
   2> link.log
-echo '{ "type": "commonjs" }' > package.json
 
 echo "BUILD OK: $OUT/lepara.js ($(wc -c < lepara.js) B), lepara.wasm ($(wc -c < lepara.wasm) B)"

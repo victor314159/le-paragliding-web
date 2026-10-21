@@ -1,0 +1,16 @@
+{
+  // For ESLint: the package resolves to its source (both entry points export
+  // the same API). pack-engine.sh type-checks these files against the packed
+  // package instead.
+  "compilerOptions": {
+    "noEmit": true,
+    "target": "ES2022",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "lib": ["ES2022", "DOM"],
+    "types": ["node"],
+    "strict": true,
+    "paths": { "@victor314159/leparagliding-wasm": ["../src/node.ts"] }
+  },
+  "include": ["**/*.ts"]
+}

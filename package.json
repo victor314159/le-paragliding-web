@@ -8,7 +8,7 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve --host 0.0.0.0",
-    "build": "node scripts/check-web-inputs.ts && ng build",
+    "build": "node scripts/check-web-inputs.ts && scripts/assemble-engine.sh && ng build",
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "npm run lint -- --fix",
     "format": "prettier --write .",

@@ -31,7 +31,13 @@ export default defineConfig(
     ],
     languageOptions: {
       parserOptions: {
-        project: ['./tsconfig.app.json', './tsconfig.worker.json', './tsconfig.tools.json'],
+        project: [
+          './tsconfig.app.json',
+          './tsconfig.worker.json',
+          './tsconfig.tools.json',
+          './packages/engine/tsconfig.json',
+          './packages/engine/smoke/tsconfig.json',
+        ],
         tsconfigRootDir: import.meta.dirname,
       },
     },

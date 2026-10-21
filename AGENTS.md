@@ -16,6 +16,12 @@ Setup, build and test commands are in [README.md](README.md).
 
 ## Fortran engine
 
+- `packages/engine/` is the npm package around the WASM build (TypeScript,
+  compiled into `build/engine/` by `scripts/assemble-engine.sh`); the app and
+  the oracle check both run it. After changing it, rerun that script (or
+  restart `docker compose up`) and check the package with
+  `docker build --target engine-pkg --output pkg .`.
+
 - `build/fortran/leparagliding.f` is generated from the official zip plus
   `fortran/patches/*.patch`: edit the patches, never the generated file, and
   document them in `fortran/patches/README.md`.
