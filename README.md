@@ -49,6 +49,17 @@ lints before building. CI runs the same two first commands, then deploys
 
 Generated files live in a Docker volume (`docker compose down -v` deletes it).
 
+## Release
+
+From an up-to-date `main`, on the host (Node 24+, for your git credentials):
+
+```sh
+npm run bump:web      # app version, tag web-v<version>; main deploys to Pages
+npm run bump:engine   # packages/engine, tag engine-v<version>; publishes to npm
+```
+
+Both bump the patch version: add `-- minor` or `-- major` for the others.
+
 ## Layout
 
 | Path                | Contents                                                              |

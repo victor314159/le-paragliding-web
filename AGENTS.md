@@ -2,9 +2,11 @@
 
 Setup, build and test commands are in [README.md](README.md).
 
-- Run everything through `docker compose`, never `npm` or `node` on the host:
-  `node_modules/` holds Linux binaries. `build/` is a Docker volume, empty on
-  the host.
+- Build, lint and test in containers (`docker compose`, `docker build`), never
+  on the host: `node_modules/` holds Linux binaries. `build/` is a Docker
+  volume, empty on the host. Scripts without dependencies, such as
+  `npm run bump:web|bump:engine`, can run on the host; the bump scripts push,
+  so run them only on request.
 - Tests run against `dist/`: rebuild it (`docker build --output dist .`) before
   testing a change. Run one test file with
   `docker compose run --rm web npm test -- inputs`.

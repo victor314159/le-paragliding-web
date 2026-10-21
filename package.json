@@ -16,7 +16,9 @@
     "check": "npm run lint && npm run format:check",
     "check:staged": "lint-staged",
     "prepare": "husky",
-    "test": "playwright test -c tests"
+    "test": "playwright test -c tests",
+    "bump:web": "node scripts/bump.ts web",
+    "bump:engine": "node scripts/bump.ts engine"
   },
   "dependencies": {
     "@angular/common": "22.2.3",
