@@ -29,8 +29,8 @@ Setup, build and test commands are in [README.md](README.md).
   document them in `fortran/patches/README.md`.
 - After an engine change, rebuild the WASM (`docker compose run --rm wasm`) and
   compare it with native gfortran, byte for byte:
-  `docker compose run --rm oracle scripts/check-wasm-oracle.sh`. Accepted
+  `docker compose run --rm oracle node scripts/check-wasm-oracle.ts`. Accepted
   differences are listed in `oracle/wasm-known-diffs.tsv`.
 - `oracle/reference/` (native outputs) and `oracle/designs/` are committed.
-  Regenerate them only on purpose, with `scripts/run-oracle.sh` and
-  `scripts/build-designs.sh` in the `oracle` service.
+  Regenerate them only on purpose, with `node scripts/run-oracle.ts` and
+  `node scripts/build-designs.ts` in the `oracle` service.

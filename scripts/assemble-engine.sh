@@ -3,7 +3,7 @@
 # packages/engine/src/ compiled by tsc (JS + declarations), the Emscripten
 # glue build/wasm/lepara.{js,wasm} (scripts/build-flang-wasm.sh) with its
 # declarations, package.json, README.md and LICENSE. The app serves it
-# (angular.json), check-wasm-oracle.sh runs the oracle through it and
+# (angular.json), check-wasm-oracle.ts runs the oracle through it and
 # pack-engine.sh packs it.
 #
 # Usage: scripts/assemble-engine.sh (after npm ci: uses the project's tsc)

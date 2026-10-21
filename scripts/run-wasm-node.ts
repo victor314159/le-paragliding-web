@@ -3,7 +3,7 @@
  * run-wasm-node.ts — Runs the assembled npm package build/engine/
  * (scripts/assemble-engine.sh: runLeparagliding from its Node entry node.js,
  * lepara.js + lepara.wasm, flang -> wasm32-emscripten) in Node on one
- * design, with the same contract as the native run (scripts/run-oracle.sh):
+ * design, with the same contract as the native run (scripts/run-oracle.ts):
  *   - every file of the design directory (oracle/designs/<id>/:
  *     leparagliding.txt + its airfoils) is an input;
  *   - <output-dir> receives the inputs, then every output: run directory,
