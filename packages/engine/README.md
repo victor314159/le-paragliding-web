@@ -7,7 +7,7 @@ It runs in Node and in browsers, with no native binary and no server.
 This is an **unofficial port**, not affiliated with the author. The source is
 the official Fortran release, with [a few fixes][patches], compiled with flang.
 Its outputs are checked byte for byte against the program compiled natively
-with gfortran, on 7 example designs. The only differences are 3 STL/SCAD files
+with gfortran, on 8 example designs. The only differences are 3 STL/SCAD files
 of one design where a coordinate prints as `-0.000` instead of `0.000`.
 
 It powers <https://victor314159.github.io/le-paragliding-web/>.

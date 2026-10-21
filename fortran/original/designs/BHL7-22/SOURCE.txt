@@ -1,0 +1,8 @@
+Laboratori d'envol BHL7-22 design (BHL7 project, 2022-01-09), unmodified from:
+  https://www.laboratoridenvol.com/projects/BHL7/bhl7.en.html
+  https://www.laboratoridenvol.com/projects/BHL7/data22/20220109%20BHL7-22.zip
+  sha256 b759000dd3937340c8a50f30a5855c16665c513e5692c0b672e4449cef99e7d2
+  20220109 BHL7-22/lep/leparagliding.txt
+  20220109 BHL7-22/lep/bhlnm-4p.txt
+  20220109 BHL7-22/lep/gnuPSFtube.txt
+  Same content as data22/*.txt on the project page (LF there, CRLF here).

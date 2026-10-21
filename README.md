@@ -72,6 +72,14 @@ Both bump the patch version: add `-- minor` or `-- major` for the others.
 | `oracle/`           | Example designs and the native outputs the WASM build must match      |
 | `scripts/`          | Engine build and oracle scripts                                       |
 
+## Example designs
+
+The example designs are by Pere Casellas,
+[Laboratori d'envol](https://www.laboratoridenvol.com/). They come from the
+official LEparagliding archives, except BHL7-22, from the
+[BHL7 project](https://www.laboratoridenvol.com/projects/BHL7/bhl7.en.html).
+Each one's exact source is in `fortran/original/designs/<id>/SOURCE.txt`.
+
 ## License
 
 [GPL-3.0](LICENSE).

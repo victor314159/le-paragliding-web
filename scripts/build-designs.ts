@@ -3,7 +3,8 @@
  * build-designs.ts — Builds the oracle/web designs from the official examples.
  *
  * Sources: fortran/original/designs/<id>/, each extracted unmodified from an
- * official LEparagliding archive (see its SOURCE.txt). Output, for each design:
+ * official LEparagliding or Laboratori d'envol archive (see its SOURCE.txt).
+ * Output, for each design:
  *   oracle/designs/<id>/leparagliding.txt  runnable by LEparagliding 3.29
  *   oracle/designs/<id>/<airfoil>.txt      airfoils named in section 2
  * plus oracle/designs/index.json, the single list of designs read by the
@@ -13,11 +14,15 @@
  *   - CRLF -> LF, trailing blank lines removed. How `read(22,*)` (empty list)
  *     handles a blank record is implementation-defined, and a blank line
  *     before an appended header shifts every following read.
- *   - Designs written for an older program stop at section 32 (3.19) or 37
- *     (3.21T-3.28). 3.29 reads sections up to 39: each missing one is appended
- *     with the official 3-line header and its flag at 0 (program defaults), the
- *     contract documented in fortran/original/docs/Updates_log.txt (report 3.20V,
- *     "SIMPLIFIED NEW SECTIONS STRUCTURE").
+ *   - Designs written for an older program stop at section 32 (3.17+, 3.19) or
+ *     37 (3.21T-3.28). 3.29 reads sections up to 39: each missing one is
+ *     appended with the official 3-line header and its flag at 0 (program
+ *     defaults), the contract documented in fortran/original/docs/Updates_log.txt
+ *     (report 3.20V, "SIMPLIFIED NEW SECTIONS STRUCTURE").
+ *   - When section 32 is the last one, lines after its data (flag, then 10
+ *     lines if the flag is 1) are removed: the older program never read them,
+ *     3.29 would read them as section 33 (BHL7-22 keeps a second, unused set
+ *     of section 32 parameters there).
  *
  * Usage: docker compose run --rm oracle node scripts/build-designs.ts
  */
@@ -37,6 +42,7 @@ const DESIGNS = [
   ['gnuA7-26', '3.23'],
   ['gnuC-27', '3.21T'],
   ['gnu-test-3.19', '3.19'],
+  ['BHL7-22', '3.17+'],
 ];
 
 const HDR = '*******************************************************';
@@ -71,6 +77,12 @@ for (const [id, program] of DESIGNS) {
 
   const sections = lines.flatMap((line) => /^\*\s+(\d+)\. /.exec(line)?.[1] ?? []).map(Number);
   if (!sections.length) throw new Error(`${id}: no section header`);
+  let dropped = 0;
+  if (Math.max(...sections) === 32) {
+    // Data starts after the header line and the line of stars below it.
+    const data = lines.findIndex((line) => /^\*\s+32\. /.test(line)) + 2;
+    dropped = lines.splice(data + (lines[data]?.trim() === '1' ? 11 : 1)).length;
+  }
   const added: number[] = [];
   for (let n = Math.max(...sections) + 1; n <= LAST_SECTION; n++) {
     if (!TITLE[n]) throw new Error(`${id}: no title for the missing section ${n}`);
@@ -96,7 +108,12 @@ for (const [id, program] of DESIGNS) {
   const wing = valueAfter(lines, 'Wing name');
   const cells = Number(valueAfter(lines, 'Number of cells'));
   if (!Number.isInteger(cells) || cells < 1) throw new Error(`${id}: no number of cells`);
-  const adapted = added.length ? `sections ${added[0]}-${added.at(-1)} added at 0` : '';
+  const adapted = [
+    dropped ? `${dropped} unread lines after section 32 removed` : '',
+    added.length ? `sections ${added[0]}-${added.at(-1)} added at 0` : '',
+  ]
+    .filter(Boolean)
+    .join(', ');
   index.push({ id, wing, program, cells, airfoils, adapted });
   console.log(
     `${id}: ${wing} (${program}, ${cells} cells) airfoils: ${airfoils.join(' ')}` +
