@@ -3,8 +3,10 @@ name: CI
 on:
   push:
     branches: [main]
-    # npm release of packages/engine (release job): engine-v<version>.
-    tags: ['engine-v*']
+    # Releases, pushed by scripts/bump.ts: web-v<version> deploys GitHub Pages
+    # (deploy job), engine-v<version> publishes packages/engine to npm
+    # (release job). Pushes to main only build and test.
+    tags: ['web-v*', 'engine-v*']
   pull_request:
 
 permissions:
@@ -15,17 +17,31 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
+      # Not the default builder: docker compose below keeps the plain one.
+      - id: buildx
+        uses: docker/setup-buildx-action@v4
+        with:
+          use: false
+      # The GitHub Actions cache skips the WASM compile and the oracle check
+      # when the engine has not changed.
       - name: Build (WASM, oracle check, lint, Angular)
-        run: docker build --output dist .
+        uses: docker/build-push-action@v7
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: .
+          outputs: type=local,dest=dist
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
       - name: Browser tests
         run: docker compose run --rm web sh -c 'npm ci && npm test'
       - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
 
-  # Requires Settings > Pages > Source: GitHub Actions.
+  # Requires Settings > Pages > Source: GitHub Actions, and web-v* tags allowed
+  # in Settings > Environments > github-pages.
   deploy:
-    if: github.ref == 'refs/heads/main'
+    if: startsWith(github.ref, 'refs/tags/web-v')
     needs: build
     runs-on: ubuntu-24.04
     permissions:
@@ -59,6 +75,15 @@ jobs:
           VERSION=$(node -p "require('./packages/engine/package.json').version")
           [ "$GITHUB_REF_NAME" = "engine-v$VERSION" ] \
             || { echo "tag $GITHUB_REF_NAME, package version $VERSION"; exit 1; }
+      - id: buildx
+        uses: docker/setup-buildx-action@v4
+      # Reuses the build job's cache: the WASM is not compiled again.
       - name: Build, oracle check, pack and check the package
-        run: docker build --target engine-pkg --output pkg .
+        uses: docker/build-push-action@v7
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: .
+          target: engine-pkg
+          outputs: type=local,dest=pkg
+          cache-from: type=gha
       - run: npm publish pkg/*.tgz --access public

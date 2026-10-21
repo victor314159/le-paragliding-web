@@ -44,8 +44,8 @@ docker build --target engine-pkg --output pkg .   # npm package -> pkg/
 ```
 
 The release build checks the WASM engine against the native references and
-lints before building. CI runs the same two first commands, then deploys
-`dist/` to GitHub Pages.
+lints before building. CI runs the same two first commands; releases (below)
+deploy `dist/` to GitHub Pages or publish the engine to npm.
 
 Generated files live in a Docker volume (`docker compose down -v` deletes it).
 
@@ -54,7 +54,7 @@ Generated files live in a Docker volume (`docker compose down -v` deletes it).
 From an up-to-date `main`, on the host (Node 24+, for your git credentials):
 
 ```sh
-npm run bump:web      # app version, tag web-v<version>; main deploys to Pages
+npm run bump:web      # app version, tag web-v<version>; deploys to Pages
 npm run bump:engine   # packages/engine, tag engine-v<version>; publishes to npm
 ```
 

@@ -1,8 +1,8 @@
 // Release from main: bump a version, commit, tag and push.
 //   node scripts/bump.ts web|engine [patch|minor|major]
-// web: the app (root package.json), tag web-v<version>; pushing main deploys
-// GitHub Pages. engine: packages/engine, tag engine-v<version>; the tag
-// publishes the npm package (release job in .github/workflows/ci.yml).
+// web: the app (root package.json), tag web-v<version>, which deploys GitHub
+// Pages. engine: packages/engine, tag engine-v<version>, which publishes the
+// npm package. Both run from .github/workflows/ci.yml.
 // Runs on the host, for its git credentials; uses no dependencies.
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
