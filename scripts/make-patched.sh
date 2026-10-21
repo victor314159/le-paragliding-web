@@ -8,7 +8,7 @@
 # The result is a build product (ignored by git): never edit it, edit the
 # patches instead.
 #
-# Called by build-flang-wasm.sh and run-oracle.sh. The file is only rewritten
+# Called by build-flang-wasm.sh and run-oracle.ts. The file is only rewritten
 # when its content changes (its mtime drives the compile cache).
 set -euo pipefail
 

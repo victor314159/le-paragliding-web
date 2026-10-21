@@ -1,5 +1,5 @@
 # Accepted WASM-vs-native differences: design<TAB>file<TAB>reason.
-# check-wasm-oracle.sh and the browser tests accept another sha256 for these
+# check-wasm-oracle.ts and the browser tests accept another sha256 for these
 # files only; every other output must stay byte-identical. Cause, for all of
 # them: glibc (native) and emscripten's libm (WASM) differ by 1 ulp on a few %
 # of sin/cos/tan/atan/atan2/asin/acos/pow calls. Remove an entry as soon as

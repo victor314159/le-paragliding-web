@@ -43,7 +43,7 @@ WORKDIR /work
 CMD ["bash"]
 
 # --- oracle: gfortran 14.2.0 + scripts/make-patched.sh tools ----------------
-# Produces oracle/reference/ (run-oracle.sh). Must not change when the
+# Produces oracle/reference/ (run-oracle.ts). Must not change when the
 # front-end does.
 FROM base AS oracle
 
@@ -91,7 +91,7 @@ COPY scripts scripts
 COPY LICENSE ./
 COPY packages/engine packages/engine
 COPY --from=wasm /work/build/wasm build/wasm
-RUN scripts/check-wasm-oracle.sh && touch /oracle-ok
+RUN node scripts/check-wasm-oracle.ts && touch /oracle-ok
 
 # --- npm package: oracle-check -> engine-pack -> engine-pkg -------------------
 # The package the oracle check ran, packed and checked as installed by a user.

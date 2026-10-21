@@ -1,46 +1,25 @@
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { acknowledge, expectReady } from './helpers';
 import designIndex from '../oracle/designs/index.json' with { type: 'json' };
+import { knownDiffs, parseManifest, sha256 } from '../scripts/oracle-lib.ts';
 
-// scripts/check-wasm-oracle.sh checks every design in Node with the same
+// scripts/check-wasm-oracle.ts checks every design in Node with the same
 // lepara.wasm; here one design covers the browser path (worker, UI, links,
 // download). ORACLE_ALL=1 runs every design.
 const designs =
   process.env['ORACLE_ALL'] === '1' ? designIndex.map((design) => design.id) : ['gnuA7-26'];
-const sha256 = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
 
 // Native oracle: sha256 of every output, stl/ and xflr5/ included (the large
-// reference files are not versioned). "<sha256>  ./<path>", paths may contain spaces.
-function manifest(design: string): Map<string, string> {
-  const text = readFileSync(resolve('oracle/reference', design, 'MANIFEST.sha256'), 'utf8');
-  return new Map(
-    text
-      .trim()
-      .split('\n')
-      .map((line) => [line.slice(68), line.slice(0, 64)]),
-  );
-}
+// reference files are not versioned).
+const manifest = (design: string) =>
+  parseManifest(readFileSync(resolve('oracle/reference', design, 'MANIFEST.sha256'), 'utf8'));
 
-// Accepted WASM differences (libm, 1 ulp): "<design>\t<file>\t<reason>",
-// read like scripts/oracle-lib.sh: a line without exactly 3 fields is an error.
-const knownDiffs = new Set(
-  readFileSync('oracle/wasm-known-diffs.tsv', 'utf8')
-    .split('\n')
-    .map((line, index) => ({ line, number: index + 1 }))
-    .filter(({ line }) => line && !line.startsWith('#'))
-    .map(({ line, number }) => {
-      const fields = line.split('\t');
-      if (fields.length !== 3) {
-        throw new Error(
-          `oracle/wasm-known-diffs.tsv:${number}: ${fields.length} fields, expected 3`,
-        );
-      }
-      return `${fields[0]}/${fields[1]}`;
-    }),
+// Accepted WASM differences (libm, 1 ulp): "<design>/<file>".
+const knownDiffSet = new Set(
+  knownDiffs('oracle/wasm-known-diffs.tsv', 3).map(([design, file]) => `${design}/${file}`),
 );
 
 // sha256 of the Blob behind every result link, computed in the page: no
@@ -140,7 +119,7 @@ test('Chromium Worker matches all native outputs', async ({ page }) => {
       let known = 0;
       for (const [name, hash] of expected) {
         const actual = hashes.get(name);
-        if (knownDiffs.has(`${design}/${name}`) && actual !== hash) {
+        if (knownDiffSet.has(`${design}/${name}`) && actual !== hash) {
           known++;
           continue;
         }
