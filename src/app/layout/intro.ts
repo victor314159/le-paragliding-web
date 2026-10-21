@@ -4,7 +4,7 @@ import { Component } from '@angular/core';
   selector: 'app-intro',
   template: `
     <p class="mat-font-label-lg mat-text-primary">Design workspace</p>
-    <h1 class="mat-font-display-md">Bring your design to life.</h1>
+    <h1 class="mat-font-display-md">Design paraglider wings in your browser.</h1>
     <p class="mat-font-body-lg mat-text-on-surface-variant">
       Generate wing geometry, cutting patterns and line plans.<br />
       All calculations run locally in your browser.
