@@ -5,6 +5,8 @@
 The original Fortran source is compiled to WebAssembly and runs locally in a
 Web Worker: a static site, no backend.
 
+**Try it: <https://victor314159.github.io/le-paragliding-web/>**
+
 ## Safety disclaimer
 
 This application is an experimental browser port of LEparagliding. Errors may
