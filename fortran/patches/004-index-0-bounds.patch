@@ -1,0 +1,114 @@
+--- a/leparagliding.f
++++ b/leparagliding.f
+@@ -431,7 +431,10 @@
+        real*8 csus(10,10), cdis(10,10)
+ 
+        real*8 aload(100,10), xload(500), xlide(500), xlifi(500)
+-       real*8 lvcx(500,500), lvcy(500,500),rvcx(500,500),rvcy(500,500)
++       real*8 lvcx(0:500,500),lvcy(0:500,500),rvcx(0:500,500),
++     + rvcy(0:500,500)
++c      PATCH lepara-web 004a: indexed by rib i, including i=0 (16.1.4,
++c      central cell); lvcx(0,1) wrote outside the array.
+ 
+        real*8 anccont(0:100,10),ancconti(0:100,10)
+ 
+@@ -457,9 +460,11 @@
+ c       real*8 px9i(300),py9i(300)
+        real*8 px9o(500),py9o(500)
+ 
+-       real*8 xanchor(100,6),yanchor(100,6)
+-       real*8 xanchoril(100,6),yanchoril(100,6)
+-       real*8 xanchorir(100,6),yanchorir(100,6)
++       real*8 xanchor(0:100,6),yanchor(0:100,6)
++       real*8 xanchoril(0:100,6),yanchoril(0:100,6)
++       real*8 xanchorir(0:100,6),yanchorir(0:100,6)
++c      PATCH lepara-web 004b: iam is called with i=0; xanchoril(0,klz)
++c      overwrote the iam stack. Bounds 0:100 like rib/u/v.
+ 
+        real*8 xprb(0:100,6,0:10),yprb(0:100,6,0:10)
+        real*8 xprc(0:100,6,0:10),yprc(0:100,6,0:10)
+@@ -469,7 +474,11 @@
+ c      de point (entiers exacts) ; flang refuse un indice REAL. Declares
+ c      INTEGER : valeurs et conversions identiques.
+        real*8 jcve(100),jcvi(100)
+-       real*8 xirl(0:500),xirr(0:500),jirl(0:500),jirr(0:500)
++       real*8 xirl(0:500),xirr(0:500),jirl(0:500),jirr(-1:500)
++c      PATCH lepara-web 004d: jirr(i-1) is read with i=0 (loop
++c      do i=0,nribss, section 6); jirr(-1) is 0 instead of a value
++c      that depends on the memory layout.
++       data jirr(-1) /0.0d0/
+        real*8 distee(0:500),anglee(0:500),siu(0:500),siv(0:500)
+        real*8 alprom,xdu,xdv,xpo1,xpo2,ypo1,ypo2
+ 
+@@ -514,15 +523,21 @@
+ 
+ c      Section 29
+ 
+-       integer k29d,k29dd,ncuts(200),ini29(200),fin29(200)
++       integer k29d,k29dd,ncuts(0:200),ini29(0:200),fin29(0:200)
+ 
+        real*8  cutamp(10),cut29(0:10,200)
+        real*8 s,sm,haut
+ 
+-       integer iupp(10,10,200),ilow(10,10,200)
+-       integer xiupp(10,10,200),xilow(10,10,200)
+-       real*8 kiupp(10,200),kilow(10,200)
+-       integer uppcuts(200),upptype(200),lowcuts(200),lowtype(200)
++       integer iupp(10,10,0:200),ilow(10,10,0:200)
++       integer xiupp(10,10,0:200),xilow(10,10,0:200)
++       real*8 kiupp(10,0:200),kilow(10,0:200)
++       integer uppcuts(0:200),upptype(0:200),lowcuts(0:200),
++     + lowtype(0:200)
++       data uppcuts(0) /0/, lowcuts(0) /0/
++c      PATCH lepara-web 004c: ng=rib(i,169) is 0 for a rib outside any
++c      group; iupp(1,2,0), uppcuts(0)... went outside the array. All
++c      "group" dimensions become 0:200 (here and in panels3d, czinf,
++c      which receive these arrays as arguments).
+        real*8 hautok(0:100,500), zinf(0:100,10,10)
+        integer pp29(10,10) ! Print parameters
+ 
+@@ -34746,9 +34761,11 @@
+        real*8 hautmmax,hautmax,q
+        real*8 hautok(0:100,500),anglok(0:100,500)
+ 
+-       integer iupp(10,10,200),ilow(10,10,200)
+-       real*8 kiupp(10,200),kilow(10,200)
+-       integer uppcuts(200),lowcuts(200),iflag
++       integer iupp(10,10,0:200),ilow(10,10,0:200)
++       real*8 kiupp(10,0:200),kilow(10,0:200)
++       integer uppcuts(0:200),lowcuts(0:200),iflag
++c      PATCH lepara-web 004c: ng=rib(i,169) is 0 for a rib outside any
++c      group: same bounds as in the main program.
+ 
+        real*8 punt0(3),punt1(3),punt2(3),punt3(3),punt4(3)
+        real*8 aplane,bplane,cplane,dplane,xt,dp0
+@@ -34997,9 +35014,11 @@
+        real*8 hautmmax,hautmax,q
+        real*8 hautok(0:100,500),anglok(0:100,500)
+ 
+-       integer iupp(10,10,200),ilow(10,10,200)
+-       real*8 kiupp(10,200),kilow(10,200)
+-       integer uppcuts(200),lowcuts(200),iflag
++       integer iupp(10,10,0:200),ilow(10,10,0:200)
++       real*8 kiupp(10,0:200),kilow(10,0:200)
++       integer uppcuts(0:200),lowcuts(0:200),iflag
++c      PATCH lepara-web 004c: ng=rib(i,169) is 0 for a rib outside any
++c      group: same bounds as in the main program.
+ 
+        real*8 punt0(3),punt1(3),punt2(3),punt3(3),punt4(3)
+        real*8 aplane,bplane,cplane,dplane,xt,dp0
+@@ -35991,9 +36010,11 @@
+ 
+        integer klz
+        real*8 xlen,xlenp,xequis,yequis,xdu,xdv,alpha,pi
+-       real*8 xanchor(100,6),yanchor(100,6)
+-       real*8 xanchoril(100,6),yanchoril(100,6)
+-       real*8 xanchorir(100,6),yanchorir(100,6)
++       real*8 xanchor(0:100,6),yanchor(0:100,6)
++       real*8 xanchoril(0:100,6),yanchoril(0:100,6)
++       real*8 xanchorir(0:100,6),yanchorir(0:100,6)
++c      PATCH lepara-web 004b: iam is called with i=0; xanchoril(0,klz)
++c      overwrote the iam stack. Bounds 0:100 like rib/u/v.
+ c       real*8 xpeq,ypeq,xdesp,xdesp1x,xdesp1y,xdesp2x,xdesp2y
+ 
+        integer typm1(50),typm4(50)

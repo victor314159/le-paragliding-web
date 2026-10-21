@@ -1,0 +1,9 @@
+[
+  {"id":"swoop2","wing":"Swoop2","program":"3.29","cells":50,"airfoils":["gnuReflex.txt"],"adapted":""},
+  {"id":"gnuC2-27","wing":"gnuC2-27","program":"3.28","cells":60,"airfoils":["gnuC2.txt"],"adapted":"sections 38-39 added at 0"},
+  {"id":"swoop","wing":"Swoop","program":"3.27","cells":50,"airfoils":["gnuReflex.txt"],"adapted":"sections 38-39 added at 0"},
+  {"id":"A8","wing":"A8 test","program":"3.25","cells":33,"airfoils":["gnua.txt"],"adapted":"sections 38-39 added at 0"},
+  {"id":"gnuA7-26","wing":"gnuA7-26-test3.23","program":"3.23","cells":33,"airfoils":["gnua.txt"],"adapted":"sections 38-39 added at 0"},
+  {"id":"gnuC-27","wing":"gnuC-27","program":"3.21T","cells":60,"airfoils":["gnuC-c1.txt"],"adapted":"sections 38-39 added at 0"},
+  {"id":"gnu-test-3.19","wing":"gnu-test-3.19","program":"3.19","cells":29,"airfoils":["gnua.txt"],"adapted":"sections 33-39 added at 0"}
+]

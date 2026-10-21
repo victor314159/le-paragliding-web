@@ -1,0 +1,183 @@
+<!DOCTYPE doctype PUBLIC "-//w3c//dtd html 4.0 transitional//en">
+<html lang="en"><head>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+  <meta name="GENERATOR" content="Mozilla/4.75 [en] (X11; U; Linux 2.2.17 i586) [Netscape]"><title>Notes about leparagliding.f compilation</title>
+  
+  <meta name="author" content="Laboratori d'envol">
+  <meta name="description" content="manual de usuario"></head><body alink="#ff0000" bgcolor="#c0c0c0" link="#3333ff" text="#000000" vlink="#cc33cc">
+<center style="font-family: helvetica,arial,sans-serif;"><small><font size="+3"><small><font color="#009900"><b><img style="width: 506px; height: 82px;" src="le-ge.png" alt="le"> </b><small><small><span style="color: rgb(0, 0, 0); font-weight: bold;"><a href="manual.en.html"></a></span></small></small></font></small></font></small><small><font size="+3"><small><font color="#009900"><small><small><span style="color: rgb(0, 0, 0); font-weight: bold;"></span></small></small><b><br>
+<br>
+</b></font></small></font></small><span style="font-family: Helvetica,Arial,sans-serif;"><span style="color: black;"><big style="color: rgb(0, 153, 0); font-weight: bold;"><big>Notes about leparagliding.f compilation</big></big><br>
+</span></span><small><font size="+3"><small><font color="#009900"><b><br>
+</b></font></small></font></small></center><span style="font-family: Helvetica,Arial,sans-serif;"><span style="color: black;"><span style="font-weight: bold; color: red;">For use LEparagliding you do not need to compile the source code.</span>
+This is optional. This information is only useful to who want to or
+need to compile the code. The file leparagliding.f contains all the
+source code for leparagliding. </span></span><span style="font-family: Helvetica,Arial,sans-serif;" id="result_box" class="" lang="en"><span class="">Compilation is the process through which an executable program is generated from the source code. </span></span><span style="font-family: Helvetica,Arial,sans-serif;" id="result_box" class="" lang="en"><span class="">Compiling yourself, the source code, ensures total compatibility with your computer</span></span><span style="font-family: Helvetica,Arial,sans-serif;">. LEparagliding may be compiled easyly in GNU/Linux, Windows, and MAC.</span><br>
+<span style="font-family: Helvetica,Arial,sans-serif;"><span style="color: black;"><br>
+</span></span><span style="font-family: Helvetica,Arial,sans-serif;" id="result_box" class="" lang="en"><span class="hps"><span style="color: rgb(204, 0, 0);"><span style="color: red;"><span style="color: black;"></span></span></span><span style="font-weight: bold;">CASE 1) COMPILATION IN GNU/Linux, the easy way...!<br>
+<br>
+</span>The source code is the file named leparagliding.f<br>
+You will need a compiler GNU Fortran. You will need a compiler GNU
+Fortran. It is recommended that you install (apt-get) the following
+programs:<br>
+<span style="font-weight: bold;"><br>
+</span></span></span><span style="font-family: Helvetica,Arial,sans-serif;" id="result_box" class="" lang="en"><span class="hps"><span style="color: rgb(51, 51, 255);">f77, fort77, gfortran, gfortran-8, f2c, gcc, gcc-fortran<span style="color: black;"></span></span></span></span><span style="font-family: Helvetica,Arial,sans-serif; color: black;" id="result_box" class="" lang="en"><span class="hps"><br>
+<br>
+use:<br>
+<br>
+</span></span><span style="font-family: Helvetica,Arial,sans-serif; color: rgb(0, 102, 0); font-style: italic;" id="result_box" class="" lang="en"><span class="hps">&nbsp;&nbsp;&nbsp; apt-get f77, fort77, gfortran, gfortran-8, f2c, gcc, gcc-fortran</span></span><br>
+<span style="font-family: Helvetica,Arial,sans-serif; color: black;" id="result_box" class="" lang="en"><span class="hps"><br>
+</span></span><span style="font-family: Helvetica,Arial,sans-serif; font-style: italic;"><span style="color: black;">Compile the
+source code writing in the console some of these instructions (depends on your system):<br>
+<br>
+&nbsp;&nbsp;&nbsp; <span style="color: rgb(0, 102, 0);">gfortran leparagliding.f <br>
+<br style="color: rgb(0, 102, 0);">
+</span>
+<span style="color: rgb(0, 102, 0);">&nbsp;&nbsp;&nbsp; gfortran-8 -std=legacy leparagliding.f<br>
+<br style="color: rgb(0, 102, 0);">
+</span>
+<span style="color: rgb(0, 102, 0);">&nbsp;&nbsp;&nbsp; f77 leparagliding.f<br>
+<br>
+&nbsp;&nbsp;&nbsp; </span></span></span><span style="font-family: Helvetica,Arial,sans-serif; font-style: italic;"><span style="color: black;"><span style="color: rgb(0, 102, 0);">f77 -Nn1604 leparagliding.f<br>
+<br>
+</span></span></span>
+<span style="font-family: Helvetica,Arial,sans-serif; font-style: italic;"><span style="color: black;"><span style="color: rgb(0, 102, 0);"></span>
+&nbsp;&nbsp;&nbsp; (or similar compiling instructions)<br>
+</span></span><br>
+<span style="font-family: Helvetica,Arial,sans-serif;" id="result_box" class="" lang="en"><span class="hps"><span style="font-weight: bold;"></span>
+</span></span><span style="font-family: Helvetica,Arial,sans-serif;" id="result_box" class="" lang="en"><span class="hps">Result is:<br>
+<br>&nbsp;&nbsp;
+<span style="color: rgb(0, 102, 0);">a.out</span><br>
+<br>
+Run the program:<br>
+<br>
+To set permissions, if necessary type:<span style="color: rgb(51, 51, 255);">&nbsp; <span style="color: rgb(0, 102, 0);">chmod 755 a.out</span><br>
+</span>
+<span style="color: black;">Put the executable file a.out inside a lep
+folder containg all the paraglider files (leparagliding.txt,
+airfoil1.txt, airfoil2.txt,...) and execute writing:</span></span></span><span style="font-family: Helvetica,Arial,sans-serif; color: black;" id="result_box" class="" lang="en"><span class="hps"></span></span><span style="font-family: Helvetica,Arial,sans-serif;" id="result_box" class="" lang="en"><span class="hps"><span style="color: rgb(51, 51, 255);"><span style="color: black;"><br style="color: black;">
+</span>
+<br>&nbsp; .<span style="color: rgb(0, 102, 0);">/a.out leparagliding.txt</span><br>
+<br>
+</span></span></span><span style="font-family: Helvetica,Arial,sans-serif; color: black;" id="result_box" class="" lang="en"><span class="hps">If you want, you can rename the executables file a.out as lep-3.XX.out or other name.</span></span><span style="font-family: Helvetica,Arial,sans-serif;" id="result_box" class="" lang="en"><span class="hps"><span style="color: rgb(51, 51, 255);"><span style="color: black;"></span></span></span></span><br>
+<span style="font-family: Helvetica,Arial,sans-serif;" id="result_box" class="" lang="en"><span class="hps"><span style="color: rgb(51, 51, 255);">
+<br>
+<span style="color: black;">In the latest versions of LEparagliding (3.12) I'm using the <span style="color: rgb(51, 51, 255);">gfortran</span> compiler with success. Only some warning messages.</span><br>
+
+</span><br>
+<span style="font-weight: bold;">CASE 2) COMPILATION IN WINDOWS</span><br>
+<br>Install the </span></span><span style="font-family: Helvetica,Arial,sans-serif; font-style: italic;"><span style="color: black;"></span></span><a style="font-family: Helvetica,Arial,sans-serif;" href="https://www.cygwin.com/">Cygwin</a><span style="font-family: Helvetica,Arial,sans-serif;" id="result_box" class="" lang="en"><span class="hps"> console in your system. When installing Cygwin be sure to select and install all Fortran related packages: <span style="color: rgb(51, 51, 255);">gcc, gcc-fortran, <span style="font-weight: bold;">f77</span> (or g77), gfortran, gfortran-8, f2c, fort77, gcc, gcc-fortran...&nbsp;</span> Open the
+cygwin console, and move to the lep folder containing leparagliding.f
+and all your paraglider files (leparagliding.txt, airfoil.txt,...). </span></span><span style="font-family: Helvetica,Arial,sans-serif;" id="result_box" class="" lang="en"><span class="hps">Latest versions of leparagliding compiles well using <span style="color: rgb(51, 51, 255);">gfortran, f77 -Nn1694, fort77 -Nn1604 </span></span></span><br>
+<span style="font-family: Helvetica,Arial,sans-serif;" id="result_box" class="" lang="en"><span class="hps">
+<br>
+Open yours Cygwing console. Move to the lep folder (use UNIX commands
+cd, cd .., ...). Compile using gfortran, gfortran-8, f77, or fort77 exactly as in Linux:<br>
+<br>
+</span></span><span style="font-family: Helvetica,Arial,sans-serif;" id="result_box" class="" lang="en"><span class="hps"><span style="color: rgb(0, 0, 153);"><span style="color: rgb(0, 102, 0);">gfortran leparagliding.f&nbsp;&nbsp;&nbsp; </span><br>
+<br><span style="color: black;">
+or </span><br>
+<br style="color: rgb(0, 102, 0);"><span style="color: rgb(0, 102, 0);">gfortran-8 leparagliding.f</span></span></span></span><br>
+<span style="font-family: Helvetica,Arial,sans-serif;" id="result_box" class="" lang="en"><span class="hps"><br>
+</span></span><span style="font-family: Helvetica,Arial,sans-serif;" id="result_box" class="" lang="en"><span class="hps"><span style="color: rgb(0, 0, 153);"><span style="color: black;">
+or </span></span></span></span><br>
+<span style="font-family: Helvetica,Arial,sans-serif;" id="result_box" class="" lang="en"><span class="hps">
+<br>
+<span style="color: rgb(0, 0, 153);"><span style="color: rgb(0, 102, 0);">f77 -Nn1604 leparagliding.f&nbsp;&nbsp;&nbsp; </span><br style="color: rgb(0, 102, 0);">
+<br></span></span></span><span style="font-family: Helvetica,Arial,sans-serif;" id="result_box" class="" lang="en"><span class="hps"><span style="color: rgb(0, 0, 153);"><span style="color: black;">
+or </span></span></span></span><br>
+<span style="font-family: Helvetica,Arial,sans-serif;" id="result_box" class="" lang="en"><span class="hps"><span style="color: rgb(0, 0, 153);">
+<br style="color: rgb(0, 102, 0);"><span style="color: rgb(0, 102, 0);">
+fort77 leparagliding.f</span><br>
+<br>
+<span style="color: black;">You get:</span><br>
+<br><span style="color: rgb(0, 102, 0);">
+a.exe</span><br>
+<br>
+<span style="color: black;"></span></span></span></span><span style="font-family: Helvetica,Arial,sans-serif;" id="result_box" class="" lang="en"><span class=""></span></span><span style="font-family: Helvetica,Arial,sans-serif;" id="result_box" class="" lang="en"><span class="hps"><span style="color: rgb(0, 0, 153);"><span style="color: black; font-family: Helvetica,Arial,sans-serif;"></span><span style="color: black;">Run:</span><br>
+<br><span style="color: rgb(0, 102, 0);">
+./a.exe leparagliding.txt</span><br>
+<br>
+<span style="color: black;">(Optionally rename a.exe tot lep-3.XX-win.exe or similar name)<br>
+</span><br>
+</span></span></span><span style="font-family: Helvetica,Arial,sans-serif;" id="result_box" class="" lang="en"><span class=""></span></span><span style="font-family: Helvetica,Arial,sans-serif;"><span style="color: black;">If
+you use a version compiled by yourself, no dll's are needed in the
+working directory. System uses automatically the defaut dll's.</span></span><span style="font-family: Helvetica,Arial,sans-serif; font-style: italic;"><span style="color: black;"><span style="color: red;"></span><span style="color: red;"><br>
+</span>
+</span></span><span style="font-family: Helvetica,Arial,sans-serif; font-style: italic;"><span style="color: black;"></span></span><span style="font-family: Helvetica,Arial,sans-serif;" id="result_box" class="" lang="en"><span class=""><br>
+</span></span><span style="font-family: Helvetica,Arial,sans-serif;" id="result_box" class="" lang="en"><span class="hps"><span style="font-weight: bold;">CASE 3) COMPILATION IN MAC<br>
+<br>
+</span></span></span><span style="font-family: Helvetica,Arial,sans-serif;" id="result_box" class="short_text" lang="en"><span class="">Read here: <a href="https://gcc.gnu.org/wiki/GFortranBinariesMacOS">https://gcc.gnu.org/wiki/GFortranBinariesMacOS</a><br>
+Install Xcode<br>
+Be sure you install <span style="color: rgb(51, 51, 255);">gcc</span> and <span style="color: rgb(51, 51, 255);">gfortran</span><br>
+compile the code as in the case of Linux:<br>
+<br>
+<span style="color: rgb(0, 102, 0);">gfortran leparagliding.f<br>
+<br>
+<span style="font-weight: bold; color: black;"><br>
+STATIC COMPILATION<br>
+<br>
+</span></span></span></span><span style="font-family: Helvetica,Arial,sans-serif;" id="result_box" class="" lang="en"><span class="hps">Since release lep-3.17, all the LEparagliding executables are "statically
+compiled". This means that some Fortran libraries are automatically
+added to the .out (Linux, OSX) and .exe (Windows) executable files. In
+theory, this will help run the program on the computers of users who do
+not have Fortran compilers installed. The regular user does not need to
+know anything about this. If you are curious and want to know what
+is the instruction used for static compilation is the following:<br>
+<br>
+</span></span>
+<span style="font-family: Helvetica,Arial,sans-serif;" id="result_box" class="" lang="en"><span class="hps">&nbsp; &nbsp; &nbsp; &nbsp; <span style="color: rgb(0, 102, 0);">gfortran -static-libgfortran leparagliding.f</span><br>
+<br>
+</span></span>
+<span style="font-family: Helvetica,Arial,sans-serif;" id="result_box" class="" lang="en"><span class="hps">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span style="color: rgb(0, 102, 0);">gfortran -static-libgfortran pre-processor.f<br>
+</span></span></span><span style="font-family: Helvetica,Arial,sans-serif;" id="result_box" class="short_text" lang="en"><span class=""><br>
+</span></span><span style="font-family: Helvetica,Arial,sans-serif;" id="result_box" class="" lang="en"><span class="hps"></span></span><span style="font-family: Helvetica,Arial,sans-serif;">
+<a style="font-family: Helvetica,Arial,sans-serif;" href="manual271.en.html">return</a><br style="font-family: Helvetica,Arial,sans-serif;">
+</span>
+<small style="font-family: helvetica,arial,sans-serif;"><br>
+</small>
+
+</body></html>

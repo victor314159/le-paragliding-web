@@ -1,0 +1,21 @@
+:host {
+  display: block;
+  max-width: 1280px;
+  margin: auto;
+  padding-inline: 32px;
+}
+.workspace {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+@media (max-width: 900px) {
+  .workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 480px) {
+  :host {
+    padding-inline: 16px;
+  }
+}

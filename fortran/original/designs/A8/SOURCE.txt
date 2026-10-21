@@ -1,0 +1,5 @@
+Official LEparagliding example design, extracted unmodified from:
+  https://www.laboratoridenvol.com/leparagliding/archives3/lep-3.25-lin64.zip
+  sha256 c1b1b18ee1a83dabd8d1faebc2022d090aab9cb28a75e01243f302ff0daa939f
+  lep-3.25-lin64/lep/leparagliding.txt
+  lep-3.25-lin64/lep/gnua.txt

@@ -1,0 +1,15 @@
+--- a/leparagliding.f
++++ b/leparagliding.f
+@@ -463,7 +463,11 @@
+ 
+        real*8 xprb(0:100,6,0:10),yprb(0:100,6,0:10)
+        real*8 xprc(0:100,6,0:10),yprc(0:100,6,0:10)
+-       real*8 jconi(6),jconf(6),xkprb(6)
++       integer jconi(6),jconf(6)
++       real*8 xkprb(6)
++c      PATCH lepara-web 002: jconi/jconf only hold point indices (exact
++c      integers); flang rejects a REAL subscript. Declared INTEGER:
++c      same values and conversions.
+        real*8 jcve(100),jcvi(100)
+        real*8 xirl(0:500),xirr(0:500),jirl(0:500),jirr(0:500)
+        real*8 distee(0:500),anglee(0:500),siu(0:500),siv(0:500)

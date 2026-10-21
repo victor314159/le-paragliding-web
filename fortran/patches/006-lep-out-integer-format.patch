@@ -1,0 +1,16 @@
+--- a/leparagliding.f
++++ b/leparagliding.f
+@@ -24648,8 +24648,11 @@
+ 
+        write (23,*) "3. RIB PROPERTIES:"
+        write (23,*) "-------------------------------------------------"
+-       write (23,*) "Ribs number  = ", nribss*2
+-       write (23,*) "Cells number = ", nribss*2-1
++c      PATCH lepara-web 006: list-directed integer width is compiler
++c      specific (gfortran I12, flang minimal). Explicit format that
++c      reproduces the gfortran output byte for byte.
++       write (23,'(1X,A,I12)') "Ribs number  = ", nribss*2
++       write (23,'(1X,A,I12)') "Cells number = ", nribss*2-1
+        if (rib(1,2).lt.0.01) then
+        write (23,*) "Zero-thickness central cell"
+        end if

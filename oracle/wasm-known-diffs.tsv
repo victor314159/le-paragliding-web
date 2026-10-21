@@ -1,0 +1,9 @@
+# Accepted WASM-vs-native differences: design<TAB>file<TAB>reason.
+# check-wasm-oracle.sh and the browser tests accept another sha256 for these
+# files only; every other output must stay byte-identical. Cause, for all of
+# them: glibc (native) and emscripten's libm (WASM) differ by 1 ulp on a few %
+# of sin/cos/tan/atan/atan2/asin/acos/pow calls. Remove an entry as soon as
+# the file becomes identical (the check reports it).
+swoop	stl/Upper-surface.stl	6 vertex lines: y = 0.000 native, -0.000 WASM (y is +8e-17 vs -3e-17 after datan/sin in panels3d)
+swoop	stl/lep-3d-surfaces.stl	same 6 vertex lines as stl/Upper-surface.stl
+swoop	stl/lep-3d-surfaces.scad	same point (Point 92): 0.000 native, -0.000 WASM

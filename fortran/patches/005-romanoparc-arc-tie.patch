@@ -1,0 +1,15 @@
+--- a/leparagliding.f
++++ b/leparagliding.f
+@@ -36451,7 +36451,11 @@
+        do k=0,20-1
+        xlen2=xlen2+dsqrt((parcu(k+1)-parcu(k))**2.+
+      + (parcv(k+1)-parcv(k))**2.)
+-       if (xlen2.le.xlen1*xlenco) then
++c      PATCH lepara-web 005: arc of 20 equal segments and xlenco=k/20
++c      (0.2 by default) => xlen2 = xlen1*xlenco EXACTLY at segment 4;
++c      the .le. depended on the last bit (libm/compiler/platform) and
++c      moved the roman numeral by one segment. Equality counts as true.
++       if (xlen2.le.xlen1*xlenco*(1.0d0+1.0d-9)) then
+        kini=k
+        kfin=k+2
+        end if

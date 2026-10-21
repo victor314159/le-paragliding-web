@@ -1,0 +1,13 @@
+--- a/leparagliding.f
++++ b/leparagliding.f
+@@ -26254,7 +26254,9 @@
+ 
+ c      Rows plan B,C,D,E,F
+ 
+-       if(i.ge.2.and.corda(i-1,1).lt.corda(i,1)) then
++c      PATCH lepara-web 009: Fortran .and. does not short-circuit, so
++c      i=1 read corda(0,1) outside the array. Same result, no read.
++       if(i.ge.2.and.corda(max(i-1,1),1).lt.corda(i,1)) then
+ 
+        if (corda(i,1).eq.2) then
+        slpi(2)=i

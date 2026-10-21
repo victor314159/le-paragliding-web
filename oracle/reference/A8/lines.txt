@@ -1,0 +1,114 @@
+ LEparagliding
+ List of lines, human readable format
+ Ready also to import in .ods or .xls formats
+
+ Line number - Label - Lenght (cm) - Type
+
+
+ Plan A
+
+  1   1A1     47.0 cm  -  type  1 Riser            12.00 mm
+  2   2A1    490.9 cm  -  type  2 PPSL160           1.40 mm
+  3   2A2    483.9 cm  -  type  2 PPSL160           1.40 mm
+  4   2A3    474.9 cm  -  type  2 PPSL160           1.40 mm
+  5   2A4    461.9 cm  -  type  2 PPSL160           1.40 mm
+  6   3A1    152.1 cm  -  type  3 PPSL120           1.15 mm
+  7   3A2    150.2 cm  -  type  3 PPSL120           1.15 mm
+  8   3A4    155.6 cm  -  type  3 PPSL120           1.15 mm
+  9   3A5    150.7 cm  -  type  3 PPSL120           1.15 mm
+ 10   3A6    152.1 cm  -  type  3 PPSL120           1.15 mm
+ 11   3A8    156.7 cm  -  type  3 PPSL120           1.15 mm
+ 12   3A9    151.5 cm  -  type  3 PPSL120           1.15 mm
+ 13   3A10   151.6 cm  -  type  3 PPSL120           1.15 mm
+ 14   3A12   156.9 cm  -  type  3 PPSL120           1.15 mm
+ 15   3A13   151.0 cm  -  type  3 PPSL120           1.15 mm
+ 16   3A14   148.7 cm  -  type  3 PPSL120           1.15 mm
+
+ Plan B
+
+ 17   1B1     47.0 cm  -  type  1 Riser            12.00 mm
+ 18   2B1    481.9 cm  -  type  2 PPSL160           1.40 mm
+ 19   2B2    474.9 cm  -  type  2 PPSL160           1.40 mm
+ 20   2B3    467.9 cm  -  type  2 PPSL160           1.40 mm
+ 21   2B4    456.9 cm  -  type  2 PPSL160           1.40 mm
+ 22   2B5    435.9 cm  -  type  2 PPSL160           1.40 mm
+ 23   3B1    152.4 cm  -  type  3 PPSL120           1.15 mm
+ 24   3B2    150.4 cm  -  type  3 PPSL120           1.15 mm
+ 25   3B4    155.8 cm  -  type  3 PPSL120           1.15 mm
+ 26   3B5    151.1 cm  -  type  3 PPSL120           1.15 mm
+ 27   3B6    152.6 cm  -  type  3 PPSL120           1.15 mm
+ 28   3B8    155.7 cm  -  type  3 PPSL120           1.15 mm
+ 29   3B9    151.0 cm  -  type  3 PPSL120           1.15 mm
+ 30   3B10   151.5 cm  -  type  3 PPSL120           1.15 mm
+ 31   3B12   156.2 cm  -  type  3 PPSL120           1.15 mm
+ 32   3B13   151.3 cm  -  type  3 PPSL120           1.15 mm
+ 33   3B14   149.4 cm  -  type  3 PPSL120           1.15 mm
+ 34   3A17   147.0 cm  -  type  3 PPSL120           1.15 mm
+ 35   3B17   148.5 cm  -  type  3 PPSL120           1.15 mm
+ 36   3C17   154.5 cm  -  type  3 PPSL120           1.15 mm
+ 37   3D17   164.5 cm  -  type  3 PPSL120           1.15 mm
+ 38   3A16   156.5 cm  -  type  3 PPSL120           1.15 mm
+ 39   3B16   154.5 cm  -  type  3 PPSL120           1.15 mm
+
+ Plan C
+
+ 40   1C1     47.0 cm  -  type  1 Riser            12.00 mm
+ 41   2C1    484.9 cm  -  type  2 PPSL160           1.40 mm
+ 42   2C2    478.9 cm  -  type  2 PPSL160           1.40 mm
+ 43   2C3    472.9 cm  -  type  2 PPSL160           1.40 mm
+ 44   2C4    462.9 cm  -  type  2 PPSL160           1.40 mm
+ 45   3C1    152.9 cm  -  type  3 PPSL120           1.15 mm
+ 46   3C2    151.1 cm  -  type  3 PPSL120           1.15 mm
+ 47   3C4    155.8 cm  -  type  3 PPSL120           1.15 mm
+ 48   3C5    151.2 cm  -  type  3 PPSL120           1.15 mm
+ 49   3C6    152.9 cm  -  type  3 PPSL120           1.15 mm
+ 50   3C8    155.2 cm  -  type  3 PPSL120           1.15 mm
+ 51   3C9    150.6 cm  -  type  3 PPSL120           1.15 mm
+ 52   3C10   151.1 cm  -  type  3 PPSL120           1.15 mm
+ 53   3C12   154.9 cm  -  type  3 PPSL120           1.15 mm
+ 54   3C13   150.1 cm  -  type  3 PPSL120           1.15 mm
+ 55   3C14   151.8 cm  -  type  3 PPSL120           1.15 mm
+
+ Plan D
+
+ 56   1D1     47.0 cm  -  type  1 Riser            12.00 mm
+ 57   2D1    503.0 cm  -  type  2 PPSL160           1.40 mm
+ 58   2D2    496.0 cm  -  type  2 PPSL160           1.40 mm
+ 59   2D3    488.0 cm  -  type  2 PPSL160           1.40 mm
+ 60   3D1    152.1 cm  -  type  3 PPSL120           1.15 mm
+ 61   3D2    150.4 cm  -  type  3 PPSL120           1.15 mm
+ 62   3D4    156.1 cm  -  type  3 PPSL120           1.15 mm
+ 63   3D5    151.3 cm  -  type  3 PPSL120           1.15 mm
+ 64   3D6    152.8 cm  -  type  3 PPSL120           1.15 mm
+ 65   3D8    156.2 cm  -  type  3 PPSL120           1.15 mm
+ 66   3D9    151.0 cm  -  type  3 PPSL120           1.15 mm
+ 67   3D10   150.9 cm  -  type  3 PPSL120           1.15 mm
+
+ Brake lines
+
+ 68   1F1    270.0 cm  -  type  6 Line200B          2.00 mm
+ 69   2F1    199.0 cm  -  type  2 PPSL160           1.40 mm
+ 70   2F2    172.0 cm  -  type  2 PPSL160           1.40 mm
+ 71   3F1    120.0 cm  -  type  3 PPSL120           1.15 mm
+ 72   3F2    120.0 cm  -  type  3 PPSL120           1.15 mm
+ 73   3F3    120.0 cm  -  type  3 PPSL120           1.15 mm
+ 74   3F4    120.0 cm  -  type  3 PPSL120           1.15 mm
+ 75   4F2    119.8 cm  -  type  5 DSL120            0.80 mm
+ 76   4F4     92.8 cm  -  type  5 DSL120            0.80 mm
+ 77   4F6     91.7 cm  -  type  5 DSL120            0.80 mm
+ 78   4F8     93.7 cm  -  type  5 DSL120            0.80 mm
+ 79   4F10   106.3 cm  -  type  5 DSL120            0.80 mm
+ 80   4F12    94.0 cm  -  type  5 DSL120            0.80 mm
+ 81   4F14    88.1 cm  -  type  5 DSL120            0.80 mm
+ 82   4F16    83.2 cm  -  type  5 DSL120            0.80 mm
+
+Total line lengths (without loops) =    333.69 m
+Total line lengths (with loops) =    365.77 m
+ (loops lengths according section 34 or internal predefined values)
+
+ Minimal lengths by types, including loops:
+Type   1    5.68 m Riser           aramid           12.00 mm loop  12.00 cm
+Type   2  168.37 m PPSL160         s_dyneem          1.40 mm loop  12.00 cm
+Type   3  173.57 m PPSL120         s_dyneem          1.15 mm loop  10.00 cm
+Type   5   17.95 m DSL120          u_dyneem          0.80 mm loop   8.00 cm
+Type   6    5.88 m Line200B        s_dynemm          2.00 mm loop  12.00 cm

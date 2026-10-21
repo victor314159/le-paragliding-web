@@ -1,0 +1,13 @@
+.DS_Store
+*.log
+# Mount point of the `build` volume (docker-compose.yml)
+build/
+# Release build: docker build --output dist .
+dist/
+# Installed by the `web` service (Linux binaries)
+node_modules/
+# Written on the host: git hooks (npm ci) and the Playwright MCP
+.husky/_/
+.playwright-mcp/
+# stdout/stderr of oracle runs are reference DATA
+!oracle/reference/**/*.log

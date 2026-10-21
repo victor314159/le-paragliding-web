@@ -1,0 +1,29 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 8px 16px 16px;
+}
+.actions,
+.status,
+.metrics {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
+.status {
+  justify-content: space-between;
+}
+.metrics {
+  margin-inline-start: auto;
+}
+.message {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 480px) {
+  .actions > button {
+    flex: 1;
+  }
+}

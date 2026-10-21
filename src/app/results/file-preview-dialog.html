@@ -1,0 +1,77 @@
+<h2 mat-dialog-title>Preview {{ file.name }}</h2>
+
+<mat-dialog-content>
+  @if (loading()) {
+    <p role="status">Loading preview…</p>
+  }
+  @if (error()) {
+    <p class="mat-text-error" role="alert">
+      {{ error() }} You can download the file to open it in another application.
+    </p>
+  }
+
+  @if (graphical && !error()) {
+    <button matButton type="button" [disabled]="loading()" (click)="reset()">
+      <mat-icon svgIcon="restart_alt" />
+      Reset view
+    </button>
+  }
+  <div
+    #viewport
+    class="viewport mat-border-subtle mat-corner-sm"
+    [hidden]="!graphical || !!error()"
+    [attr.aria-busy]="loading()"
+  ></div>
+  @if (graphical && !loading() && !error()) {
+    <p class="mat-font-body-sm mat-text-on-surface-variant">{{ controlsHint }}</p>
+    @if (notice()) {
+      <p class="mat-font-body-sm mat-text-on-surface-variant">{{ notice() }}</p>
+    }
+  }
+
+  @if (!graphical && !loading()) {
+    @if (profile()) {
+      <svg
+        class="profile mat-border-subtle mat-corner-sm"
+        viewBox="0 0 1000 420"
+        role="img"
+        aria-label="Airfoil profile"
+      >
+        <path [attr.d]="profile()" fill="none" stroke="currentColor" stroke-width="2" />
+      </svg>
+    }
+    @if (extension === 'scad') {
+      <p class="mat-font-body-sm mat-text-on-surface-variant">
+        OpenSCAD source. Open the corresponding STL file for a 3D preview.
+      </p>
+    }
+    @if (truncated()) {
+      <p class="mat-font-body-sm mat-text-on-surface-variant">
+        Showing the first 200 KB. Download the file to read the full content.
+      </p>
+    }
+    @if (text()) {
+      <pre
+        class="mat-bg-surface-container-low mat-border-subtle mat-corner-sm"
+        tabindex="0"
+        [attr.aria-label]="'Content of ' + file.name"
+        [textContent]="text()"
+      ></pre>
+    } @else if (!error()) {
+      <p>This file is empty.</p>
+    }
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions>
+  <button matButton type="button" mat-dialog-close>Close</button>
+  <a
+    matButton="filled"
+    [href]="file.url"
+    [download]="file.name"
+    [attr.aria-label]="'Download ' + file.name"
+  >
+    <mat-icon svgIcon="download" />
+    Download
+  </a>
+</mat-dialog-actions>

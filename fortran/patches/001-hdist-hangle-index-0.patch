@@ -1,0 +1,14 @@
+--- a/leparagliding.f
++++ b/leparagliding.f
+@@ -421,7 +421,10 @@
+ 
+        real*8 xarp(10), yarp(10)
+ 
+-       real*8 hdist(100), hangle(100)
++       real*8 hdist(0:100), hangle(0:100)
++c      PATCH lepara-web 001: hdist/hangle are indexed by i=hvr(k,3), which
++c      is 0 for the central cell (16.1.4); (100) -> (0:100) like the other
++c      per-rib arrays. Otherwise hdist(0) overwrites hcpp.
+ 
+        real*8 xtri(50),ytri(50)
+ 

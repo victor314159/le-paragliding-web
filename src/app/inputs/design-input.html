@@ -1,0 +1,145 @@
+<mat-card appearance="outlined">
+  <mat-card-header>
+    <h2 mat-card-title id="input-title">Input</h2>
+    <p mat-card-subtitle>Start from an example or import your own files.</p>
+  </mat-card-header>
+
+  <mat-card-content>
+    <div class="source">
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Input source</mat-label>
+        <mat-select
+          [value]="inputs.sourceId()"
+          [disabled]="locked()"
+          (selectionChange)="inputs.selectSource($event.value)"
+        >
+          @for (source of sources; track source.id) {
+            <mat-option [value]="source.id">{{ source.label }}</mat-option>
+          }
+        </mat-select>
+        <mat-hint>{{ sourceHint() }}</mat-hint>
+      </mat-form-field>
+      <button matButton="outlined" type="button" [disabled]="locked()" (click)="chooseImport()">
+        <mat-icon svgIcon="upload" />
+        Import files
+      </button>
+    </div>
+
+    @if (inputs.pending()) {
+      <mat-progress-bar mode="indeterminate" aria-label="Loading input files" />
+    }
+
+    <mat-list role="list" aria-label="Input files">
+      @for (file of inputs.files(); track file.name) {
+        <mat-divider />
+        <mat-list-item role="listitem" data-testid="input-file-row">
+          <span matListItemTitle>{{ file.name }}</span>
+          <span matListItemLine>{{ kind(file) }}</span>
+          <div matListItemMeta class="file-actions">
+            @if (file.modified) {
+              <mat-chip>Modified</mat-chip>
+            } @else if (file.imported) {
+              <mat-chip>Imported</mat-chip>
+            }
+            <button
+              matIconButton
+              type="button"
+              matTooltip="Edit"
+              [disabled]="locked()"
+              [attr.aria-label]="'Edit ' + file.name"
+              (click)="edit(file)"
+            >
+              <mat-icon svgIcon="edit" />
+            </button>
+            <button
+              matIconButton
+              type="button"
+              matTooltip="More actions"
+              [disabled]="locked()"
+              [matMenuTriggerFor]="fileMenu"
+              [matMenuTriggerData]="{ $implicit: file }"
+              [attr.aria-label]="'Actions for ' + file.name"
+            >
+              <mat-icon svgIcon="more_vert" />
+            </button>
+          </div>
+        </mat-list-item>
+      }
+    </mat-list>
+
+    @if (!inputs.files().length && !inputs.pending() && !inputs.error()) {
+      <p class="mat-text-on-surface-variant">Import your input files to get started.</p>
+    }
+    @if (inputs.error(); as error) {
+      <p class="message mat-text-error" role="alert">
+        <mat-icon svgIcon="error" />
+        <span>{{ error }}</span>
+        @if (!inputs.files().length && inputs.selected()) {
+          <button
+            matButton
+            type="button"
+            [disabled]="locked()"
+            (click)="inputs.selectSource(inputs.sourceId(), true)"
+          >
+            Retry loading
+          </button>
+        } @else {
+          <button matButton type="button" (click)="inputs.error.set('')">Dismiss</button>
+        }
+      </p>
+    }
+    @if (inputs.missing().length) {
+      <p class="message mat-text-error" role="alert">
+        <mat-icon svgIcon="error" />
+        <span>
+          Missing input files: {{ inputs.missing().join(', ') }}. Import the files with these exact
+          names.
+        </span>
+      </p>
+    }
+    <mat-divider />
+  </mat-card-content>
+
+  <mat-card-actions>
+    <span class="mat-font-body-sm mat-text-on-surface-variant">
+      Drafts stay until you reload this page.
+    </span>
+    <button
+      matButton
+      type="button"
+      [disabled]="locked() || !inputs.files().length || inputs.zipping()"
+      (click)="inputs.exportAll()"
+    >
+      <mat-icon svgIcon="download" />
+      {{ inputs.zipping() ? 'Exporting…' : 'Export all (.zip)' }}
+    </button>
+  </mat-card-actions>
+
+  <ng-content />
+</mat-card>
+
+<mat-menu #fileMenu="matMenu">
+  <ng-template matMenuContent let-file>
+    <button mat-menu-item (click)="inputs.exportFile(file)">
+      <mat-icon svgIcon="download" />
+      Download
+    </button>
+    <button mat-menu-item (click)="chooseImport(file.name)">
+      <mat-icon svgIcon="upload" />
+      Replace…
+    </button>
+    <mat-divider />
+    <button mat-menu-item [disabled]="!file.modified" (click)="inputs.restore(file)">
+      <mat-icon svgIcon="history" />
+      Restore original
+    </button>
+    @if (file.imported) {
+      <button mat-menu-item (click)="inputs.remove(file)">
+        <mat-icon svgIcon="delete" />
+        Remove file
+      </button>
+    }
+  </ng-template>
+</mat-menu>
+
+<input #importInput type="file" hidden (change)="onImportChange(importInput)" />

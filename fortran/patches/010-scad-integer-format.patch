@@ -1,0 +1,37 @@
+--- a/leparagliding.f
++++ b/leparagliding.f
+@@ -27287,7 +27287,11 @@
+        do k=nsegments+1,1,-1 ! Iterate in segments
+ 
+        write (27,*)
+-       write (27,*) "// Cell ",i," Line ",k,"from ",nsegments+1
++c      PATCH lepara-web 010: list-directed integers are I12 under gfortran
++c      and minimal width under flang (see 006). Explicit format with the
++c      gfortran bytes, including its blank after each integer.
++       write (27,'(1X,A,I12,1X,A,I12,1X,A,I12)')
++     + "// Cell ",i," Line ",k,"from ",nsegments+1
+        write (27,*)
+ 
+        do j=1,np(i,2) 
+@@ -27382,7 +27386,9 @@
+        do k=nsegments+1,1,-1 ! Iterate in segments
+ 
+        write (27,*)
+-       write (27,*) "// Cell ",i," Line ",k,"from ",nsegments+1
++c      PATCH lepara-web 010: see above.
++       write (27,'(1X,A,I12,1X,A,I12,1X,A,I12)')
++     + "// Cell ",i," Line ",k,"from ",nsegments+1
+        write (27,*)
+ 
+        do j=np(i,2),np(i,2)+np(i,3)-1
+@@ -27480,7 +27486,9 @@
+        do k=nsegments+1,1,-1 ! Iterate in segments
+ 
+        write (27,*)
+-       write (27,*) "// Cell ",i," Line ",k,"from ",nsegments+1
++c      PATCH lepara-web 010: see above.
++       write (27,'(1X,A,I12,1X,A,I12,1X,A,I12)')
++     + "// Cell ",i," Line ",k,"from ",nsegments+1
+        write (27,*)
+ 
+        do j=np(i,2)+np(i,3)-1,np(i,1)

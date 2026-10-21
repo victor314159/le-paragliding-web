@@ -1,0 +1,5 @@
+# Accepted differences between the native reference (oracle/reference/swoop2)
+# and the outputs of the author's binary (official-outputs.sha256):
+# file<TAB>reason. Checked by scripts/run-oracle.sh.
+leparagliding.dxf	patch 007 (iccolor34 overflow): 4 line segments get their intended color 5 instead of 3
+run-log.txt	the official binary was built from the 2026-08-18 source; the published source prints 2026-08-19

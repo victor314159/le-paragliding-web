@@ -1,0 +1,265 @@
+// Global styles: the LEparagliding brand theme for Angular Material, the
+// Material system utility classes, and the few app-wide base rules.
+//
+// `mat.theme` emits the M3 system tokens (`--mat-sys-*`) that every component
+// and every custom style reads. Each color role is a tonal ramp of 16 tones:
+// primary is tone 40, the card surface is neutral tone 98, the page is
+// neutral tone 96, and so on. Every token is a `light-dark()` pair, so the
+// `color-scheme` of the root element picks the light or the dark theme: the
+// dark theme reads tone 80 for primary, neutral tone 6 for the cards, and so
+// on. The neutral, neutral-variant, secondary, and
+// error ramps are nested in the primary palette, as the stock palettes do.
+@use 'sass:map';
+@use '@angular/material' as mat;
+
+// Brand green ramp. Tone 40 (#285d49) is the primary color, tone 100 (white)
+// sits on it, and tone 90 is the light green of primary-container.
+$green: (
+  0: #07130c,
+  10: #14291f,
+  20: #1d3a2e,
+  25: #204234,
+  30: #244a3a,
+  35: #275341,
+  40: #285d49,
+  50: #317056,
+  60: #3e8567,
+  70: #579e7f,
+  80: #7ab398,
+  90: #9fcbb6,
+  95: #c2e0d3,
+  98: #e2f1ea,
+  99: #eff8f4,
+  100: #ffffff,
+);
+
+// Cream ramp. Tone 10 is the text color, tone 20 the log terminal, tone 96
+// the page background and tone 98 the card surface. In the dark theme, tone 6
+// is the card surface and tone 90 the text color. Tones 87 to 95 are the
+// surface containers (menus, dialogs, select panels).
+$cream: (
+  0: #0b110d,
+  4: #101712,
+  6: #151c17,
+  10: #203c36,
+  12: #1f2b26,
+  17: #22332d,
+  20: #263831,
+  22: #293b34,
+  24: #2c3e37,
+  25: #2e4039,
+  30: #35473f,
+  35: #3d5047,
+  40: #45594f,
+  50: #5b6e63,
+  60: #718376,
+  70: #89998c,
+  80: #c1c9bf,
+  87: #d6dcd2,
+  90: #e0e4db,
+  92: #e6e9e1,
+  94: #edefe7,
+  95: #f0f1ea,
+  96: #f5f5ef,
+  98: #fffef9,
+  99: #fdfcf9,
+  100: #ffffff,
+);
+
+// Sage ramp for secondary tones: tone 80 (#dce1d6) is the card outline and
+// tone 30 the muted secondary text.
+$sage: (
+  0: #0f1511,
+  10: #2a332c,
+  20: #424b44,
+  25: #4b544d,
+  30: #545e56,
+  35: #5e675f,
+  40: #687269,
+  50: #7f897f,
+  60: #98a196,
+  70: #b1b9ae,
+  80: #dce1d6,
+  90: #e6e9df,
+  95: #f0f2ea,
+  98: #f7f8f2,
+  99: #fafbf6,
+  100: #ffffff,
+);
+
+// Standard M3 error ramp.
+$error: (
+  0: #000000,
+  10: #410002,
+  20: #690005,
+  25: #7e0007,
+  30: #93000a,
+  35: #a80710,
+  40: #ba1a1a,
+  50: #de3730,
+  60: #ff5449,
+  70: #ff897d,
+  80: #ffb4ab,
+  90: #ffdad6,
+  95: #ffedea,
+  98: #fff8f7,
+  99: #fffbff,
+  100: #ffffff,
+);
+
+$brand-green: map.merge(
+  $green,
+  (
+    neutral: $cream,
+    neutral-variant: $sage,
+    secondary: $sage,
+    error: $error,
+  )
+);
+
+$sans: (-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+
+// Dark page background. The dark theme reads it from neutral tone 10, which
+// the light theme already uses for its text color.
+$dark-page: #19211c;
+
+html {
+  // The system preference, unless the theme toggle sets an inline scheme.
+  color-scheme: light dark;
+  // Raw file contents (log, editor, previews) are the only monospace text.
+  --app-font-mono: ui-monospace, SFMono-Regular, Consolas, monospace;
+
+  @include mat.theme(
+    (
+      color: (
+        theme-type: color-scheme,
+        primary: $brand-green,
+      ),
+      typography: (
+        plain-family: $sans,
+        brand-family: $sans,
+      ),
+      density: 0,
+    )
+  );
+  @include mat.theme-overrides(
+    (
+      surface-container-low: light-dark(map.get($cream, 96), $dark-page),
+    )
+  );
+
+  // Cards and dialogs share the cream surface; subtitles are supporting text.
+  @include mat.card-overrides(
+    (
+      subtitle-text-color: var(--mat-sys-on-surface-variant),
+      subtitle-text-font: var(--mat-sys-body-medium-font),
+      subtitle-text-size: var(--mat-sys-body-medium-size),
+      subtitle-text-line-height: var(--mat-sys-body-medium-line-height),
+      subtitle-text-weight: var(--mat-sys-body-medium-weight),
+      subtitle-text-tracking: var(--mat-sys-body-medium-tracking),
+    )
+  );
+  @include mat.dialog-overrides(
+    (
+      container-color: var(--mat-sys-surface),
+    )
+  );
+  // Expansion panels sit flat inside cards, outlined like them.
+  @include mat.expansion-overrides(
+    (
+      container-background-color: transparent,
+      container-elevation-shadow: none,
+      container-text-font: var(--mat-sys-body-medium-font),
+      container-text-size: var(--mat-sys-body-medium-size),
+      container-text-line-height: var(--mat-sys-body-medium-line-height),
+      container-text-weight: var(--mat-sys-body-medium-weight),
+      container-text-tracking: var(--mat-sys-body-medium-tracking),
+    )
+  );
+  @include mat.table-overrides(
+    (
+      background-color: transparent,
+      row-item-outline-color: var(--mat-sys-outline-variant),
+    )
+  );
+
+  @include mat.strong-focus-indicators(
+    (
+      border-color: var(--mat-sys-primary),
+    )
+  );
+}
+
+// Compact expansion panel for secondary notes such as the safety disclaimer:
+// small supporting text, a 48px header, card-aligned 16px insets.
+.notice-panel {
+  @include mat.expansion-overrides(
+    (
+      container-text-color: var(--mat-sys-on-surface-variant),
+      container-text-font: var(--mat-sys-body-small-font),
+      container-text-size: var(--mat-sys-body-small-size),
+      container-text-line-height: var(--mat-sys-body-small-line-height),
+      container-text-weight: var(--mat-sys-body-small-weight),
+      container-text-tracking: var(--mat-sys-body-small-tracking),
+      header-text-font: var(--mat-sys-title-small-font),
+      header-text-size: var(--mat-sys-title-small-size),
+      header-text-line-height: var(--mat-sys-title-small-line-height),
+      header-text-weight: var(--mat-sys-title-small-weight),
+      header-text-tracking: var(--mat-sys-title-small-tracking),
+      header-collapsed-state-height: 48px,
+      header-expanded-state-height: 48px,
+    )
+  );
+
+  .mat-expansion-panel-header {
+    padding-inline: 16px;
+  }
+  .mat-expansion-panel-body {
+    padding: 0 16px 12px;
+  }
+  p {
+    margin: 0 0 8px;
+  }
+  p:last-child {
+    margin-bottom: 0;
+  }
+}
+
+// `.mat-font-*`, `.mat-text-*`, `.mat-bg-*`, `.mat-corner-*`, `.mat-border*`.
+@include mat.system-classes();
+
+// Registry SVGs are inline, so they sit on the text baseline and leave
+// descender space under the glyph. As blocks, they fill the icon box exactly.
+.mat-icon > svg {
+  display: block;
+}
+
+body {
+  margin: 0;
+  font: var(--mat-sys-body-medium);
+  color: var(--mat-sys-on-surface);
+  background: var(--mat-sys-surface-container-low);
+  -webkit-font-smoothing: antialiased;
+}
+
+*,
+::before,
+::after {
+  box-sizing: border-box;
+}
+
+// Native focusable elements (scrollable regions, links) match the Material
+// strong focus indicators.
+:focus-visible {
+  outline: 3px solid var(--mat-sys-primary);
+  outline-offset: -3px;
+}
+
+a {
+  color: var(--mat-sys-primary);
+  text-underline-offset: 2px;
+}
+
+::selection {
+  background: var(--mat-sys-primary-container);
+}

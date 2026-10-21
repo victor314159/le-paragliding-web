@@ -1,0 +1,21 @@
+<header app-masthead></header>
+
+<main>
+  <app-intro />
+
+  <div class="workspace">
+    <app-design-input>
+      <app-compute-controls />
+    </app-design-input>
+    <app-execution-log />
+  </div>
+
+  <!-- Results load in their own chunk, fetched while the browser is idle. -->
+  @defer (when compute.status() === 'done'; prefetch on idle) {
+    @if (compute.status() === 'done') {
+      <app-results />
+    }
+  }
+</main>
+
+<footer app-footer></footer>

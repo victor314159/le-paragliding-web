@@ -1,0 +1,27 @@
+--- a/leparagliding.f
++++ b/leparagliding.f
+@@ -37716,7 +37716,24 @@
+ 
+       return
+       end
++
+ 
+ 
+ 
+ 
++c      PATCH lepara-web 003: definition of the named COMMON blocks. flang
++c      (wasm32-emscripten target) emits uninitialized COMMON blocks with
++c      "common" linkage, which wasm-ld cannot resolve (undefined symbol
++c      markstypes_, someparam_). A BLOCK DATA defines them, initialized
++c      to 0 like the .bss of the native binary. No other line changed.
++       block data lepcom
++       integer typm1(50),typm4(50)
++       real*8 typm2(50),typm3(50),typm5(50),typm6(50)
++       integer nelliref
++       common /markstypes/ typm1,typm2,typm3,typm4,typm5,typm6
++       common /someparam/ nelliref
++       data typm1 /50*0/, typm4 /50*0/
++       data typm2 /50*0.0d0/, typm3 /50*0.0d0/
++       data typm5 /50*0.0d0/, typm6 /50*0.0d0/
++       data nelliref /0/
++       end

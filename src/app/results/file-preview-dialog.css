@@ -1,0 +1,33 @@
+h2 {
+  overflow-wrap: anywhere;
+}
+mat-dialog-content {
+  max-height: 70dvh;
+}
+.viewport {
+  height: 48dvh;
+  min-height: 200px;
+  margin-top: 8px;
+  overflow: hidden;
+  touch-action: none;
+}
+.viewport[hidden] {
+  /* dxf-viewer sets display: block inline when it creates its canvas. */
+  display: none !important;
+}
+.profile {
+  display: block;
+  width: 100%;
+  max-height: 240px;
+  margin-bottom: 12px;
+}
+pre {
+  max-height: 50dvh;
+  margin: 0;
+  padding: 16px;
+  overflow: auto;
+  font-family: var(--app-font-mono);
+  font-size: var(--mat-sys-body-small-size);
+  line-height: 1.6;
+  tab-size: 4;
+}

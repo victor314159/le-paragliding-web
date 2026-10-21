@@ -1,0 +1,4 @@
+Official LEparagliding example design (gnu-test-3.19), unmodified from:
+  https://www.laboratoridenvol.com/leparagliding/archives2/leparagliding.txt (+ gnua.txt, gnuat.txt)
+  Same content as lep-3.19-lin64.zip lep/ (CRLF there, LF here).
+outputs-official/: example outputs published on the same page (2021, older program).

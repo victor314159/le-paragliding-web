@@ -1,0 +1,64 @@
+name: lepara-web
+
+# Development: `docker compose up` builds the WASM engine (`wasm`), then serves
+# the app with live reload on http://localhost:4200 (`dev`).
+# One-off commands: `docker compose run --rm web <cmd>` (npm test, npm run
+# check) and `docker compose run --rm oracle <script>`.
+# Release build: `docker build --output dist .` (Dockerfile).
+#
+# Generated files live in the `build` volume (WASM, Angular cache, test and
+# oracle runs): `docker compose down -v` deletes it. node_modules/ stays in the
+# checkout (Linux binaries, installed by `dev`) so the editor can read it.
+
+x-work: &work
+  volumes:
+    - .:/work
+    - build:/work/build
+  working_dir: /work
+
+x-web: &web
+  <<: *work
+  build:
+    context: .
+    target: web
+  image: lepara-web/web:0.4.0
+  # Chromium and the WASM Worker need room beyond Docker's 64 MB default.
+  shm_size: '1gb'
+
+services:
+  # One-shot: build/wasm/, recompiled only when the patched source changes.
+  wasm:
+    <<: *work
+    build:
+      context: .
+      target: flang
+    image: lepara-web/flang:0.5.0
+    platform: linux/amd64
+    command: scripts/build-flang-wasm.sh
+
+  dev:
+    <<: *web
+    depends_on:
+      wasm:
+        condition: service_completed_successfully
+    ports:
+      - '4200:4200'
+    # npm ci only when package-lock.json changed since the last install.
+    command: sh -c '[ node_modules/.package-lock.json -nt package-lock.json ] || npm ci; npm start'
+
+  web:
+    <<: *web
+    profiles: [tools]
+    command: bash
+
+  oracle:
+    <<: *work
+    build:
+      context: .
+      target: oracle
+    image: lepara-web/oracle:0.4.0
+    profiles: [tools]
+    command: bash
+
+volumes:
+  build:

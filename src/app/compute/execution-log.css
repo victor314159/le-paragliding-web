@@ -1,0 +1,48 @@
+:host {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  /* Let the input card alone set the height of the desktop grid row. */
+  contain: size;
+}
+mat-card {
+  flex: 1;
+  min-width: 0;
+}
+mat-card-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  margin-top: 16px;
+}
+.terminal {
+  flex: 1;
+  height: 0;
+  overflow: auto;
+  /* The terminal stays dark in both themes: under a dark color-scheme, every
+     token here resolves to its dark value, scrollbars included. */
+  color-scheme: dark;
+  background: var(--mat-sys-surface-container-high);
+  color: var(--mat-sys-on-surface);
+  padding: 16px;
+  font-family: var(--app-font-mono);
+  font-size: var(--mat-sys-body-small-size);
+  line-height: 1.6;
+}
+.line {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.stderr {
+  color: var(--mat-sys-error);
+}
+@media (max-width: 900px) {
+  :host {
+    contain: none;
+  }
+  .terminal {
+    flex: none;
+    height: 320px;
+  }
+}

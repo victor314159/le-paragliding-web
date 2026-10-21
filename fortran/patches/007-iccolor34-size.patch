@@ -1,0 +1,14 @@
+--- a/leparagliding.f
++++ b/leparagliding.f
+@@ -490,7 +490,10 @@
+ 
+        integer typepoint,typetab,typevent,typejonc
+        integer typm1(50),typm4(50)
+-       integer iccolor(50),ele3d(50),ele3dc(50),iccolor34(50)
++c      PATCH lepara-web 007: iccolor34 is indexed by line number i
++c      (1..cordam, up to 500 like corda), not by line type. (50)
++c      overflowed onto neighbouring variables (icode37 under flang).
++       integer iccolor(50),ele3d(50),ele3dc(50),iccolor34(500)
+        real*8 typm2(50),typm3(50),typm5(50),typm6(50)
+        real*8 xrad
+ 

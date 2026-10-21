@@ -1,0 +1,6 @@
+# Git on the host needs only Docker; commits inside Docker reuse its toolchain.
+if [ -f /.dockerenv ]; then
+  exec npm run check:staged
+else
+  exec docker compose run --rm --no-deps -T web npm run check:staged
+fi

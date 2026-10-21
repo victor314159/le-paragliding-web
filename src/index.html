@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>LEparagliding Web — Design workspace</title>
+    <base href="./" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Compute LEparagliding designs locally in your browser." />
+    <meta name="theme-color" content="#f5f5ef" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#19211c" media="(prefers-color-scheme: dark)" />
+    <script>
+      // Apply a remembered color scheme before the first paint (see ThemeService).
+      try {
+        const scheme = localStorage.getItem('lepara-color-scheme');
+        if (scheme === 'light' || scheme === 'dark')
+          document.documentElement.style.colorScheme = scheme;
+      } catch {}
+    </script>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  </head>
+  <body>
+    <app-root></app-root>
+  </body>
+</html>

@@ -1,0 +1,55 @@
+<mat-expansion-panel #disclaimer class="notice-panel mat-border-subtle">
+  <mat-expansion-panel-header>
+    <mat-panel-title>Safety disclaimer</mat-panel-title>
+  </mat-expansion-panel-header>
+  <p>
+    This application is an experimental browser port of LEparagliding. Errors may arise from the
+    original software, the port, or the input data.
+  </p>
+  <p>
+    The results do not constitute a safety assessment or airworthiness certification. They must not
+    be used as the sole basis for building or flying a wing. Any real-world use requires independent
+    verification and appropriate testing by qualified individuals.
+  </p>
+  <p>
+    The software is provided without warranty, to the extent permitted by applicable law. See the
+    <a [href]="links.license" target="_blank" rel="noopener">GNU GPL v3 license</a>.
+  </p>
+</mat-expansion-panel>
+
+<mat-checkbox [checked]="acknowledged()" (change)="acknowledge($event, disclaimer)">
+  I have read and understood this warning and the limitations of the results provided.
+</mat-checkbox>
+
+<div class="actions">
+  <button matButton="filled" type="button" [disabled]="!canStart()" (click)="compute.start()">
+    {{ compute.busy() ? 'Computing…' : 'Compute design' }}
+  </button>
+  @if (compute.busy()) {
+    <button matButton="outlined" type="button" (click)="compute.cancel()">Cancel</button>
+  }
+</div>
+
+<div
+  class="status mat-font-body-sm mat-text-on-surface-variant"
+  role="status"
+  data-testid="compute-status"
+  [attr.data-state]="compute.status()"
+>
+  <span>{{ statusLabel() }}</span>
+  <span class="metrics">
+    <span data-testid="elapsed">{{ compute.elapsedMs() / 1000 | number: '1.1-1' }} s</span>
+    @if (compute.wasmMemoryBytes(); as bytes) {
+      <span
+        data-testid="worker-memory"
+        title="Allocated WebAssembly memory (static data, stack and heap). Excludes JavaScript and output files; this is not the worker's total RAM usage."
+      >
+        WASM allocated: {{ bytes / 1073741824 | number: '1.2-2' }} GiB
+      </span>
+    }
+  </span>
+</div>
+
+@if (compute.error(); as error) {
+  <p class="message mat-text-error" role="alert">{{ error }} You can try computing again.</p>
+}

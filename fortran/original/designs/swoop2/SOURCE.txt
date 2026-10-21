@@ -1,0 +1,6 @@
+Official LEparagliding example design, extracted unmodified from:
+  https://www.laboratoridenvol.com/leparagliding/archives3/lep-3.29-lin64.zip
+  sha256 276ebe36be669c2321b46cd9a3113ccc3cf139aa5afb351e9779b88917ca2c95
+  lep-3.29-lin64/lep/leparagliding.txt
+  lep-3.29-lin64/lep/gnuReflex.txt
+  lep-3.29-lin64/stl/*: official ../stl outputs of the same run (hashes in official-outputs.sha256)

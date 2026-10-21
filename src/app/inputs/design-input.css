@@ -1,0 +1,55 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+mat-card {
+  height: 100%;
+}
+.source {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px 12px;
+  margin-top: 16px;
+}
+mat-form-field {
+  flex: 1 1 280px;
+}
+/* Centers the 40px button on the 56px field, whatever the hint's height. */
+.source > button {
+  margin-top: 8px;
+}
+/* Rows are separated by dividers, so the list's own vertical padding would
+ * only make the last row look taller. */
+mat-list {
+  margin-top: 16px;
+  padding-block: 0;
+}
+/* Several controls in the trailing slot: center them as a row. Two-line
+ * items otherwise align the slot to the top. */
+.mat-mdc-list-item .file-actions {
+  display: flex;
+  align-items: center;
+  align-self: center;
+  gap: 4px;
+  margin: 0;
+}
+.file-actions::before {
+  content: none;
+}
+.message {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  overflow-wrap: anywhere;
+}
+.message > span {
+  flex: 1 1 200px;
+}
+mat-card-actions {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-inline: 16px;
+}

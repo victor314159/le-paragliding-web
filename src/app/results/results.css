@@ -1,0 +1,35 @@
+:host {
+  display: block;
+  min-width: 0;
+  margin-top: 24px;
+}
+mat-card-header {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+mat-card-header > button {
+  margin-inline-start: auto;
+}
+/* Align the table edges with the card title. */
+.mat-mdc-header-cell:first-child,
+.mat-mdc-cell:first-child {
+  padding-inline-start: 0;
+}
+.file {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-block: 12px;
+  overflow-wrap: break-word;
+}
+.file > mat-icon {
+  flex: none;
+}
+.end {
+  text-align: end;
+}
+.actions {
+  white-space: nowrap;
+  padding-inline-end: 0;
+}

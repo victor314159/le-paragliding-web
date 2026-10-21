@@ -1,0 +1,61 @@
+{
+  "$schema": "./node_modules/@angular/cli/lib/config/schema.json",
+  "version": 1,
+  "cli": {
+    "packageManager": "npm",
+    "analytics": false,
+    "cache": { "path": "build/angular-cache" }
+  },
+  "projects": {
+    "lepara-web": {
+      "projectType": "application",
+      "root": "",
+      "sourceRoot": "src",
+      "prefix": "app",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:application",
+          "options": {
+            "browser": "src/main.ts",
+            "outputPath": "build/web",
+            "tsConfig": "tsconfig.app.json",
+            "webWorkerTsConfig": "tsconfig.worker.json",
+            "allowedCommonJsDependencies": ["jszip", "loglevel", "opentype.js"],
+            "assets": [
+              { "glob": "**/*", "input": "public" },
+              { "glob": "lepara.{js,wasm}", "input": "build/wasm", "output": "engine" },
+              { "glob": "*/*.txt", "input": "oracle/designs", "output": "examples" },
+              {
+                "glob": "roboto-latin-400-normal.woff",
+                "input": "node_modules/@fontsource/roboto/files",
+                "output": "fonts"
+              },
+              { "glob": "LICENSE", "input": "node_modules/@fontsource/roboto", "output": "fonts" }
+            ],
+            "styles": ["src/styles.scss"]
+          },
+          "configurations": {
+            "production": {
+              "budgets": [
+                { "type": "initial", "maximumWarning": "500kB", "maximumError": "1MB" },
+                { "type": "anyComponentStyle", "maximumWarning": "6kB", "maximumError": "8kB" }
+              ],
+              "outputHashing": "all"
+            },
+            "development": { "optimization": false, "extractLicenses": false, "sourceMap": true }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve": {
+          "builder": "@angular/build:dev-server",
+          "options": { "prebundle": { "exclude": ["@material-symbols/svg-400"] } },
+          "configurations": {
+            "production": { "buildTarget": "lepara-web:build:production" },
+            "development": { "buildTarget": "lepara-web:build:development" }
+          },
+          "defaultConfiguration": "development"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,6 @@
+.git/
+.husky/_/
+.playwright-mcp/
+build/
+dist/
+node_modules/
