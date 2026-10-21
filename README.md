@@ -20,6 +20,22 @@ testing by qualified individuals.
 The software is provided without warranty, to the extent permitted by
 applicable law. See the [GNU GPL v3 license](LICENSE).
 
+## How it works
+
+Nothing is compiled in the browser. The Fortran source is compiled once,
+ahead of time, to WebAssembly: with [flang](https://flang.llvm.org/) 21 (the
+LLVM Fortran compiler) and [Emscripten](https://emscripten.org/), on Linux in
+Docker (the [r-wasm/flang-wasm](https://github.com/r-wasm/flang-wasm)
+toolchain). The page then downloads `lepara.wasm` (about 1.2 MB) and runs it in
+a Web Worker, on any OS with a recent browser.
+
+gfortran is still the reference: the same source is also compiled natively
+with it, and the WASM outputs must match the native ones byte for byte, on
+every example design (a few STL/SCAD files differ only by `-0.000` vs `0.000`,
+listed in `oracle/wasm-known-diffs.tsv`). Getting there took a few small fixes
+to the source, mostly out-of-bounds array accesses that each compiler resolved
+differently: see [fortran/patches](fortran/patches/README.md).
+
 ## Requirements
 
 Docker with Compose. Every toolchain (Node, flang, gfortran) runs in a
