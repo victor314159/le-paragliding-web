@@ -1,0 +1,27 @@
+{
+  "name": "@lepara/format",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LEparagliding 3.29 input files (leparagliding.txt and airfoils) as typed objects: parse, validate and write.",
+  "license": "GPL-3.0-only",
+  "author": "victor314159",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/victor314159/le-paragliding-web.git",
+    "directory": "packages/format"
+  },
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "types": "./index.d.ts",
+  "files": [
+    "*.js",
+    "*.d.ts"
+  ],
+  "sideEffects": false
+}

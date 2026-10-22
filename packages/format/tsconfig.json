@@ -1,0 +1,25 @@
+{
+  // Compiled by scripts/assemble-format.sh into build/format/, the package.
+  // No runtime dependency and no platform types: plain ES2022, usable in
+  // browsers, Workers and Node.
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "../../build/format",
+    "target": "ES2022",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "lib": ["ES2022"],
+    "types": [],
+    "strict": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
+    "rewriteRelativeImportExtensions": true,
+    "declaration": true,
+    "skipLibCheck": false
+  },
+  "include": ["src"]
+}

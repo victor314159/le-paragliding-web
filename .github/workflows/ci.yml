@@ -36,6 +36,10 @@ jobs:
           cache-to: type=gha,mode=max
       - name: Browser tests
         run: docker compose run --rm web sh -c 'npm ci && npm test'
+      # @lepara/format against the native engine (gfortran); the browser
+      # tests check it against the WASM one.
+      - name: Input format, native engine
+        run: docker compose run --rm oracle node scripts/check-format-native.ts
       - uses: actions/upload-pages-artifact@v5
         with:
           path: dist

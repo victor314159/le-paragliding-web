@@ -16,6 +16,16 @@ Setup, build and test commands are in [README.md](README.md).
 - Before saying a change is done, run `npm run check` and the tests related to
   it.
 
+## Input format
+
+- `packages/format/` reads and writes `leparagliding.txt` and the airfoils as
+  the engine does: a change to the engine's reading (section 4 of the source)
+  goes into `src/read-design.ts`, `src/write-design.ts`, `src/model.ts` and
+  `SPEC.md`. Its tests are `tests/format/` (`npm test -- format`); the engine
+  equivalence test runs `build/engine/`, or `dist/engine/` without it;
+  `docker compose run --rm oracle node scripts/check-format-native.ts` runs
+  the same cases on the native build (gfortran).
+
 ## Fortran engine
 
 - `packages/engine/` is the npm package around the WASM build (TypeScript,
