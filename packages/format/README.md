@@ -20,13 +20,15 @@ Node. It does not read files: pass it their text.
 ## API
 
 ```ts
+DESIGN_FILE: 'leparagliding.txt';
 parseLep(text: string, options?: { file?: string }): Result<LepDesign>;
 writeLep(design: LepDesign): Result<string>;
 
 parseAirfoil(name: string, text: string): Result<LepAirfoil>; // .txt or .dat, from the name
 writeAirfoil(airfoil: LepAirfoil, options?: { title?: string }): Result<string>;
 
-validate(project: LepProject): readonly Diagnostic[];
+readProject(files: ReadonlyMap<string, string>): ProjectReading; // texts by file name
+validate(project: LepProject, options?: { reading?: readonly Diagnostic[] }): readonly Diagnostic[];
 validateDesign(design: LepDesign): Diagnostic[]; // without the airfoils
 locateLep(text: string, options?: { file?: string }): Result<ReadonlyMap<string, FieldPosition>>;
 ```
@@ -43,6 +45,13 @@ locateLep(text: string, options?: { file?: string }): Result<ReadonlyMap<string,
   three characters of the name.
 - `LepProject` is `{ design, airfoils }`, the airfoils by exact file name. It
   may be incomplete: `validate` reports missing airfoils.
+- `readProject` reads the files the engine reads: `leparagliding.txt` and the
+  airfoils it names (the others are not read). `ProjectReading` is
+  `{ project?, reading, diagnostics }`: the project, absent when
+  `leparagliding.txt` is missing or unreadable; the diagnostics of reading
+  the files; and those, then the diagnostics of `validate`. To validate a
+  changed project (an editor), pass `reading` to `validate`: they come first,
+  and an airfoil that could not be read is not reported missing too.
 - `Result<T>` is `{ ok: true, value, warnings }` or `{ ok: false, errors }`.
   A `Diagnostic` has a `severity`, a `message` and, when they apply, the
   `file`, the `section`, the model `field` (`lines.plans[0].paths[3].anchorRib`),

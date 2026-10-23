@@ -13,6 +13,7 @@
     "target": "ES2022",
     "module": "preserve",
     "moduleResolution": "bundler",
+    "rewriteRelativeImportExtensions": true,
     "resolveJsonModule": true
   },
   "angularCompilerOptions": {

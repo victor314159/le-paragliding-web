@@ -55,7 +55,7 @@ it changes), installs the dependencies and serves the app with live reload.
 ```sh
 docker build --output dist .                # release build -> dist/
 docker compose run --rm web npm test        # browser tests against dist/
-docker compose run --rm web npm run check   # lint + format
+docker compose run --rm web npm run check   # lint + types + format
 docker build --target engine-pkg --output pkg .   # npm package -> pkg/
 docker compose run --rm web scripts/assemble-format.sh   # @lepara/format -> build/format/
 ```

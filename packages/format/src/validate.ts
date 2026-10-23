@@ -14,11 +14,24 @@ export interface LepProject {
   readonly airfoils: ReadonlyMap<string, LepAirfoil>;
 }
 
-/** Every error and warning of a project: its design, its airfoils and their links. */
-export function validate(project: LepProject): readonly Diagnostic[] {
+/**
+ * Every error and warning of a project: its design, its airfoils and their
+ * links. `reading`, the diagnostics of reading its files (`readProject`),
+ * come first: an airfoil with a reading error is not reported missing too.
+ */
+export function validate(
+  project: LepProject,
+  options: { reading?: readonly Diagnostic[] } = {},
+): readonly Diagnostic[] {
   const { design, airfoils } = project;
-  const diagnostics = validateDesign(design);
-  diagnostics.push(...new ProjectChecker(design, airfoils).run());
+  const { reading = [] } = options;
+  const unreadable = new Set(
+    reading.flatMap(({ severity, file }) =>
+      severity === 'error' && file && file !== DESIGN_FILE ? [file] : [],
+    ),
+  );
+  const diagnostics = [...reading, ...validateDesign(design)];
+  diagnostics.push(...new ProjectChecker(design, airfoils, unreadable).run());
   for (const [name, airfoil] of airfoils) {
     if (!design.airfoils.some((row) => row.airfoil === name)) {
       diagnostics.push({ severity: 'warning', message: `Unused airfoil ${name}`, file: name });
@@ -1242,11 +1255,18 @@ class DesignChecker extends Checker {
 class ProjectChecker extends Checker {
   private readonly design: M.LepDesign;
   private readonly airfoils: ReadonlyMap<string, LepAirfoil>;
+  /** Airfoils whose reading errors already explain their absence. */
+  private readonly unreadable: ReadonlySet<string>;
 
-  constructor(design: M.LepDesign, airfoils: ReadonlyMap<string, LepAirfoil>) {
+  constructor(
+    design: M.LepDesign,
+    airfoils: ReadonlyMap<string, LepAirfoil>,
+    unreadable: ReadonlySet<string>,
+  ) {
     super();
     this.design = design;
     this.airfoils = airfoils;
+    this.unreadable = unreadable;
   }
 
   /** The airfoil of rib `rib` (1-based), if present. */
@@ -1263,7 +1283,8 @@ class ProjectChecker extends Checker {
       const field = `airfoils[${i}].airfoil`;
       const airfoil = this.airfoils.get(row.airfoil);
       if (!airfoil) {
-        if (!seen.has(row.airfoil)) this.error(field, `Missing airfoil ${row.airfoil}`);
+        if (!seen.has(row.airfoil) && !this.unreadable.has(row.airfoil))
+          this.error(field, `Missing airfoil ${row.airfoil}`);
         seen.add(row.airfoil);
         return;
       }

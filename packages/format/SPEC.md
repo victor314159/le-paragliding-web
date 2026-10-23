@@ -370,7 +370,8 @@ Nothing after section 39 is read.
 
 ## Airfoils
 
-The first record is skipped in both formats.
+The engine opens the airfoils that section 2 names, by exact name, and no
+other file. The first record is skipped in both formats.
 
 - **`.txt`**: `np(i,1)` total, `np(i,2)` extrados, `np(i,3)` intake,
   `np(i,4)` intrados: one int per record; then np(i,1) × `u v` reals. The
