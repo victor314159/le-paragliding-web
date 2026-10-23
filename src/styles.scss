@@ -234,6 +234,10 @@ html {
   display: block;
 }
 
+.design-editor-dialog .mat-mdc-dialog-surface {
+  border-radius: 0;
+}
+
 body {
   margin: 0;
   font: var(--mat-sys-body-medium);

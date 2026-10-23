@@ -40,7 +40,13 @@ export class ComputeControls {
   private readonly inputs = inject(DesignFilesService);
   protected readonly links = LINKS;
   protected readonly acknowledged = signal(false);
-  protected readonly statusLabel = computed(() => STATUS_LABELS[this.compute.status()]);
+  protected readonly statusLabel = computed(() => {
+    if (this.compute.status() !== 'idle') return STATUS_LABELS[this.compute.status()];
+    if (this.inputs.pending()) return 'Loading input files…';
+    if (!this.inputs.files().length) return 'Import input files to compute';
+    if (!this.inputs.ready()) return 'Fix input errors to compute';
+    return STATUS_LABELS.idle;
+  });
   protected readonly canStart = computed(
     () => this.acknowledged() && this.inputs.ready() && !this.compute.busy(),
   );

@@ -31,8 +31,11 @@ import { MatMenu, MatMenuContent, MatMenuItem, MatMenuTrigger } from '@angular/m
 import { MatProgressBar } from '@angular/material/progress-bar';
 import { MatOption, MatSelect } from '@angular/material/select';
 import { MatTooltip } from '@angular/material/tooltip';
+import { DESIGN_FILE } from '@lepara/format';
 import { ComputeService } from '../compute/compute.service';
-import { DesignFilesService, type InputFile, MAIN_FILE } from './design-files.service';
+import type { DesignEditorData, DesignEditorResult } from '../editor/design-editor';
+import { diagnosticLabel, withSeverity } from '../shared/diagnostics';
+import { DesignFilesService, type InputFile } from './design-files.service';
 import { DESIGNS } from './designs';
 import type { FileEditorData } from './file-editor-dialog';
 
@@ -74,6 +77,8 @@ import type { FileEditorData } from './file-editor-dialog';
 })
 export class DesignInput implements OnInit {
   protected readonly inputs = inject(DesignFilesService);
+  protected readonly designFile = DESIGN_FILE;
+  protected readonly diagnosticLabel = diagnosticLabel;
   private readonly compute = inject(ComputeService);
   private readonly dialog = inject(MatDialog);
   private readonly importInput = viewChild.required<ElementRef<HTMLInputElement>>('importInput');
@@ -93,13 +98,41 @@ export class DesignInput implements OnInit {
     return `Official example from LEparagliding ${design.program}.${adapted}`;
   });
   protected readonly locked = computed(() => this.compute.busy() || this.inputs.pending());
+  protected readonly errors = computed(() => withSeverity(this.inputs.diagnostics(), 'error'));
+  protected readonly warnings = computed(() => withSeverity(this.inputs.diagnostics(), 'warning'));
 
   ngOnInit(): void {
     void this.inputs.selectSource(this.inputs.sourceId());
   }
 
   protected kind(file: InputFile): string {
-    return file.name === MAIN_FILE ? 'Wing geometry and parameters' : 'Airfoil';
+    return file.name === DESIGN_FILE ? 'Wing geometry and parameters' : 'Airfoil';
+  }
+
+  protected async editParameters(): Promise<void> {
+    const { DesignEditor } = await import('../editor/design-editor');
+    const { project, reading } = this.inputs.reading();
+    if (this.locked() || this.dialog.openDialogs.length || !project) return;
+    const data: DesignEditorData = { project, reading };
+    this.dialog
+      .open(DesignEditor, {
+        data,
+        width: '100vw',
+        height: '100dvh',
+        maxWidth: '100vw',
+        panelClass: 'design-editor-dialog',
+        disableClose: true,
+        ariaLabel: `Edit parameters · ${DESIGN_FILE}`,
+      })
+      .afterClosed()
+      .subscribe((result: DesignEditorResult | undefined) => {
+        if (!result) return;
+        if ('project' in result) this.inputs.applyProject(project, result.project);
+        else {
+          const target = this.inputs.files().find((file) => file.name === result.editText);
+          if (target) void this.edit(target);
+        }
+      });
   }
 
   protected async edit(file: InputFile): Promise<void> {

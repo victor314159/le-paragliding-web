@@ -44,8 +44,21 @@ mat-list {
   gap: 8px;
   overflow-wrap: anywhere;
 }
-.message > span {
+.message > span,
+.message > ul {
   flex: 1 1 200px;
+}
+.message > ul,
+.warnings > ul {
+  margin: 0;
+  padding-inline-start: 20px;
+}
+.warnings {
+  overflow-wrap: anywhere;
+}
+summary {
+  cursor: pointer;
+  padding-block: 8px;
 }
 mat-card-actions {
   justify-content: space-between;

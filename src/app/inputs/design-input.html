@@ -41,12 +41,31 @@
             } @else if (file.imported) {
               <mat-chip>Imported</mat-chip>
             }
+            @if (file.name === designFile) {
+              <span
+                [matTooltip]="
+                  inputs.reading().project || locked()
+                    ? 'Edit parameters'
+                    : 'Fix ' + designFile + ' with Edit text first.'
+                "
+              >
+                <button
+                  matIconButton
+                  type="button"
+                  [disabled]="locked() || !inputs.reading().project"
+                  [attr.aria-label]="'Edit parameters of ' + file.name"
+                  (click)="editParameters()"
+                >
+                  <mat-icon svgIcon="tune" />
+                </button>
+              </span>
+            }
             <button
               matIconButton
               type="button"
-              matTooltip="Edit"
+              matTooltip="Edit text"
               [disabled]="locked()"
-              [attr.aria-label]="'Edit ' + file.name"
+              [attr.aria-label]="'Edit text of ' + file.name"
               (click)="edit(file)"
             >
               <mat-icon svgIcon="edit" />
@@ -88,14 +107,25 @@
         }
       </p>
     }
-    @if (inputs.missing().length) {
-      <p class="message mat-text-error" role="alert">
+    @if (errors().length) {
+      <div class="message mat-text-error" role="alert">
         <mat-icon svgIcon="error" />
-        <span>
-          Missing input files: {{ inputs.missing().join(', ') }}. Import the files with these exact
-          names.
-        </span>
-      </p>
+        <ul>
+          @for (diagnostic of errors(); track $index) {
+            <li>{{ diagnosticLabel(diagnostic) }}</li>
+          }
+        </ul>
+      </div>
+    }
+    @if (warnings().length) {
+      <details class="warnings mat-text-on-surface-variant">
+        <summary>Warnings · {{ warnings().length }}</summary>
+        <ul>
+          @for (diagnostic of warnings(); track $index) {
+            <li>{{ diagnosticLabel(diagnostic) }}</li>
+          }
+        </ul>
+      </details>
     }
     <mat-divider />
   </mat-card-content>

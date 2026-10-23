@@ -5,6 +5,7 @@ import architecture from '@material-symbols/svg-400/outlined/architecture.svg' w
   loader: 'text',
 };
 import darkMode from '@material-symbols/svg-400/outlined/dark_mode.svg' with { loader: 'text' };
+import close from '@material-symbols/svg-400/outlined/close.svg' with { loader: 'text' };
 import deleteIcon from '@material-symbols/svg-400/outlined/delete.svg' with { loader: 'text' };
 import description from '@material-symbols/svg-400/outlined/description.svg' with {
   loader: 'text',
@@ -17,6 +18,7 @@ import lightMode from '@material-symbols/svg-400/outlined/light_mode.svg' with {
 import moreVert from '@material-symbols/svg-400/outlined/more_vert.svg' with { loader: 'text' };
 import restartAlt from '@material-symbols/svg-400/outlined/restart_alt.svg' with { loader: 'text' };
 import terminal from '@material-symbols/svg-400/outlined/terminal.svg' with { loader: 'text' };
+import tune from '@material-symbols/svg-400/outlined/tune.svg' with { loader: 'text' };
 import upload from '@material-symbols/svg-400/outlined/upload.svg' with { loader: 'text' };
 import viewInAr from '@material-symbols/svg-400/outlined/view_in_ar.svg' with { loader: 'text' };
 import visibility from '@material-symbols/svg-400/outlined/visibility.svg' with { loader: 'text' };
@@ -24,6 +26,7 @@ import visibility from '@material-symbols/svg-400/outlined/visibility.svg' with 
 // Material Symbols bundled at build time: no icon font and no network request.
 const ICONS = {
   architecture,
+  close,
   dark_mode: darkMode,
   delete: deleteIcon,
   description,
@@ -35,6 +38,7 @@ const ICONS = {
   more_vert: moreVert,
   restart_alt: restartAlt,
   terminal,
+  tune,
   upload,
   view_in_ar: viewInAr,
   visibility,

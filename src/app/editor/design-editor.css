@@ -1,0 +1,124 @@
+:host,
+form {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+header,
+footer {
+  flex-shrink: 0;
+  padding: 16px 24px;
+}
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+}
+h2 {
+  font: var(--mat-sys-title-large);
+  margin: 0 0 4px;
+}
+h3 {
+  font: var(--mat-sys-title-medium);
+}
+.workspace {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+nav {
+  flex: 0 0 280px;
+  overflow-y: auto;
+  padding: 8px 12px;
+  border-right: 1px solid var(--mat-sys-outline-variant);
+}
+nav h3 {
+  margin: 16px 12px 8px;
+}
+nav button {
+  width: 100%;
+  height: auto;
+  min-height: 44px;
+  justify-content: flex-start;
+  text-align: left;
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+nav button[aria-current] {
+  background: var(--mat-sys-secondary-container);
+  color: var(--mat-sys-on-secondary-container);
+}
+small {
+  display: block;
+  font: var(--mat-sys-body-small);
+  opacity: 0.75;
+}
+section {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 8px 32px 24px;
+}
+section > * {
+  max-width: 1000px;
+}
+footer {
+  border-top: 1px solid var(--mat-sys-outline-variant);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+footer p {
+  margin: 0;
+}
+.status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+.nav-toggle {
+  display: none;
+}
+.diagnostics {
+  margin-top: 24px;
+  overflow-wrap: anywhere;
+}
+.diagnostics li {
+  padding-block: 4px;
+}
+@media (max-width: 700px) {
+  header,
+  footer {
+    padding: 12px 16px;
+  }
+  footer {
+    flex-wrap: wrap;
+  }
+  .nav-toggle {
+    display: block;
+    flex-shrink: 0;
+  }
+  .workspace {
+    position: relative;
+  }
+  nav {
+    display: none;
+  }
+  nav.open {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: var(--mat-sys-surface);
+  }
+  section {
+    padding: 0 16px 16px;
+  }
+}

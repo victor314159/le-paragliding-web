@@ -1,9 +1,10 @@
 import { computed, Injectable, signal } from '@angular/core';
+import { DESIGN_FILE, readProject, type LepProject } from '@lepara/format';
+import { withSeverity } from '../shared/diagnostics';
 import { saveFile, saveZip } from '../shared/download';
 import type { NamedFile } from '../shared/named-file';
 import { DESIGNS } from './designs';
-
-export const MAIN_FILE = 'leparagliding.txt';
+import { writeProjectChanges } from './write-project';
 
 export interface InputFile extends NamedFile {
   original: ArrayBuffer;
@@ -33,21 +34,16 @@ export class DesignFilesService {
   readonly zipping = signal(false);
   readonly error = signal('');
   readonly pending = computed(() => this.loading() || this.importing());
-  readonly missing = computed(() => {
-    if (!this.files().length) return [];
-    const main = this.files().find((file) => file.name === MAIN_FILE);
-    if (!main) return [MAIN_FILE];
-    // The engine accepts .txt and .dat profiles, named in numbered airfoil rows.
-    const names = [
-      ...this.text(main).matchAll(
-        /^\s*\d+[\s,]+(?:"([^"\r\n]+\.(?:txt|dat))"|'([^'\r\n]+\.(?:txt|dat))'|([^\s,'"]+\.(?:txt|dat)))(?=[\s,]|$)/gim,
-      ),
-    ].map((match) => match[1] ?? match[2] ?? match[3]);
-    const available = new Set(this.files().map((file) => file.name));
-    return [...new Set(names)].filter((name) => !available.has(name));
-  });
+  readonly reading = computed(() =>
+    readProject(new Map(this.files().map((file) => [file.name, this.text(file)]))),
+  );
+  /** Nothing to report before a file is imported. */
+  readonly diagnostics = computed(() => (this.files().length ? this.reading().diagnostics : []));
   readonly ready = computed(
-    () => !this.pending() && this.files().length > 0 && !this.missing().length,
+    () =>
+      !this.pending() &&
+      !!this.reading().project &&
+      !withSeverity(this.diagnostics(), 'error').length,
   );
   // Drafts last for this page session and stay separate for each source.
   private readonly drafts = new Map<string, InputFile[]>();
@@ -68,7 +64,7 @@ export class DesignFilesService {
     this.loading.set(true);
     try {
       const files = await Promise.all(
-        [MAIN_FILE, ...design.airfoils].map(async (name) => {
+        [DESIGN_FILE, ...design.airfoils].map(async (name) => {
           const response = await fetch(new URL(`examples/${design.id}/${name}`, document.baseURI));
           if (!response.ok) throw new Error(`Could not load ${name} (HTTP ${response.status}).`);
           const bytes = await response.arrayBuffer();
@@ -89,6 +85,16 @@ export class DesignFilesService {
 
   edit(file: InputFile, text: string): void {
     this.replace(file.name, new TextEncoder().encode(text).buffer);
+  }
+
+  applyProject(before: LepProject, after: LepProject): void {
+    const written = writeProjectChanges(before, after);
+    this.error.set('');
+    if (!written.ok) {
+      this.error.set(written.errors.map((error) => error.message).join('\n'));
+      return;
+    }
+    for (const file of written.value) this.replace(file.name, file.bytes);
   }
 
   restore(file: InputFile): void {

@@ -121,7 +121,11 @@ test('the workspace fits a narrow screen and supports keyboard navigation', asyn
   await expect(page.getByRole('button', { name: 'Import files', exact: true })).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(
-    page.getByRole('button', { name: 'Edit leparagliding.txt', exact: true }),
+    page.getByRole('button', { name: 'Edit parameters of leparagliding.txt', exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(
+    page.getByRole('button', { name: 'Edit text of leparagliding.txt', exact: true }),
   ).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('dialog')).toBeVisible();
@@ -136,7 +140,7 @@ test('the workspace fits a narrow screen and supports keyboard navigation', asyn
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
   await page.keyboard.press('Escape');
   await expect(
-    page.getByRole('button', { name: 'Edit leparagliding.txt', exact: true }),
+    page.getByRole('button', { name: 'Edit text of leparagliding.txt', exact: true }),
   ).toBeFocused();
   await page
     .getByLabel(

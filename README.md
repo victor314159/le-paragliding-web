@@ -7,6 +7,10 @@ Web Worker: a static site, no backend.
 
 **Try it: <https://victor314159.github.io/le-paragliding-web/>**
 
+**Edit parameters** edits sections 6, 24 and 25 of `leparagliding.txt` in
+forms; saving them rewrites the file without its comments. **Edit text** edits
+any file.
+
 ## Safety disclaimer
 
 This application is an experimental browser port of LEparagliding. Errors may
@@ -89,6 +93,9 @@ Both bump the patch version: add `-- minor` or `-- major` for the others.
 | `packages/format/`  | Input files as typed objects ([details](packages/format/README.md))   |
 | `oracle/`           | Example designs and the native outputs the WASM build must match      |
 | `scripts/`          | Engine build and oracle scripts                                       |
+
+The app bundles `@lepara/format` from its source (a TypeScript path alias);
+the parameter editor (`src/app/editor/`) is loaded on demand.
 
 ## Example designs
 
