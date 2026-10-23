@@ -98,7 +98,8 @@ Both bump the patch version: add `-- minor` or `-- major` for the others.
 | `oracle/`                | Example designs and the native outputs the WASM build must match                                   |
 | `scripts/`               | Engine build and oracle scripts                                                                    |
 
-The app bundles `@lepara/format` from its source (a TypeScript path alias);
+The app bundles `@lepara/format` and `@lepara/preprocessor` from their source
+(TypeScript path aliases);
 the parameter editor (`src/app/editor/`) is loaded on demand.
 
 ## Example designs

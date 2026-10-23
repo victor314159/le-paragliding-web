@@ -14,7 +14,10 @@
     "module": "preserve",
     "moduleResolution": "bundler",
     "rewriteRelativeImportExtensions": true,
-    "paths": { "@lepara/format": ["./packages/format/src/index.ts"] },
+    "paths": {
+      "@lepara/format": ["./packages/format/src/index.ts"],
+      "@lepara/preprocessor": ["./packages/preprocessor/src/index.ts"]
+    },
     "resolveJsonModule": true
   },
   "angularCompilerOptions": {
