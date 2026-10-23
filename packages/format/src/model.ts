@@ -460,7 +460,7 @@ export interface ElasticLines {
     readonly [number, number, number, number],
     readonly [number, number, number, number, number],
   ];
-  /** Deformations under 10 kg, by number of lines per rib, `csus(i,1..4)`. */
+  /** Deformations (%) under 10 kg, by number of lines per rib, `csus(i,1..4)`. */
   readonly deformation: readonly [
     LineDeformation,
     LineDeformation,
@@ -644,7 +644,7 @@ export type WingTip =
   | { readonly mode: 0 }
   /** Angles of the leading and trailing edges of the last cell (deg), `alc1`, `alc2`. */
   | { readonly mode: 1; readonly angleLE: number; readonly angleTE: number }
-  /** Rounded parabolic wing tip (planform only): `sectx(27,3..4)`, the angle in deg. */
+  /** Rounded wing tip (planform only): `sectx(27,3..4)`, distance in % of the last chord, angle in deg. */
   | { readonly mode: 2; readonly distance: number; readonly angle: number }
   /** Last rib displacement and rotation, `sectx(27,10..11)`. */
   | { readonly mode: 4; readonly displacement: number; readonly rotation: number };
@@ -920,11 +920,11 @@ export interface HvrHoleRow {
   readonly holes: number;
   /** Hole height (% of the local height). */
   readonly height: number;
-  /** Hole width (%). */
+  /** Types 5/15: width (% local height); 6/16: overridden by center/count; 9: eccentricity a/b. */
   readonly width: number;
-  /** Type 5/6/15/16: center position factor (0 to 1); type 9: excentricity a/b. */
+  /** Types 5/6/15/16: center position factor (0 to 1); 9: displacement from the chord. */
   readonly center: number;
-  /** Type 9: displacement of the center from the chord (-1 to 1); unused otherwise. */
+  /** Type 9: ellipse rotation (deg); unused otherwise. */
   readonly offset: number;
   /** Unused. */
   readonly unused: number;

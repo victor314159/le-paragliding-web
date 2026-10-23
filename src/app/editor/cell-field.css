@@ -1,0 +1,48 @@
+.cell-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 48px;
+  height: 36px;
+  padding: 6px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 4px;
+  background: var(--mat-sys-surface);
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-body-medium);
+  font-variant-numeric: tabular-nums;
+}
+input.cell-input {
+  text-align: right;
+}
+input.text-cell {
+  min-width: 96px;
+  text-align: left;
+}
+.select-cell {
+  min-width: 88px;
+}
+.cell-input:focus,
+.cell-input:focus-within {
+  outline: 2px solid var(--mat-sys-primary);
+  outline-offset: -1px;
+}
+.cell-input[aria-invalid='true'] {
+  border-color: var(--mat-sys-error);
+}
+.cell-errors {
+  display: block;
+  max-width: 240px;
+  color: var(--mat-sys-error);
+  font: var(--mat-sys-body-small);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.cell-errors > span {
+  display: block;
+  padding: 4px 0;
+}
+:host,
+mat-form-field {
+  display: block;
+  width: 100%;
+}

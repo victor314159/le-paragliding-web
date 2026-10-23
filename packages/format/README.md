@@ -34,6 +34,7 @@ locateLep(text: string, options?: { file?: string }): Result<ReadonlyMap<string,
 
 SECTIONS: readonly { number, key: keyof LepDesign, title }[]; // the 37 sections, in file order
 DXF2D_DEFAULTS, DXF3D_DEFAULTS; // sections 24 and 25 in mode 1, with the engine's mode 0 values
+PARTS_SEPARATION_DEFAULTS, LINE_TYPES_DEFAULTS; // the same for sections 32 and 34
 ```
 
 - `LepDesign` holds the sections of `leparagliding.txt` (1 to 12, then 15 to

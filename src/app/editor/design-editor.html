@@ -1,10 +1,11 @@
 <form [formRoot]="editor.form" (submit)="submit()">
   <header>
-    <div>
+    <div class="header-title">
       <h2>{{ designFile }}</h2>
-      <span class="mat-text-on-surface-variant"
-        >Edit parameters{{ draft.changed() ? ' · Modified' : '' }}</span
-      >
+      <span class="editor-mode mat-text-on-surface-variant">Edit parameters</span>
+      @if (draft.changed()) {
+        <span class="mat-text-on-surface-variant">· Modified</span>
+      }
     </div>
     <button matIconButton type="button" aria-label="Close parameter editor" (click)="close()">
       <mat-icon svgIcon="close" />
@@ -39,32 +40,40 @@
         }
       }
     </nav>
-    <section aria-labelledby="editor-section-title">
-      <h3 id="editor-section-title">{{ title() }}</h3>
-      @if (sectionForm(); as form) {
-        <ng-container *ngComponentOutlet="form" />
-        <p class="mat-font-body-sm">
-          <a [href]="manualUrl()" target="_blank" rel="noopener"
-            >LEparagliding manual · Section {{ editor.selection() }}</a
-          >
-        </p>
-      } @else {
-        <p>No form is available for this item yet. Use the text editor to change it.</p>
-        <button matButton="outlined" type="button" (click)="close({ editText: textTarget() })">
-          Edit text
-        </button>
-      }
-      @if (localDiagnostics().length) {
-        <ul class="diagnostics">
-          @for (diagnostic of localDiagnostics(); track $index) {
-            <li [class.mat-text-error]="diagnostic.severity === 'error'">
-              {{ diagnostic.severity === 'error' ? 'Error' : 'Warning' }} ·
-              {{ diagnosticLabel(diagnostic) }}
-            </li>
+    <div class="editor-content">
+      <section #content aria-labelledby="editor-section-title">
+        <div class="section-heading">
+          <h3 id="editor-section-title">{{ title() }}</h3>
+          @if (sectionForm()) {
+            <a class="mat-font-body-sm" [href]="manualUrl()" target="_blank" rel="noopener"
+              >LEparagliding manual · Section {{ editor.selection() }}</a
+            >
           }
-        </ul>
+        </div>
+        <!-- Under the title: a long section would hide them below the fold. -->
+        @if (localDiagnostics().length) {
+          <ul #diagnostics class="diagnostics" tabindex="-1">
+            @for (diagnostic of localDiagnostics(); track $index) {
+              <li [class.mat-text-error]="diagnostic.severity === 'error'">
+                {{ diagnostic.severity === 'error' ? 'Error' : 'Warning' }} ·
+                {{ diagnosticLabel(diagnostic) }}
+              </li>
+            }
+          </ul>
+        }
+        @if (sectionForm(); as form) {
+          <ng-container *ngComponentOutlet="form" />
+        } @else {
+          <p>Airfoil coordinates are edited as text.</p>
+          <button matButton="outlined" type="button" (click)="close({ editText: textTarget() })">
+            Edit text
+          </button>
+        }
+      </section>
+      @if (hasPreview()) {
+        <app-editor-preview />
       }
-    </section>
+    </div>
   </div>
   <footer>
     <!-- Next to Save: why it is disabled, and a way to the first error. -->

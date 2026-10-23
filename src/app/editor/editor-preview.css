@@ -1,0 +1,118 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  height: max(180px, 33dvh);
+  max-height: calc(100% - 120px);
+  min-height: 0;
+  border-top: 1px solid var(--mat-sys-outline-variant);
+  background: var(--mat-sys-surface-container-low);
+  overflow: hidden;
+}
+.preview-divider {
+  display: flex;
+  flex-shrink: 0;
+  height: 12px;
+  align-items: center;
+  justify-content: center;
+  cursor: ns-resize;
+  touch-action: none;
+  user-select: none;
+}
+.preview-divider span {
+  width: 48px;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--mat-sys-outline);
+}
+.preview-divider:hover,
+.preview-divider:focus-visible,
+:host(.resizing) .preview-divider {
+  background: var(--mat-sys-secondary-container);
+  outline: none;
+}
+:host(.collapsed) {
+  height: auto;
+}
+.preview-toolbar {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 24px;
+}
+.viewport-tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  font: var(--mat-sys-label-medium);
+}
+.viewport-tools button {
+  --mat-icon-button-state-layer-size: 40px;
+  --mat-icon-button-touch-target-size: 40px;
+}
+h4 {
+  margin: 0;
+  font: var(--mat-sys-title-small);
+}
+.view-selector {
+  display: flex;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.view-selector button {
+  border-radius: 0;
+  min-width: 0;
+}
+.view-selector button[aria-pressed='true'] {
+  background: var(--mat-sys-secondary-container);
+  color: var(--mat-sys-on-secondary-container);
+}
+.view-select {
+  padding: 8px 12px;
+  border: 0;
+  color: var(--mat-sys-on-secondary-container);
+  background: var(--mat-sys-secondary-container);
+  font: var(--mat-sys-label-large);
+}
+.collapse-toggle {
+  margin-left: 0;
+}
+:host(.collapsed) .collapse-toggle {
+  margin-left: auto;
+}
+.preview-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  padding: 0 24px 12px;
+  overflow: auto;
+}
+.preview-body[hidden] {
+  display: none;
+}
+.preview-body > * {
+  flex: 1;
+  min-width: 0;
+}
+@media (max-width: 700px) {
+  .preview-toolbar {
+    padding-inline: 16px;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  .preview-toolbar h4 {
+    display: none;
+  }
+  .collapse-toggle {
+    margin-left: auto;
+  }
+  .preview-toolbar button[matButton] {
+    padding-inline: 10px;
+  }
+  .preview-body {
+    padding: 0 16px 8px;
+  }
+}

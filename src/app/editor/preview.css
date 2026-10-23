@@ -1,0 +1,111 @@
+path,
+line,
+circle {
+  vector-effect: non-scaling-stroke;
+}
+.outline,
+.profile {
+  fill: var(--mat-sys-secondary-container);
+  stroke: var(--mat-sys-primary);
+  stroke-width: 1.5;
+}
+.rib,
+.arch {
+  fill: none;
+  stroke: var(--mat-sys-outline);
+  stroke-width: 1;
+}
+.arch {
+  stroke: var(--mat-sys-primary);
+  stroke-width: 2;
+}
+.axis,
+.chord {
+  stroke: var(--mat-sys-outline);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+}
+.hole {
+  fill: color-mix(in srgb, var(--mat-sys-tertiary) 25%, var(--mat-sys-surface-container-low));
+  stroke: var(--mat-sys-tertiary);
+  stroke-width: 1.5;
+}
+.allowance {
+  fill: none;
+  stroke: var(--mat-sys-tertiary);
+  stroke-width: 1;
+  stroke-dasharray: 5 4;
+}
+.dimension {
+  fill: none;
+  stroke: var(--mat-sys-outline);
+  stroke-width: 1;
+}
+.profile-label {
+  font-size: 0.025px;
+  fill: var(--mat-sys-on-surface);
+}
+.anchor-track {
+  fill: none;
+  stroke-width: 1.2;
+}
+.anchor-dot {
+  stroke: var(--mat-sys-surface);
+  stroke-width: 0.6;
+}
+.hole-center {
+  fill: var(--mat-sys-surface);
+  stroke: var(--mat-sys-tertiary);
+  stroke-width: 1.2;
+}
+.in-group {
+  stroke: var(--mat-sys-tertiary);
+  stroke-width: 2;
+}
+.anchor-legend {
+  display: flex;
+  flex-shrink: 0;
+  gap: 4px 12px;
+  flex-wrap: wrap;
+  font: var(--mat-sys-label-small);
+}
+.selected {
+  stroke: var(--mat-sys-tertiary);
+  stroke-width: 3;
+}
+circle {
+  fill: var(--mat-sys-primary);
+  stroke: var(--mat-sys-surface);
+  stroke-width: 1;
+}
+circle.selected {
+  fill: var(--mat-sys-tertiary);
+  stroke: var(--mat-sys-surface);
+  stroke-width: 1;
+}
+.preview-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-top: 4px;
+  font: var(--mat-sys-body-medium);
+}
+select {
+  padding: 4px 8px;
+  border: 1px solid var(--mat-sys-outline);
+  border-radius: 4px;
+  color: var(--mat-sys-on-surface);
+  background: var(--mat-sys-surface);
+  font: inherit;
+}
+.rib-number {
+  fill: var(--mat-sys-on-surface-variant);
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+}
+.rib-number.current {
+  fill: var(--mat-sys-tertiary);
+  font-weight: 700;
+}

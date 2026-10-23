@@ -1,0 +1,124 @@
+import type { LepAirfoil } from '@lepara/format';
+import type { DesignForm } from './editor-draft';
+import { finite, pointPath, previewBounds, type Point } from './preview-geometry';
+
+export interface PreviewContext {
+  design: DesignForm;
+  airfoils: ReadonlyMap<string, LepAirfoil>;
+  view: string;
+  rib: number;
+  selected: number;
+  active: number;
+  secondary: number;
+  surface: 'upper' | 'lower';
+}
+export interface PreviewScene {
+  title: string;
+  note: string;
+  viewBox: string;
+  fontSize: number;
+  paths: { d: string; kind: string; selected: boolean; title: string }[];
+  dots: { point: Point; radius: number; kind: string; selected: boolean; title: string }[];
+  labels: { point: Point; text: string; anchor: 'start' | 'middle' | 'end'; fontSize?: number }[];
+}
+
+/** Drawing primitives shared by the input schematics, all in their declared units. */
+export class PreviewDrawing {
+  private points: Point[] = [];
+  private paths: PreviewScene['paths'] = [];
+  private dots: PreviewScene['dots'] = [];
+  private labels: PreviewScene['labels'] = [];
+  constructor(
+    private title: string,
+    private note: string,
+  ) {}
+  path(
+    points: readonly Point[],
+    kind = 'detail',
+    selected = false,
+    title = '',
+    close = false,
+  ): void {
+    if (!points.length || !points.every((p) => p.every(finite))) return;
+    this.points.push(...points);
+    this.paths.push({ d: pointPath(points, close), kind, selected, title });
+  }
+  dot(point: Point, radius: number, title = '', selected = false, kind = 'detail'): void {
+    if (!point.every(finite) || !finite(radius) || radius <= 0) return;
+    this.points.push(
+      [point[0] - radius, point[1] - radius],
+      [point[0] + radius, point[1] + radius],
+    );
+    this.dots.push({ point, radius, title, selected, kind });
+  }
+  label(
+    point: Point,
+    text: string,
+    anchor: 'start' | 'middle' | 'end' = 'middle',
+    fontSize?: number,
+  ): void {
+    if (!point.every(finite)) return;
+    this.points.push(point);
+    this.labels.push({ point, text, anchor, fontSize });
+  }
+  frame(points: readonly Point[]): void {
+    this.points.push(...points.filter((p) => p.every(finite)));
+  }
+  finish(): PreviewScene {
+    const initial = previewBounds(this.points);
+    const width = initial.right - initial.left;
+    const height = initial.bottom - initial.top;
+    const fontSize = Math.max(Math.min(width * 0.03, height * 0.12), height * 0.09, 0.02);
+    const textBounds = this.labels.flatMap(
+      ({ point: [x, y], text, anchor, fontSize: size = fontSize }): Point[] => {
+        const length = text.length * size * 0.55;
+        const left = anchor === 'start' ? x : anchor === 'end' ? x - length : x - length / 2;
+        return [
+          [left, y - size],
+          [left + length, y + size * 0.25],
+        ];
+      },
+    );
+    const bounds = previewBounds([...this.points, ...textBounds]);
+    return {
+      title: this.title,
+      note: this.note,
+      viewBox: bounds.viewBox,
+      fontSize,
+      paths: this.paths,
+      dots: this.dots,
+      labels: this.labels,
+    };
+  }
+}
+export const valueLabel = (value: number | null | undefined, unit = '') =>
+  finite(value) ? `${Number(value.toPrecision(5))}${unit}` : '—';
+export const ellipsePoints = (center: Point, a: number, b: number, angle = 0): Point[] =>
+  Array.from({ length: 81 }, (_, i): Point => {
+    const theta = (i * Math.PI) / 40;
+    return [
+      center[0] + a * Math.cos(theta) * Math.cos(angle) - b * Math.sin(theta) * Math.sin(angle),
+      center[1] + a * Math.cos(theta) * Math.sin(angle) + b * Math.sin(theta) * Math.cos(angle),
+    ];
+  });
+
+/** Circular arc through two endpoints with a signed sagitta, also for vertical chords. */
+export function arcPoints(a: Point, b: Point, sagitta: number): Point[] {
+  const dx = b[0] - a[0],
+    dy = b[1] - a[1];
+  const length = Math.hypot(dx, dy);
+  if (!finite(sagitta) || !length) return [];
+  if (Math.abs(sagitta) < 1e-10) return [a, b];
+  const normal: Point = [-dy / length, dx / length];
+  const radius = ((length * length) / 4 + sagitta * sagitta) / (2 * Math.abs(sagitta));
+  const center: Point = [
+    (a[0] + b[0]) / 2 + normal[0] * (sagitta - Math.sign(sagitta) * radius),
+    (a[1] + b[1]) / 2 + normal[1] * (sagitta - Math.sign(sagitta) * radius),
+  ];
+  const start = Math.atan2(a[1] - center[1], a[0] - center[0]);
+  const sweep = -Math.sign(sagitta) * 4 * Math.atan2(2 * Math.abs(sagitta), length);
+  return Array.from({ length: 61 }, (_, i): Point => [
+    center[0] + radius * Math.cos(start + (sweep * i) / 60),
+    center[1] + radius * Math.sin(start + (sweep * i) / 60),
+  ]);
+}

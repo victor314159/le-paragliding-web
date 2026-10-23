@@ -1,0 +1,32 @@
+.collection-heading {
+  align-items: center;
+  flex-wrap: wrap;
+}
+.collection-heading h4 {
+  flex-shrink: 0;
+}
+.record-selector {
+  flex: 1;
+  width: auto;
+  min-width: min(100%, 200px);
+  height: 40px;
+  box-sizing: border-box;
+  padding: 8px 12px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 4px;
+  background: var(--mat-sys-surface);
+  font: var(--mat-sys-body-medium);
+}
+.record-selector:focus-within {
+  outline: 2px solid var(--mat-sys-primary);
+  outline-offset: -1px;
+}
+@media (max-width: 540px) {
+  .record-selector {
+    order: 1;
+    flex-basis: 100%;
+  }
+  app-remove-row {
+    margin-left: auto;
+  }
+}

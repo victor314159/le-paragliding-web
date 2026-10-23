@@ -1,18 +1,162 @@
 :host {
   display: block;
+  min-width: 0;
 }
 mat-form-field {
   display: block;
+}
+fieldset,
+.field-grid,
+.section-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 20px 16px;
+  min-width: 0;
 }
 fieldset {
   border: 0;
   padding: 0;
   margin: 24px 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
-  gap: 20px 16px;
+}
+.section-controls {
+  max-width: 420px;
+  margin-block: 24px;
+}
+p {
+  margin-block: 16px;
 }
 legend {
   font: var(--mat-sys-title-small);
   margin-bottom: 16px;
+}
+fieldset > fieldset,
+fieldset > app-skin-points,
+fieldset > app-rod-fields,
+fieldset > app-line-paths,
+fieldset > app-special-entry,
+fieldset > app-record-editor,
+fieldset > .table-scroll,
+fieldset > p {
+  grid-column: 1 / -1;
+}
+fieldset > fieldset {
+  margin: 8px 0;
+}
+button {
+  justify-self: start;
+}
+mat-checkbox {
+  display: block;
+  margin: 16px 0;
+}
+fieldset > mat-checkbox {
+  margin: 0;
+  align-self: center;
+}
+/* Tables show all their rows. One that fits does not scroll, so its sticky
+   header sticks to the section; `clip` still rounds its corners. A wide one
+   (see TableScroll) scrolls horizontally. */
+.table-scroll {
+  width: 100%;
+  overflow: clip;
+  margin: 20px 0 16px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 8px;
+}
+.table-scroll.wide {
+  overflow: auto hidden;
+}
+.table-scroll:focus-visible {
+  outline: 2px solid var(--mat-sys-primary);
+  outline-offset: 2px;
+}
+.parameter-table {
+  width: 100%;
+  border-spacing: 0;
+  border-collapse: separate;
+  font: var(--mat-sys-body-medium);
+  font-variant-numeric: tabular-nums;
+}
+caption {
+  padding: 12px;
+  text-align: left;
+  font: var(--mat-sys-title-small);
+}
+.parameter-table th,
+.parameter-table td {
+  padding: 4px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+  background: var(--row-background, var(--mat-sys-surface));
+}
+.parameter-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  vertical-align: bottom;
+  background: var(--mat-sys-surface-container);
+  font: var(--mat-sys-label-medium);
+  padding-block: 10px;
+  /* Headers wrap rather than widen their column. */
+  overflow-wrap: anywhere;
+}
+/* The same inset as the caption, before the first column and after the last. */
+.parameter-table th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  padding-left: 12px;
+}
+.parameter-table :is(th, td):last-child {
+  padding-right: 12px;
+}
+.parameter-table thead th:first-child {
+  z-index: 3;
+}
+.parameter-table tbody th {
+  padding-block: 12px;
+  font: var(--mat-sys-label-medium);
+}
+.parameter-table tbody tr:nth-child(even) {
+  --row-background: var(--mat-sys-surface-container-low);
+}
+.parameter-table tbody tr:hover,
+.parameter-table tbody tr:focus-within,
+.parameter-table tbody tr.selected {
+  --row-background: var(--mat-sys-secondary-container);
+}
+.parameter-table .row-actions {
+  width: 1%;
+  min-width: 36px;
+  white-space: nowrap;
+}
+.parameter-table tr:last-child > * {
+  border-bottom: 0;
+}
+.collection-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-top: 24px;
+}
+.collection-heading h4 {
+  margin: 0;
+  font: var(--mat-sys-title-small);
+}
+.collection-heading span {
+  font: var(--mat-sys-body-small);
+  color: var(--mat-sys-on-surface-variant);
+}
+.collection-heading span.mat-text-error {
+  color: var(--mat-sys-error);
+}
+.record-detail {
+  margin-block: 16px;
+}
+.record-detail > fieldset {
+  margin-top: 0;
+}
+fieldset > .table-scroll {
+  margin-block: 0;
 }

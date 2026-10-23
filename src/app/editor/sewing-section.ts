@@ -7,7 +7,7 @@ import { NumberField } from './number-field';
   imports: [NumberField],
   template: `
     @for (panel of panels; track panel.key) {
-      <fieldset>
+      <fieldset (focusin)="editor.setPreviewView(6, 'panels')">
         <legend>{{ panel.label }}</legend>
         @for (edge of edges; track edge.key) {
           <app-number-field
@@ -26,19 +26,22 @@ import { NumberField } from './number-field';
         unit="mm"
         hint="Seam width around the ribs."
         [field]="form.ribs"
+        (focusin)="editor.setPreviewView(6, 'rib')"
       />
       <app-number-field
         label="V-rib edges"
         unit="mm"
         hint="Seam width around the V-ribs."
         [field]="form.vRibs"
+        (focusin)="editor.setPreviewView(6, 'v-rib')"
       />
     </fieldset>
   `,
   styleUrl: './section.css',
 })
 export class SewingSection {
-  protected readonly form = inject(EditorState).form.sewingAllowances;
+  protected readonly editor = inject(EditorState);
+  protected readonly form = this.editor.form.sewingAllowances;
   protected readonly panels = [
     { key: 'upper', label: 'Upper panels' },
     { key: 'lower', label: 'Lower panels' },

@@ -252,6 +252,10 @@ with `csi(i,19) csi(i,20) csi(i,18)`.
 `sectx(27,3)`; label `sectx(27,4)` (deg). 4: label `sectx(27,10)
 sectx(27,11)`. Other values than 0, 1, 2, 4 read nothing (an error here).
 
+The planform drawing consumes `sectx(27,3)` as a percentage of the final
+rib chord. It converts the type 2 angle twice (on reading, then on drawing).
+The two type 4 values are read but never applied by 3.29.
+
 ### 28. Calage variation (`calageVariation`)
 
 3 skip; `k28d` int; 1: `nriser28` int; `p28(1..6)` reals; `a128` real,
@@ -359,6 +363,11 @@ of their documented values (warnings).
 
 3 skip; `k38d` int; > 0: `k38lines` int (at most 100); k38lines ×
 `x38data(k,1..9)` reals.
+
+The drawing uses type 9 fields 5–8 as height (%), eccentricity a/b,
+displacement factor and rotation (deg), despite the manual's column descriptions.
+Types 6/16 override the width ratio with `center / holes`. Types 5/15 place
+ellipses at anchor stations and do not use the entered hole count.
 
 ### 39. HVR position parameters (`hvrPositions`)
 

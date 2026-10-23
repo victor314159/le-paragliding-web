@@ -131,11 +131,170 @@ test('a warning on an edited field does not block Save', () => {
   expect(draft.errors()).toEqual([]);
 });
 
-test('a design error outside the forms blocks Save, since writeLep refuses it', () => {
+test('a design error in another section blocks Save, since writeLep refuses it', () => {
   const { design, airfoils } = fixture();
   const angleOfAttack = { ...design.angleOfAttack, linesLength: 0 };
   const draft = new EditorDraft({ design: { ...design, angleOfAttack }, airfoils });
   expect(draft.errors()).toEqual([
     expect.objectContaining({ section: 8, field: 'angleOfAttack.linesLength' }),
   ]);
+});
+
+test('every example and format variant survives all form expansions without changing the design', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const { default: index } = await import('../oracle/designs/index.json', {
+    with: { type: 'json' },
+  });
+  const { VARIANTS, variantFiles } = await import('./format/variants');
+  const texts = await Promise.all(
+    index.map((entry) => readFile(`oracle/designs/${entry.id}/leparagliding.txt`, 'utf8')),
+  );
+  for (const variant of VARIANTS) texts.push(variantFiles(variant).get('leparagliding.txt')!);
+  for (const text of texts) {
+    const design = ok(parseLep(text));
+    const draft = new EditorDraft({ design, airfoils: new Map() });
+    expect(draft.project().design).toEqual(design);
+    expect(draft.changed()).toBe(false);
+    expect(ok(parseLep(ok(writeLep(draft.project().design))))).toEqual(design);
+  }
+});
+
+test('color layouts and wing-tip modes keep hidden edits and write only active fields', () => {
+  const draft = new EditorDraft(fixture());
+  set(draft, 'extradosColors', (s) => ({
+    ...s,
+    mode: 'panels',
+    panels: [{ panel: 1, cuts: [{ number: 1, left: 20, right: 30, seamWidth: null, unused: 0 }] }],
+  }));
+  expect(draft.errors()).toContainEqual(
+    expect.objectContaining({ field: 'extradosColors.panels[0].cuts[0].seamWidth' }),
+  );
+  set(draft, 'extradosColors', (s) => ({ ...s, mode: 'ribs' }));
+  expect(draft.project().design.extradosColors).toEqual({ mode: 'ribs', ribs: [] });
+  expect(draft.errors()).toEqual([]);
+  set(draft, 'extradosColors', (s) => ({ ...s, mode: 'panels' }));
+  expect(draft.value().extradosColors.panels[0].cuts[0].seamWidth).toBeNull();
+  set(draft, 'wingTip', (s) => ({ ...s, mode: 2, distance: 15, angle: null }));
+  set(draft, 'wingTip', (s) => ({ ...s, mode: 4, displacement: 1, rotation: 2 }));
+  expect(draft.project().design.wingTip).toEqual({ mode: 4, displacement: 1, rotation: 2 });
+  set(draft, 'wingTip', (s) => ({ ...s, mode: 2 }));
+  expect(draft.value().wingTip.angle).toBeNull();
+});
+
+test('rod and line types retain all variant fields without leaking them into the design', async () => {
+  const { rodGroup } = await import('../src/app/editor/editor-draft.ts');
+  const draft = new EditorDraft(fixture());
+  const group = { ...rodGroup(), x1: 12, upperRod: { from: 1, to: 2, deflection: 3, exponent: 4 } };
+  set(draft, 'joncs', (s) => ({ ...s, mode: 2, blocs: [{ number: 1, type: 2, groups: [group] }] }));
+  const arc = draft.project().design.joncs;
+  expect(arc).toEqual({
+    mode: 2,
+    blocs: [
+      {
+        number: 1,
+        type: 2,
+        groups: [
+          {
+            group: 1,
+            firstRib: 1,
+            lastRib: 1,
+            x1: 12,
+            y1: 0,
+            x2: 0,
+            y2: 0,
+            deflection: 0,
+            pocket: group.pocket,
+          },
+        ],
+      },
+    ],
+  });
+  set(draft, 'joncs', (s) => ({ ...s, blocs: s.blocs.map((b) => ({ ...b, type: 3 })) }));
+  expect(draft.project().design.joncs).toEqual({
+    mode: 2,
+    blocs: [
+      {
+        number: 1,
+        type: 3,
+        groups: [
+          {
+            group: 1,
+            firstRib: 1,
+            lastRib: 1,
+            extrados: group.extrados,
+            intrados: group.intrados,
+            upperRod: group.upperRod,
+            lowerRod: group.lowerRod,
+            pocket: group.pocket,
+          },
+        ],
+      },
+    ],
+  });
+  set(draft, 'joncs', (s) => ({ ...s, mode: 0 }));
+  expect(draft.project().design.joncs).toEqual({ mode: 0 });
+  expect(draft.value().joncs.blocs[0].groups[0].x1).toBe(12);
+  set(draft, 'lineTypes', (s) => ({
+    ...s,
+    mode: 1,
+    types: s.types.map((t, i) => (i === 0 ? { ...t, kind: 'c', diameter: 2.5 } : t)),
+  }));
+  const line = draft.project().design.lineTypes;
+  expect(line.mode).toBe(1);
+  if (line.mode === 1) {
+    expect(line.types[0]).toMatchObject({ kind: 'c', diameter: 2.5 });
+    expect(line.types[0]).not.toHaveProperty('width');
+  }
+  expect(draft.value().lineTypes.types[0].width).toBe(25);
+});
+
+test('line type lists, vent parameters and rib columns follow their selected layouts', () => {
+  const draft = new EditorDraft(fixture());
+  const original = draft.project().design;
+  set(draft, 'lines', (s) => ({ ...s, typed: true }));
+  const path = draft.project().design.lines.plans[0].paths[0];
+  expect(path.lineTypes).toHaveLength(path.levels);
+  set(draft, 'lines', (s) => ({ ...s, typed: false }));
+  expect(draft.project().design.lines).toEqual(original.lines);
+  set(draft, 'glueVents', (s) => ({
+    ...s,
+    mode: 1,
+    ribs: s.ribs.map((r, i) => (i === 0 ? { ...r, type: 5, parameters: [10, 20, 30] } : r)),
+  }));
+  let vents = draft.project().design.glueVents;
+  if (vents.mode === 1) expect(vents.ribs[0].parameters).toEqual([10, 20, 30]);
+  set(draft, 'glueVents', (s) => ({
+    ...s,
+    ribs: s.ribs.map((r, i) => (i === 0 ? { ...r, type: 4 } : r)),
+  }));
+  vents = draft.project().design.glueVents;
+  if (vents.mode === 1) expect(vents.ribs[0].parameters).toEqual([10, 20]);
+  expect(draft.value().glueVents.ribs[0].parameters[2]).toBe(30);
+  set(draft, 'geometry', (s) => ({ ...s, ribColumns: 9 }));
+  expect(draft.project().design.geometry.ribs[0]).not.toHaveProperty('rotZ');
+  set(draft, 'geometry', (s) => ({ ...s, ribColumns: 11 }));
+  expect(draft.project().design.geometry.ribs[0]).toHaveProperty('rotZ', 0);
+});
+
+test('HVR separation factors follow section 38 and retain edits while hidden', () => {
+  const draft = new EditorDraft(fixture());
+  set(draft, 'hvrPositions', (s) => ({
+    ...s,
+    coefficients: [
+      { ...s.coefficients[0], horizontal: null },
+      s.coefficients[1],
+      s.coefficients[2],
+      s.coefficients[3],
+      s.coefficients[4],
+      s.coefficients[5],
+    ],
+  }));
+  expect(draft.project().design.hvrPositions).toEqual({ mode: 0 });
+  set(draft, 'hvrHoles', (s) => ({ ...s, mode: 1 }));
+  expect(draft.errors()).toContainEqual(
+    expect.objectContaining({ field: 'hvrPositions.coefficients[0].horizontal' }),
+  );
+  set(draft, 'hvrHoles', (s) => ({ ...s, mode: 0 }));
+  expect(draft.errors()).toEqual([]);
+  expect(draft.value().hvrPositions.coefficients[0].horizontal).toBeNull();
 });

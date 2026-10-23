@@ -13,6 +13,7 @@ import description from '@material-symbols/svg-400/outlined/description.svg' wit
 import download from '@material-symbols/svg-400/outlined/download.svg' with { loader: 'text' };
 import edit from '@material-symbols/svg-400/outlined/edit.svg' with { loader: 'text' };
 import error from '@material-symbols/svg-400/outlined/error.svg' with { loader: 'text' };
+import fitScreen from '@material-symbols/svg-400/outlined/fit_screen.svg' with { loader: 'text' };
 import history from '@material-symbols/svg-400/outlined/history.svg' with { loader: 'text' };
 import lightMode from '@material-symbols/svg-400/outlined/light_mode.svg' with { loader: 'text' };
 import moreVert from '@material-symbols/svg-400/outlined/more_vert.svg' with { loader: 'text' };
@@ -33,6 +34,7 @@ const ICONS = {
   download,
   edit,
   error,
+  fit_screen: fitScreen,
   history,
   light_mode: lightMode,
   more_vert: moreVert,
