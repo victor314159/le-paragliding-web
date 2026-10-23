@@ -2,16 +2,14 @@ import { readFile } from 'node:fs/promises';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import JSZip from 'jszip';
 import designIndex from '../oracle/designs/index.json' with { type: 'json' };
-import { parseLep, SECTIONS, writeLep } from '../packages/format/src/index.ts';
+import { parseAirfoil, parseLep, SECTIONS, writeLep } from '../packages/format/src/index.ts';
 import { ok } from './format/helpers';
-import { acknowledge } from './helpers';
+import { acknowledge, editText } from './helpers';
 
 // Fetching a full generated DXF into a trace would make it unnecessarily large.
 test.use({ trace: 'off' });
 const opener = (page: Page) =>
   page.getByRole('button', { name: 'Edit parameters of leparagliding.txt', exact: true });
-const textOpener = (page: Page) =>
-  page.getByRole('button', { name: 'Edit text of leparagliding.txt', exact: true });
 
 async function source(page: Page, name: string): Promise<void> {
   await page.getByRole('combobox', { name: 'Input source', exact: true }).click();
@@ -51,7 +49,7 @@ async function downloadFile(page: Page, name = 'leparagliding.txt'): Promise<Buf
 }
 
 async function replaceMain(page: Page, text: string): Promise<void> {
-  await textOpener(page).click();
+  await editText(page, 'leparagliding.txt');
   await page.getByRole('textbox', { name: 'Content of leparagliding.txt', exact: true }).fill(text);
   await page.getByRole('button', { name: 'Apply changes', exact: true }).click();
 }
@@ -202,27 +200,85 @@ test('text that is not a number keeps the section, and empty and hidden fields s
   expect(ok(parseLep((await downloadFile(page)).toString())).dxf2d).toEqual({ mode: 0 });
 });
 
-test('airfoils link to text editing, and an unreadable airfoil does not block Save', async ({
-  page,
-}) => {
+test('an unreadable airfoil links to text editing and does not block Save', async ({ page }) => {
   await page.goto('/');
-  await opener(page).click();
-  await section(page, 'gnuReflex.txt Text only');
-  await page.getByRole('button', { name: 'Edit text', exact: true }).click();
+  await editText(page, 'gnuReflex.txt');
   await page
     .getByRole('textbox', { name: 'Content of gnuReflex.txt', exact: true })
     .fill('broken airfoil');
   await page.getByRole('button', { name: 'Apply changes', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('gnuReflex.txt');
+  await expect(
+    page.getByRole('button', { name: 'Edit parameters of gnuReflex.txt', exact: true }),
+  ).toBeDisabled();
   await opener(page).click();
-  await section(page, /^gnuReflex\.txt Text only · \d+ errors?$/);
+  await section(page, /^gnuReflex\.txt Not read · \d+ errors?$/);
   await expect(
     page.getByRole('listitem').filter({ hasText: 'Error · gnuReflex.txt' }),
   ).not.toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Edit text', exact: true })).toBeVisible();
   await section(page, '6 · Sewing allowances');
   await page.getByRole('textbox', { name: 'Rib edges (mm)', exact: true }).fill('11');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   expect(ok(parseLep((await downloadFile(page)).toString())).sewingAllowances.ribs).toBe(11);
+});
+
+test('the airfoil form edits points and counts, previews them and rewrites only the airfoil', async ({
+  page,
+}) => {
+  const original = await readFile('oracle/designs/swoop2/gnuReflex.txt', 'utf8');
+  const airfoil = ok(parseAirfoil('gnuReflex.txt', original));
+  if (airfoil.format !== 'txt') throw new Error('gnuReflex.txt is a .txt airfoil');
+  await page.goto('/');
+  const design = await downloadFile(page);
+  // Its own button opens the editor on the airfoil.
+  await page.getByRole('button', { name: 'Edit parameters of gnuReflex.txt', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'gnuReflex.txt', exact: true })).toBeVisible();
+  const item = page.getByRole('navigation').getByRole('button', { name: 'gnuReflex.txt' });
+  await expect(item).toHaveAttribute('aria-current', 'true');
+  await expect(item).toBeInViewport();
+  await expect(page.getByText('Used by ribs 1–26 (section 2).', { exact: false })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Extrados', exact: true })).toHaveValue(
+    String(airfoil.extrados),
+  );
+  const preview = page.getByRole('img', { name: 'Airfoil gnuReflex.txt', exact: true });
+  await expect(preview.locator('circle:not(.selected)')).toHaveCount(airfoil.points.length);
+  const rows = page
+    .getByRole('region', { name: 'Airfoil points', exact: true })
+    .locator('tbody tr');
+  await expect(rows).toHaveCount(airfoil.points.length);
+
+  // Inserting after the trailing edge adds a point to the extrados.
+  await rows.first().getByRole('button', { name: 'Insert point after', exact: true }).click();
+  await expect(rows).toHaveCount(airfoil.points.length + 1);
+  await expect(page.getByRole('textbox', { name: 'Extrados', exact: true })).toHaveValue(
+    String(airfoil.extrados + 1),
+  );
+  await expect(rows.nth(1)).toHaveClass(/selected/);
+  await expect(preview.locator('circle:not(.selected)')).toHaveCount(airfoil.points.length + 1);
+  await rows.nth(1).getByRole('textbox', { name: 'y', exact: true }).fill('0.01');
+  await expect(page.getByRole('figure')).toContainText('Point 2: (');
+
+  // Counts that do not add up block Save, and Show leads back to them.
+  await page.getByRole('textbox', { name: 'Extrados', exact: true }).fill('1');
+  await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+  await section(page, '6 · Sewing allowances');
+  await page.getByRole('button', { name: 'Show', exact: true }).click();
+  await expect(page.getByRole('textbox', { name: 'Extrados', exact: true })).toBeFocused();
+  await page
+    .getByRole('textbox', { name: 'Extrados', exact: true })
+    .fill(String(airfoil.extrados + 1));
+  await expect(page.getByText('Saving rewrites gnuReflex.txt.', { exact: false })).toBeVisible();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+
+  const saved = (await downloadFile(page, 'gnuReflex.txt')).toString();
+  expect(saved.split('\n', 1)[0]).toBe(original.split(/\r?\n/, 1)[0].trim());
+  expect(ok(parseAirfoil('gnuReflex.txt', saved))).toEqual({
+    ...airfoil,
+    extrados: airfoil.extrados + 1,
+    points: [airfoil.points[0], [expect.any(Number), 0.01], ...airfoil.points.slice(1)],
+  });
+  expect(await downloadFile(page)).toEqual(design);
 });
 
 test('input errors block compute and parameter editing while warnings allow compute', async ({

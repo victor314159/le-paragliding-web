@@ -125,8 +125,11 @@ test('the workspace fits a narrow screen and supports keyboard navigation', asyn
   ).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(
-    page.getByRole('button', { name: 'Edit text of leparagliding.txt', exact: true }),
+    page.getByRole('button', { name: 'Actions for leparagliding.txt', exact: true }),
   ).toBeFocused();
+  // The menu opens on its first item, Edit text.
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('menuitem', { name: 'Edit text', exact: true })).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('dialog')).toBeVisible();
   const editor = page.getByRole('textbox', { name: 'Content of leparagliding.txt', exact: true });
@@ -140,7 +143,7 @@ test('the workspace fits a narrow screen and supports keyboard navigation', asyn
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
   await page.keyboard.press('Escape');
   await expect(
-    page.getByRole('button', { name: 'Edit text of leparagliding.txt', exact: true }),
+    page.getByRole('button', { name: 'Actions for leparagliding.txt', exact: true }),
   ).toBeFocused();
   await page
     .getByLabel(

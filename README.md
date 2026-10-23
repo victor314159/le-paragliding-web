@@ -7,10 +7,11 @@ Web Worker: a static site, no backend.
 
 **Try it: <https://victor314159.github.io/le-paragliding-web/>**
 
-**Edit parameters** edits the 37 sections of `leparagliding.txt` in forms;
-saving them rewrites the file without its comments. **Edit text** edits any
-file. Most sections show a live drawing of their input, before the engine's
-corrections: zoom with the wheel, pan by dragging.
+**Edit parameters** edits the 37 sections of `leparagliding.txt` and the
+points of its airfoils in forms; saving them rewrites the changed files without
+their comments. **Edit text**, in the menu of each file, edits any file. Most
+sections show a live drawing of their input, before the engine's corrections:
+zoom with the wheel, pan by dragging.
 
 ## Safety disclaimer
 

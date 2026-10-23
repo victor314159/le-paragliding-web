@@ -1,5 +1,12 @@
 import { computed, Injectable, signal } from '@angular/core';
-import { DESIGN_FILE, readProject, writeLep, type LepDesign } from '@lepara/format';
+import {
+  DESIGN_FILE,
+  readProject,
+  writeAirfoil,
+  writeLep,
+  type LepAirfoil,
+  type LepDesign,
+} from '@lepara/format';
 import { withSeverity } from '../shared/diagnostics';
 import { saveFile, saveZip } from '../shared/download';
 import type { NamedFile } from '../shared/named-file';
@@ -95,6 +102,22 @@ export class DesignFilesService {
     }
     this.error.set('');
     this.replace(DESIGN_FILE, new TextEncoder().encode(written.value).buffer);
+  }
+
+  /**
+   * Rewrites the airfoil `name` from `airfoil`, unless writeAirfoil refuses it.
+   * Its first line, which the engine skips, is kept.
+   */
+  applyAirfoil(name: string, airfoil: LepAirfoil): void {
+    const file = this.files().find((candidate) => candidate.name === name);
+    if (!file) return;
+    const title = this.text(file).split(/\r?\n/, 1)[0].trim() || undefined;
+    const written = writeAirfoil(airfoil, { title });
+    if (!written.ok) {
+      this.error.set(written.errors.map((error) => error.message).join('\n'));
+      return;
+    }
+    this.replace(name, new TextEncoder().encode(written.value).buffer);
   }
 
   restore(file: InputFile): void {

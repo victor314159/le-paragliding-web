@@ -10,6 +10,7 @@ import {
 import { MatButton, MatIconButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 import { MatTooltip } from '@angular/material/tooltip';
+import { AirfoilPreview } from './airfoil-preview';
 import { ColorsPreview } from './colors-preview';
 import { DetailPreview } from './detail-preview';
 import { DETAIL_PREVIEWS, type PreviewViews } from './detail-previews';
@@ -54,6 +55,7 @@ export const PREVIEW_VIEWS: ReadonlyMap<number, PreviewViews> = new Map([
     MatIconButton,
     MatIcon,
     MatTooltip,
+    AirfoilPreview,
     GeometryPreview,
     HolesPreview,
     RibPreview,
@@ -152,66 +154,70 @@ export const PREVIEW_VIEWS: ReadonlyMap<number, PreviewViews> = new Map([
       aria-labelledby="preview-title"
       [hidden]="editor.previewCollapsed()"
     >
-      @switch (section()) {
-        @case (1) {
-          <app-geometry-preview
-            [row]="editor.selectedRecord(editor.form.geometry.ribs)"
-            [view]="wingView()"
-          />
-        }
-        @case (2) {
-          @if (view() === 'profile') {
-            <app-rib-preview [row]="editor.selectedRecord(editor.form.airfoils)" />
-          } @else {
-            <app-wing-context-preview
-              [row]="editor.selectedRecord(editor.form.airfoils)"
+      @if (editor.airfoil(); as airfoil) {
+        <app-airfoil-preview [name]="airfoil" />
+      } @else {
+        @switch (section()) {
+          @case (1) {
+            <app-geometry-preview
+              [row]="editor.selectedRecord(editor.form.geometry.ribs)"
               [view]="wingView()"
             />
           }
-        }
-        @case (3) {
-          @if (view() === 'profile') {
-            <app-rib-preview [row]="editor.selectedRecord(editor.form.anchors)" anchors />
-          } @else {
-            <app-wing-context-preview
-              [row]="editor.selectedRecord(editor.form.anchors)"
-              [view]="wingView()"
-            />
-          }
-        }
-        @case (4) {
-          @if (editor.form.holes.length) {
+          @case (2) {
             @if (view() === 'profile') {
-              <app-holes-preview [group]="holeGroup()" [active]="activeHole()" />
+              <app-rib-preview [row]="editor.selectedRecord(editor.form.airfoils)" />
             } @else {
               <app-wing-context-preview
-                [row]="holeRib()"
+                [row]="editor.selectedRecord(editor.form.airfoils)"
                 [view]="wingView()"
-                [group]="holeGroup()"
-                [activeHole]="activeHole()"
               />
             }
-          } @else {
-            <p>Add a hole group to preview its layout.</p>
           }
-        }
-        @case (5) {
-          <app-skin-tension-preview [view]="view()" />
-        }
-        @case (31) {
-          <app-skin-tension-preview [view]="view()" />
-        }
-        @case (15) {
-          <app-colors-preview />
-        }
-        @case (16) {
-          <app-colors-preview />
-        }
-        @case (30) {
-          <app-thickness-preview />
-        }
-        @default {
-          <app-detail-preview [view]="view()" />
+          @case (3) {
+            @if (view() === 'profile') {
+              <app-rib-preview [row]="editor.selectedRecord(editor.form.anchors)" anchors />
+            } @else {
+              <app-wing-context-preview
+                [row]="editor.selectedRecord(editor.form.anchors)"
+                [view]="wingView()"
+              />
+            }
+          }
+          @case (4) {
+            @if (editor.form.holes.length) {
+              @if (view() === 'profile') {
+                <app-holes-preview [group]="holeGroup()" [active]="activeHole()" />
+              } @else {
+                <app-wing-context-preview
+                  [row]="holeRib()"
+                  [view]="wingView()"
+                  [group]="holeGroup()"
+                  [activeHole]="activeHole()"
+                />
+              }
+            } @else {
+              <p>Add a hole group to preview its layout.</p>
+            }
+          }
+          @case (5) {
+            <app-skin-tension-preview [view]="view()" />
+          }
+          @case (31) {
+            <app-skin-tension-preview [view]="view()" />
+          }
+          @case (15) {
+            <app-colors-preview />
+          }
+          @case (16) {
+            <app-colors-preview />
+          }
+          @case (30) {
+            <app-thickness-preview />
+          }
+          @default {
+            <app-detail-preview [view]="view()" />
+          }
         }
       }
     </div>

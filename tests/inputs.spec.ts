@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { expect, test, type Page } from '@playwright/test';
 import JSZip from 'jszip';
-import { acknowledge } from './helpers';
+import { acknowledge, editText } from './helpers';
 
 async function source(page: Page, name: string): Promise<void> {
   await page.getByRole('combobox', { name: 'Input source', exact: true }).click();
@@ -27,7 +27,7 @@ async function downloadFile(page: Page, name: string): Promise<Buffer> {
 }
 
 async function apply(page: Page, text: string): Promise<void> {
-  await page.getByRole('button', { name: 'Edit text of leparagliding.txt', exact: true }).click();
+  await editText(page, 'leparagliding.txt');
   await page.getByRole('textbox', { name: 'Content of leparagliding.txt', exact: true }).fill(text);
   await page.getByRole('button', { name: 'Apply changes', exact: true }).click();
 }
@@ -37,7 +37,7 @@ test('editing, cancelling, switching sources and restoring keep the correct file
 }) => {
   const original = await readFile('oracle/designs/swoop2/leparagliding.txt');
   await page.goto('/');
-  await page.getByRole('button', { name: 'Edit text of leparagliding.txt', exact: true }).click();
+  await editText(page, 'leparagliding.txt');
   const area = page.getByRole('textbox', { name: 'Content of leparagliding.txt', exact: true });
   await area.fill('cancelled edit');
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
@@ -72,7 +72,7 @@ test('exported ZIP can be imported again with exact bytes, including untouched C
     { name: 'extra.dat', mimeType: 'text/plain', buffer: extra },
   ]);
   await expect(page.getByTestId('input-file-row')).toHaveCount(3);
-  await page.getByRole('button', { name: 'Edit text of leparagliding.txt', exact: true }).click();
+  await editText(page, 'leparagliding.txt');
   await page.getByRole('button', { name: 'Apply changes', exact: true }).click();
   await expect(page.getByText('Modified', { exact: true })).toHaveCount(0);
   expect(await downloadFile(page, 'leparagliding.txt')).toEqual(main);

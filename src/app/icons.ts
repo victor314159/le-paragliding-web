@@ -1,6 +1,7 @@
 import { inject } from '@angular/core';
 import { MatIconRegistry } from '@angular/material/icon';
 import { DomSanitizer } from '@angular/platform-browser';
+import add from '@material-symbols/svg-400/outlined/add.svg' with { loader: 'text' };
 import architecture from '@material-symbols/svg-400/outlined/architecture.svg' with {
   loader: 'text',
 };
@@ -26,6 +27,7 @@ import visibility from '@material-symbols/svg-400/outlined/visibility.svg' with 
 
 // Material Symbols bundled at build time: no icon font and no network request.
 const ICONS = {
+  add,
   architecture,
   close,
   dark_mode: darkMode,

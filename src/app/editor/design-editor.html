@@ -22,7 +22,12 @@
     Sections and airfoils
   </button>
   <div class="workspace">
-    <nav id="editor-navigation" aria-label="Sections and airfoils" [class.open]="editor.navOpen()">
+    <nav
+      #nav
+      id="editor-navigation"
+      aria-label="Sections and airfoils"
+      [class.open]="editor.navOpen()"
+    >
       @for (group of navigation(); track group.title) {
         <h3>{{ group.title }}</h3>
         @for (item of group.items; track item.id) {
@@ -44,9 +49,9 @@
       <section #content aria-labelledby="editor-section-title">
         <div class="section-heading">
           <h3 id="editor-section-title">{{ title() }}</h3>
-          @if (sectionForm()) {
+          @if (section() !== undefined && sectionForm()) {
             <a class="mat-font-body-sm" [href]="manualUrl()" target="_blank" rel="noopener"
-              >LEparagliding manual · Section {{ editor.selection() }}</a
+              >LEparagliding manual · Section {{ section() }}</a
             >
           }
         </div>
@@ -63,8 +68,17 @@
         }
         @if (sectionForm(); as form) {
           <ng-container *ngComponentOutlet="form" />
+        } @else if (section() === undefined) {
+          @if (unreadable()) {
+            <p>This airfoil could not be read: correct its file as text, or import it again.</p>
+            <button matButton="outlined" type="button" (click)="close({ editText: textTarget() })">
+              Edit text
+            </button>
+          } @else {
+            <p>This airfoil is missing: import it with the input files.</p>
+          }
         } @else {
-          <p>Airfoil coordinates are edited as text.</p>
+          <p>This section is edited as text.</p>
           <button matButton="outlined" type="button" (click)="close({ editText: textTarget() })">
             Edit text
           </button>
@@ -85,12 +99,13 @@
       </p>
     } @else if (draft.changed()) {
       <p class="mat-font-body-sm mat-text-on-surface-variant">
-        Saving rewrites {{ designFile }}. Original comments and formatting will be replaced.
+        Saving rewrites {{ rewritten().join(', ') }}. Original comments and formatting will be
+        replaced.
       </p>
     }
     <div class="actions">
       <button matButton type="button" (click)="close()">Cancel</button>
-      <button matButton="filled" type="submit" [disabled]="editor.form().invalid()">Save</button>
+      <button matButton="filled" type="submit" [disabled]="blocking() > 0">Save</button>
     </div>
   </footer>
 </form>

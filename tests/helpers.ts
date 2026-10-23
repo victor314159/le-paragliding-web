@@ -16,3 +16,9 @@ export async function acknowledge(page: Page): Promise<void> {
     .check();
   await expect(page.getByRole('button', { name: 'Compute design' })).toBeEnabled();
 }
+
+/** Opens the text editor of an input file, from its menu. */
+export async function editText(page: Page, name: string): Promise<void> {
+  await page.getByRole('button', { name: `Actions for ${name}`, exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Edit text', exact: true }).click();
+}

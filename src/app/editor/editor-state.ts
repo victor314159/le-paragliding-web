@@ -1,18 +1,27 @@
 import { computed, inject, Injectable, signal, type WritableSignal } from '@angular/core';
 import { form, validateTree, type FieldTree, type ReadonlyFieldTree } from '@angular/forms/signals';
 import { MAT_DIALOG_DATA } from '@angular/material/dialog';
-import type { Diagnostic, LepDesign, LepProject } from '@lepara/format';
-import { EditorDraft, type EditorForm } from './editor-draft';
+import {
+  DESIGN_FILE,
+  type Diagnostic,
+  type LepAirfoil,
+  type LepDesign,
+  type LepProject,
+} from '@lepara/format';
+import { EditorDraft, type AirfoilsForm, type EditorForm } from './editor-draft';
 
 export interface DesignEditorData {
   /** The project as read: it may have errors, which the editor shows. */
   readonly project: LepProject;
   /** The diagnostics of reading its files, from `readProject`. */
   readonly reading: readonly Diagnostic[];
+  /** The section or airfoil shown first: section 1 by default. */
+  readonly selection?: Selection;
 }
 
-/** The new design, if saved and changed; or the file to edit as text. */
-export type DesignEditorResult = { design: LepDesign } | { editText: string };
+/** What saving changed: the design and the airfoils to rewrite; or the file to edit as text. */
+export type DesignEditorResult =
+  { design?: LepDesign; airfoils: ReadonlyMap<string, LepAirfoil> } | { editText: string };
 
 /** A section number, or an airfoil's file name. */
 export type Selection = number | string;
@@ -45,13 +54,37 @@ function draftForm(draft: EditorDraft): EditorForm {
   });
 }
 
+/** The form of the airfoils, with the errors of each one on its fields. */
+function airfoilsForm(draft: EditorDraft): AirfoilsForm {
+  return form(draft.airfoilValue, (path) => {
+    validateTree(path, ({ fieldTree }) =>
+      draft.diagnostics().flatMap(({ severity, file, field, message }) => {
+        if (severity !== 'error' || !file || file === DESIGN_FILE) return [];
+        const airfoil = fieldTree[file] as AirfoilsForm[string] | undefined;
+        if (!airfoil) return [];
+        return [
+          { kind: 'format', message, fieldTree: (field && fieldAt(airfoil, field)) || airfoil },
+        ];
+      }),
+    );
+  });
+}
+
 /** The state of an open editor, shared by its sections: the draft, its form and the selected item. */
 @Injectable()
 export class EditorState {
   private readonly data = inject<DesignEditorData>(MAT_DIALOG_DATA);
   readonly draft = new EditorDraft(this.data.project, this.data.reading);
   readonly form = draftForm(this.draft);
-  readonly selection = signal<Selection>(1);
+  readonly airfoilForm = airfoilsForm(this.draft);
+  readonly selection = signal<Selection>(this.data.selection ?? 1);
+  /** The selected airfoil, if the project has it. */
+  readonly airfoil = computed(() => {
+    const selected = this.selection();
+    return typeof selected === 'string' && Object.hasOwn(this.draft.airfoilValue(), selected)
+      ? selected
+      : undefined;
+  });
   /** The navigation is open, on narrow screens. */
   readonly navOpen = signal(false);
   readonly previewCollapsed = signal(false);
@@ -93,9 +126,17 @@ export class EditorState {
     this.recordSelection(rows).set(index);
   }
 
+  /** The form of a section's fields, or of an airfoil's. */
+  formOf(selection: Selection): ReadonlyFieldTree<unknown> | undefined {
+    if (typeof selection === 'number') return this.form;
+    return Object.hasOwn(this.draft.airfoilValue(), selection)
+      ? this.airfoilForm[selection]
+      : undefined;
+  }
+
   /** Selects the rows on the path of a diagnostic's field, before focusing it. */
-  revealField(path: string): void {
-    let node: unknown = this.form;
+  revealField(path: string, root: unknown = this.form): void {
+    let node: unknown = root;
     for (const key of pathKeys(path)) {
       if (/^\d+$/.test(key) && node) this.recordSelection(node).set(Number(key));
       node = (node as Record<string, unknown> | undefined)?.[key];
@@ -107,9 +148,9 @@ export class EditorState {
    * controls hold that text, and the model keeps the last number.
    */
   readonly unparsed = computed(() =>
-    this.form()
-      .errorSummary()
-      .filter((error) => error.kind === 'parse'),
+    [...this.form().errorSummary(), ...this.airfoilForm().errorSummary()].filter(
+      (error) => error.kind === 'parse',
+    ),
   );
 
   /** Structural edits must not discard text still held by a number control. */

@@ -5,9 +5,11 @@ import {
   DXF3D_DEFAULTS,
   LINE_TYPES_DEFAULTS,
   PARTS_SEPARATION_DEFAULTS,
+  DESIGN_FILE,
   validate,
   validateDesign,
   type Diagnostic,
+  type LepAirfoil,
   type LepDesign,
   type LepProject,
 } from '@lepara/format';
@@ -438,27 +440,89 @@ export function toDesign(value: DesignForm): LepDesign {
   } as unknown as LepDesign;
 }
 
+/** An airfoil in the form: a .dat airfoil keeps the counts of the .txt format, unused. */
+export type AirfoilForm = Nullable<AllModes<LepAirfoil>>;
+/** The airfoils of the project, by file name. Field paths match their diagnostics. */
+export type AirfoilsForm = FieldTree<Readonly<Record<string, AirfoilForm>>>;
+
+export const toAirfoilForm = (airfoil: LepAirfoil): AirfoilForm => ({
+  extrados: 0,
+  inlet: 0,
+  intrados: 0,
+  ...airfoil,
+});
+
+/** Only the fields of its format go to validation and writing. */
+export function toAirfoil(value: AirfoilForm): LepAirfoil {
+  const { format, extrados, inlet, intrados, points } = value;
+  return (
+    format === 'txt' ? { format, extrados, inlet, intrados, points } : { format, points }
+  ) as LepAirfoil;
+}
+
 /**
- * The edited design of a project, validated by @lepara/format. Its design
- * errors block Save, since writeLep refuses them; the other errors, such as a
- * missing or unreadable airfoil, are shown without blocking. Plain signals:
- * EditorState binds its form.
+ * The edited design and airfoils of a project, validated by @lepara/format.
+ * Its design errors and those of the changed airfoils block Save, since
+ * writeLep and writeAirfoil refuse them; the other errors, such as a missing
+ * or unreadable airfoil, are shown without blocking. Plain signals:
+ * EditorState binds their forms.
  */
 export class EditorDraft {
   readonly value: WritableSignal<DesignForm>;
+  /** The airfoils read, by file name; missing and unreadable ones are not edited. */
+  readonly airfoilValue: WritableSignal<Readonly<Record<string, AirfoilForm>>>;
   readonly project: Signal<LepProject>;
   readonly diagnostics: Signal<readonly Diagnostic[]>;
-  /** The errors that block Save. */
+  /** The design errors, which block Save. */
   readonly errors: Signal<readonly Diagnostic[]>;
+  /** The errors of the changed airfoils, which block Save too. */
+  readonly airfoilErrors: Signal<readonly Diagnostic[]>;
+  /** The airfoils that differ from those read: saving rewrites their files. */
+  readonly changedAirfoils: Signal<ReadonlyMap<string, LepAirfoil>>;
   /** Saving rewrites leparagliding.txt. */
+  readonly designChanged: Signal<boolean>;
+  /** Saving rewrites leparagliding.txt or an airfoil. */
   readonly changed: Signal<boolean>;
 
   constructor(initial: LepProject, reading: readonly Diagnostic[] = []) {
     this.value = signal(toForm(initial.design));
-    this.project = computed(() => ({ ...initial, design: toDesign(this.value()) }));
+    this.airfoilValue = signal(
+      Object.fromEntries([...initial.airfoils].map(([name, a]) => [name, toAirfoilForm(a)])),
+    );
+    this.changedAirfoils = computed(() => {
+      const changed = new Map<string, LepAirfoil>();
+      for (const [name, value] of Object.entries(this.airfoilValue())) {
+        const airfoil = toAirfoil(value);
+        if (!dequal(airfoil, initial.airfoils.get(name))) changed.set(name, airfoil);
+      }
+      return changed;
+    });
+    // The airfoils read, as long as none changes: previews keep their input.
+    const airfoils = computed(() =>
+      this.changedAirfoils().size
+        ? new Map([...initial.airfoils, ...this.changedAirfoils()])
+        : initial.airfoils,
+    );
+    this.project = computed(() => ({
+      ...initial,
+      design: toDesign(this.value()),
+      airfoils: airfoils(),
+    }));
     const design = computed(() => validateDesign(this.project().design));
-    this.diagnostics = computed(() => validate(this.project(), { reading, design: design() }));
+    // A rewritten airfoil no longer has the warnings of reading its file.
+    const read = computed(() =>
+      reading.filter(({ file }) => !file || !this.changedAirfoils().has(file)),
+    );
+    this.diagnostics = computed(() =>
+      validate(this.project(), { reading: read(), design: design() }),
+    );
     this.errors = computed(() => withSeverity(design(), 'error'));
-    this.changed = computed(() => !dequal(this.project().design, initial.design));
+    this.airfoilErrors = computed(() =>
+      withSeverity(this.diagnostics(), 'error').filter(
+        ({ file }) => file && file !== DESIGN_FILE && this.changedAirfoils().has(file),
+      ),
+    );
+    this.designChanged = computed(() => !dequal(this.project().design, initial.design));
+    this.changed = computed(() => this.designChanged() || this.changedAirfoils().size > 0);
   }
 }

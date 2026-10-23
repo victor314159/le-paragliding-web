@@ -59,17 +59,25 @@
                   <mat-icon svgIcon="tune" />
                 </button>
               </span>
+            } @else if (airfoils().has(file.name)) {
+              <span
+                [matTooltip]="
+                  airfoils().get(file.name) || locked()
+                    ? 'Edit parameters'
+                    : 'Fix ' + file.name + ' with Edit text first.'
+                "
+              >
+                <button
+                  matIconButton
+                  type="button"
+                  [disabled]="locked() || !airfoils().get(file.name)"
+                  [attr.aria-label]="'Edit parameters of ' + file.name"
+                  (click)="editParameters(file.name)"
+                >
+                  <mat-icon svgIcon="tune" />
+                </button>
+              </span>
             }
-            <button
-              matIconButton
-              type="button"
-              matTooltip="Edit text"
-              [disabled]="locked()"
-              [attr.aria-label]="'Edit text of ' + file.name"
-              (click)="edit(file)"
-            >
-              <mat-icon svgIcon="edit" />
-            </button>
             <button
               matIconButton
               type="button"
@@ -150,6 +158,11 @@
 
 <mat-menu #fileMenu="matMenu">
   <ng-template matMenuContent let-file>
+    <button mat-menu-item (click)="edit(file)">
+      <mat-icon svgIcon="edit" />
+      Edit text
+    </button>
+    <mat-divider />
     <button mat-menu-item (click)="inputs.exportFile(file)">
       <mat-icon svgIcon="download" />
       Download

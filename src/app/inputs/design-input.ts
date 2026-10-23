@@ -33,7 +33,7 @@ import { MatOption, MatSelect } from '@angular/material/select';
 import { MatTooltip } from '@angular/material/tooltip';
 import { DESIGN_FILE } from '@lepara/format';
 import { ComputeService } from '../compute/compute.service';
-import type { DesignEditorData, DesignEditorResult } from '../editor/editor-state';
+import type { DesignEditorData, DesignEditorResult, Selection } from '../editor/editor-state';
 import { diagnosticLabel, withSeverity } from '../shared/diagnostics';
 import { DesignFilesService, type InputFile } from './design-files.service';
 import { DESIGNS } from './designs';
@@ -109,11 +109,20 @@ export class DesignInput implements OnInit {
     return file.name === DESIGN_FILE ? 'Wing geometry and parameters' : 'Airfoil';
   }
 
-  protected async editParameters(): Promise<void> {
+  /** The airfoils section 2 names, by file name: true for those read. */
+  protected readonly airfoils = computed(() => {
+    const project = this.inputs.reading().project;
+    return new Map(
+      project?.design.airfoils.map(({ airfoil }) => [airfoil, project.airfoils.has(airfoil)]),
+    );
+  });
+
+  /** Opens the parameter editor, on `selection` if given: a section or an airfoil. */
+  protected async editParameters(selection?: Selection): Promise<void> {
     const { DesignEditor } = await import('../editor/design-editor');
     const { project, reading } = this.inputs.reading();
     if (this.locked() || this.dialog.openDialogs.length || !project) return;
-    const data: DesignEditorData = { project, reading };
+    const data: DesignEditorData = { project, reading, selection };
     this.dialog
       .open(DesignEditor, {
         data,
@@ -127,11 +136,13 @@ export class DesignInput implements OnInit {
       .afterClosed()
       .subscribe((result: DesignEditorResult | undefined) => {
         if (!result) return;
-        if ('design' in result) this.inputs.applyDesign(result.design);
-        else {
+        if ('editText' in result) {
           const target = this.inputs.files().find((file) => file.name === result.editText);
           if (target) void this.edit(target);
+          return;
         }
+        if (result.design) this.inputs.applyDesign(result.design);
+        for (const [name, airfoil] of result.airfoils) this.inputs.applyAirfoil(name, airfoil);
       });
   }
 

@@ -1,6 +1,7 @@
 import { NgComponentOutlet } from '@angular/common';
 import {
   afterNextRender,
+  afterRenderEffect,
   Component,
   computed,
   effect,
@@ -25,6 +26,7 @@ import { MatIcon } from '@angular/material/icon';
 import { DESIGN_FILE, SECTIONS, type Diagnostic } from '@lepara/format';
 import { filter } from 'rxjs';
 import { diagnosticLabel, withSeverity } from '../shared/diagnostics';
+import { AirfoilSection } from './airfoil-section';
 import { EditorPreview, PREVIEW_VIEWS } from './editor-preview';
 import { EditorState, fieldAt, type DesignEditorResult, type Selection } from './editor-state';
 import { SECTION_FORMS } from './sections';
@@ -77,16 +79,27 @@ export class DesignEditor {
   protected readonly draft = this.editor.draft;
   protected readonly designFile = DESIGN_FILE;
   protected readonly diagnosticLabel = diagnosticLabel;
-  protected readonly sectionForm = computed(() => SECTION_FORMS.get(this.editor.selection()));
+  protected readonly sectionForm = computed(() =>
+    this.editor.airfoil() ? AirfoilSection : SECTION_FORMS.get(this.editor.selection()),
+  );
+  protected readonly section = computed(() => {
+    const selected = this.editor.selection();
+    return typeof selected === 'number' ? selected : undefined;
+  });
   protected readonly title = computed(() => {
     const selected = this.editor.selection();
     return typeof selected === 'number'
       ? `${selected} · ${SECTIONS.find((section) => section.number === selected)?.title ?? ''}`
       : selected;
   });
+  /** The selected airfoil has a file, with reading errors. */
+  protected readonly unreadable = computed(() => {
+    const selected = this.editor.selection();
+    return this.draft.diagnostics().some(({ file }) => file === selected);
+  });
   protected readonly manualUrl = computed(() => `${MANUAL}#6.${this.editor.selection()}`);
-  protected readonly hasPreview = computed(() =>
-    PREVIEW_VIEWS.has(Number(this.editor.selection())),
+  protected readonly hasPreview = computed(
+    () => !!this.editor.airfoil() || PREVIEW_VIEWS.has(Number(this.editor.selection())),
   );
   /** The sections and airfoils, with their error counts: the way to every error. */
   protected readonly navigation = computed(() => {
@@ -95,9 +108,20 @@ export class DesignEditor {
       const place = placeOf(error);
       counts.set(place, (counts.get(place) ?? 0) + 1);
     }
+    const airfoils = this.draft.airfoilValue();
+    const changed = this.draft.changedAirfoils();
     const item = (id: Selection, label: string): NavigationItem => {
       const errors = counts.get(id) ?? 0;
-      const note = SECTION_FORMS.has(id) ? '' : 'Text only';
+      const note =
+        typeof id === 'number'
+          ? SECTION_FORMS.has(id)
+            ? ''
+            : 'Text only'
+          : !Object.hasOwn(airfoils, id)
+            ? 'Not read'
+            : changed.has(id)
+              ? 'Modified'
+              : '';
       const count = errors ? `${errors} ${errors === 1 ? 'error' : 'errors'}` : '';
       return { id, label, errors, note: [note, count].filter(Boolean).join(' · ') };
     };
@@ -130,10 +154,19 @@ export class DesignEditor {
 
   /** The errors that block Save: text that is not a number first, then the design errors. */
   protected readonly blocking = computed(
-    () => this.editor.unparsed().length + this.draft.errors().length,
+    () =>
+      this.editor.unparsed().length +
+      this.draft.errors().length +
+      this.draft.airfoilErrors().length,
   );
+  /** The files that saving rewrites. */
+  protected readonly rewritten = computed(() => [
+    ...(this.draft.designChanged() ? [DESIGN_FILE] : []),
+    ...this.draft.changedAirfoils().keys(),
+  ]);
 
   private readonly content = viewChild<ElementRef<HTMLElement>>('content');
+  private readonly navigationList = viewChild<ElementRef<HTMLElement>>('nav');
   private readonly diagnostics = viewChild<ElementRef<HTMLElement>>('diagnostics');
 
   constructor() {
@@ -141,6 +174,15 @@ export class DesignEditor {
     effect(() => {
       this.editor.selection();
       untracked(() => this.content()?.nativeElement.scrollTo(0, 0));
+    });
+    // The selected item stays in sight: an airfoil opened from its file is at the end.
+    afterRenderEffect({
+      read: () => {
+        this.editor.selection();
+        this.navigationList()
+          ?.nativeElement.querySelector('[aria-current="true"]')
+          ?.scrollIntoView({ block: 'nearest' });
+      },
     });
     this.ref
       .keydownEvents()
@@ -155,14 +197,14 @@ export class DesignEditor {
   }
 
   protected showFirstError(): void {
-    const [first] = this.draft.errors();
+    const [first] = [...this.draft.errors(), ...this.draft.airfoilErrors()];
     if (!this.editor.focusUnparsed() && first) this.showDiagnostic(first);
   }
 
   protected showDiagnostic(diagnostic: Diagnostic): void {
     const place = placeOf(diagnostic);
     if (place === undefined || !this.editor.select(place)) return;
-    if (diagnostic.field) this.editor.revealField(diagnostic.field);
+    if (diagnostic.field) this.editor.revealField(diagnostic.field, this.editor.formOf(place));
     // An error without an input of its own is in the list under the title.
     const target = this.inputOf(diagnostic, place);
     afterNextRender(
@@ -171,11 +213,12 @@ export class DesignEditor {
     );
   }
 
-  /** The input that shows a design error under it, in the form of its section. */
+  /** The input that shows an error under it, in the form of its section or airfoil. */
   private inputOf(diagnostic: Diagnostic, place = placeOf(diagnostic)) {
-    if (place === undefined || !SECTION_FORMS.has(place)) return undefined;
+    const tree = place === undefined ? undefined : this.editor.formOf(place);
+    if (!tree || (typeof place === 'number' && !SECTION_FORMS.has(place))) return undefined;
     if (diagnostic.severity !== 'error' || !diagnostic.field) return undefined;
-    const field = fieldAt(this.editor.form, diagnostic.field);
+    const field = fieldAt(tree, diagnostic.field);
     const value = field?.().value();
     // Row counts and cross-field errors belong to a collection or an object,
     // without an individual input to display them underneath.
@@ -188,8 +231,15 @@ export class DesignEditor {
   }
 
   protected submit(): void {
-    if (this.editor.form().invalid()) return;
-    this.ref.close(this.draft.changed() ? { design: this.draft.project().design } : undefined);
+    if (this.blocking()) return;
+    if (!this.draft.changed()) {
+      this.ref.close();
+      return;
+    }
+    this.ref.close({
+      ...(this.draft.designChanged() && { design: this.draft.project().design }),
+      airfoils: this.draft.changedAirfoils(),
+    });
   }
 
   /** Closes with `result`, after confirming that unsaved edits may be discarded. */

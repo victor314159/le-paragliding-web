@@ -298,3 +298,54 @@ test('HVR separation factors follow section 38 and retain edits while hidden', (
   expect(draft.errors()).toEqual([]);
   expect(draft.value().hvrPositions.coefficients[0].horizontal).toBeNull();
 });
+
+test('an edited airfoil changes the project, and only its errors block Save', () => {
+  const initial = fixture();
+  const reading: Diagnostic[] = [{ severity: 'warning', file: 'gnua.txt', message: 'Extra text' }];
+  const draft = new EditorDraft(initial, reading);
+  expect(draft.airfoilValue()['gnua.txt']).toEqual(initial.airfoils.get('gnua.txt'));
+  expect(draft.diagnostics()).toContainEqual(reading[0]);
+  draft.airfoilValue.update((airfoils) => ({
+    ...airfoils,
+    'gnua.txt': { ...airfoils['gnua.txt'], extrados: 3 },
+  }));
+  expect(draft.changed()).toBe(true);
+  expect(draft.designChanged()).toBe(false);
+  expect([...draft.changedAirfoils().keys()]).toEqual(['gnua.txt']);
+  expect(draft.project().airfoils.get('gnua.txt')).toMatchObject({ extrados: 3 });
+  expect(draft.errors()).toEqual([]);
+  expect(draft.airfoilErrors()).toEqual([
+    expect.objectContaining({ file: 'gnua.txt', field: 'extrados' }),
+  ]);
+  // A rewritten airfoil no longer has the warnings of reading its file.
+  expect(draft.diagnostics()).not.toContainEqual(reading[0]);
+  draft.airfoilValue.update((airfoils) => ({
+    ...airfoils,
+    'gnua.txt': { ...airfoils['gnua.txt'], extrados: 2 },
+  }));
+  expect(draft.changed()).toBe(false);
+  expect(draft.project().airfoils).toBe(initial.airfoils);
+});
+
+test('a .dat airfoil keeps only its points', () => {
+  const initial = fixture();
+  const points = initial.airfoils.get('gnua.txt')!.points;
+  const draft = new EditorDraft({
+    ...initial,
+    airfoils: new Map([['gnua.dat', { format: 'dat', points }]]),
+  });
+  expect(draft.airfoilValue()['gnua.dat']).toEqual({
+    format: 'dat',
+    extrados: 0,
+    inlet: 0,
+    intrados: 0,
+    points,
+  });
+  draft.airfoilValue.update((airfoils) => ({
+    'gnua.dat': { ...airfoils['gnua.dat'], points: [...points, [0.5, 0]] },
+  }));
+  expect(draft.project().airfoils.get('gnua.dat')).toEqual({
+    format: 'dat',
+    points: [...points, [0.5, 0]],
+  });
+});
