@@ -26,6 +26,16 @@ Setup, build and test commands are in [README.md](README.md).
   `docker compose run --rm oracle node scripts/check-format-native.ts` runs
   the same cases on the native build (gfortran).
 
+## Parameter editor
+
+- `src/app/editor/` edits the design in one Signal Form over the model
+  (`DesignForm`, field paths as in the diagnostics), validated by
+  `validateDesign`. A section form is a component that injects `EditorState`
+  and binds `form.<section key>`, registered in `SECTION_FORMS`
+  (`sections.ts`). A section with modes keeps the fields of every mode in
+  `DesignForm`: add it to `toForm` and `toDesign` (`editor-draft.ts`), with
+  its engine defaults in `@lepara/format`.
+
 ## Fortran engine
 
 - `packages/engine/` is the npm package around the WASM build (TypeScript,

@@ -1,4 +1,4 @@
-<form [formRoot]="draft.form" (submit)="submit()">
+<form [formRoot]="editor.form" (submit)="submit()">
   <header>
     <div>
       <h2>{{ designFile }}</h2>
@@ -14,22 +14,22 @@
     matButton
     type="button"
     class="nav-toggle"
-    [attr.aria-expanded]="navOpen()"
+    [attr.aria-expanded]="editor.navOpen()"
     aria-controls="editor-navigation"
-    (click)="navOpen.set(!navOpen())"
+    (click)="editor.navOpen.set(!editor.navOpen())"
   >
     Sections and airfoils
   </button>
   <div class="workspace">
-    <nav id="editor-navigation" aria-label="Sections and airfoils" [class.open]="navOpen()">
+    <nav id="editor-navigation" aria-label="Sections and airfoils" [class.open]="editor.navOpen()">
       @for (group of navigation(); track group.title) {
         <h3>{{ group.title }}</h3>
         @for (item of group.items; track item.id) {
           <button
             matButton
             type="button"
-            [attr.aria-current]="selection() === item.id ? 'true' : null"
-            (click)="select(item.id)"
+            [attr.aria-current]="editor.selection() === item.id ? 'true' : null"
+            (click)="editor.select(item.id)"
           >
             {{ item.label }}
             @if (item.note) {
@@ -41,36 +41,18 @@
     </nav>
     <section aria-labelledby="editor-section-title">
       <h3 id="editor-section-title">{{ title() }}</h3>
-      @if ((selection() === 24 || selection() === 25) && colorsByLineType()) {
-        <p class="mat-text-on-surface-variant">
-          Section 37, parameter 1341 is enabled: line colors come from Section 34 and override these
-          settings.
-          <button matButton type="button" (click)="select(37)">View Section 37</button>
-        </p>
-      }
-      @switch (selection()) {
-        @case (6) {
-          <app-sewing-section [form]="draft.form.sewingAllowances" />
-        }
-        @case (24) {
-          <app-dxf2d-section [form]="draft.form.dxf2d" />
-        }
-        @case (25) {
-          <app-dxf3d-section [form]="draft.form.dxf3d" />
-        }
-        @default {
-          <p>No form is available for this item yet. Use the text editor to change it.</p>
-          <button matButton="outlined" type="button" (click)="close({ editText: textTarget() })">
-            Edit text
-          </button>
-        }
-      }
-      @if (hasForm(selection())) {
+      @if (sectionForm(); as form) {
+        <ng-container *ngComponentOutlet="form" />
         <p class="mat-font-body-sm">
           <a [href]="manualUrl()" target="_blank" rel="noopener"
-            >LEparagliding manual · Section {{ selection() }}</a
+            >LEparagliding manual · Section {{ editor.selection() }}</a
           >
         </p>
+      } @else {
+        <p>No form is available for this item yet. Use the text editor to change it.</p>
+        <button matButton="outlined" type="button" (click)="close({ editText: textTarget() })">
+          Edit text
+        </button>
       }
       @if (localDiagnostics().length) {
         <ul class="diagnostics">
@@ -86,12 +68,11 @@
   </div>
   <footer>
     <!-- Next to Save: why it is disabled, and a way to the first error. -->
-    @if (draft.errors()[0]; as first) {
+    @if (blocking(); as count) {
       <p class="status mat-text-error" role="status">
         <mat-icon svgIcon="error" />
-        {{ draft.errors().length }} {{ draft.errors().length === 1 ? 'error' : 'errors' }} · Fix
-        before saving
-        <button matButton type="button" (click)="showDiagnostic(first)">Show</button>
+        {{ count }} {{ count === 1 ? 'error' : 'errors' }} · Fix before saving
+        <button matButton type="button" (click)="showFirstError()">Show</button>
       </p>
     } @else if (draft.changed()) {
       <p class="mat-font-body-sm mat-text-on-surface-variant">
@@ -100,7 +81,7 @@
     }
     <div class="actions">
       <button matButton type="button" (click)="close()">Cancel</button>
-      <button matButton="filled" type="submit" [disabled]="draft.form().invalid()">Save</button>
+      <button matButton="filled" type="submit" [disabled]="editor.form().invalid()">Save</button>
     </div>
   </footer>
 </form>

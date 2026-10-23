@@ -1,5 +1,5 @@
-import { Component, input } from '@angular/core';
-import type { SewingForm } from './editor-draft';
+import { Component, inject } from '@angular/core';
+import { EditorState } from './editor-state';
 import { NumberField } from './number-field';
 
 @Component({
@@ -11,9 +11,10 @@ import { NumberField } from './number-field';
         <legend>{{ panel.label }}</legend>
         @for (edge of edges; track edge.key) {
           <app-number-field
-            [label]="panel.label + ' · ' + edge.label + ' (mm)'"
+            [label]="panel.label + ' · ' + edge.label"
+            unit="mm"
             [hint]="'Seam width at the ' + edge.hint + '.'"
-            [field]="form()[panel.key][edge.key]"
+            [field]="form[panel.key][edge.key]"
           />
         }
       </fieldset>
@@ -21,21 +22,23 @@ import { NumberField } from './number-field';
     <fieldset>
       <legend>Ribs</legend>
       <app-number-field
-        label="Rib edges (mm)"
+        label="Rib edges"
+        unit="mm"
         hint="Seam width around the ribs."
-        [field]="form().ribs"
+        [field]="form.ribs"
       />
       <app-number-field
-        label="V-rib edges (mm)"
+        label="V-rib edges"
+        unit="mm"
         hint="Seam width around the V-ribs."
-        [field]="form().vRibs"
+        [field]="form.vRibs"
       />
     </fieldset>
   `,
   styleUrl: './section.css',
 })
 export class SewingSection {
-  readonly form = input.required<SewingForm>();
+  protected readonly form = inject(EditorState).form.sewingAllowances;
   protected readonly panels = [
     { key: 'upper', label: 'Upper panels' },
     { key: 'lower', label: 'Lower panels' },

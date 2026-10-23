@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { readProject, validate } from '../../packages/format/src/index.ts';
+import { readProject, SECTIONS, validate } from '../../packages/format/src/index.ts';
 import { DESIGNS, designFiles } from './helpers';
 
 const swoop2 = designFiles('oracle/designs/swoop2');
@@ -53,4 +53,17 @@ test('files the design does not name are not read', () => {
   const reading = readProject(new Map([...swoop2, ['notes.txt', 'notes']]));
   expect(reading.project?.airfoils.has('notes.txt')).toBe(false);
   expect(reading.diagnostics.filter((d) => d.file === 'notes.txt')).toEqual([]);
+});
+
+test('SECTIONS lists the sections of the model in file order, with their numbers', () => {
+  const { design } = readProject(swoop2).project!;
+  expect(SECTIONS.map((s) => s.key)).toEqual(Object.keys(design));
+  const sections = new Set(validate({ design, airfoils: new Map() }).map((d) => d.section));
+  for (const number of sections) expect(SECTIONS.map((s) => s.number)).toContain(number);
+});
+
+test('validate reuses the diagnostics of the design it is given', () => {
+  const { project } = readProject(swoop2);
+  const given = { severity: 'warning', message: 'Given', section: 6 } as const;
+  expect(validate(project!, { design: [given] })).toContainEqual(given);
 });

@@ -28,9 +28,12 @@ parseAirfoil(name: string, text: string): Result<LepAirfoil>; // .txt or .dat, f
 writeAirfoil(airfoil: LepAirfoil, options?: { title?: string }): Result<string>;
 
 readProject(files: ReadonlyMap<string, string>): ProjectReading; // texts by file name
-validate(project: LepProject, options?: { reading?: readonly Diagnostic[] }): readonly Diagnostic[];
+validate(project: LepProject, options?: { reading?, design?: readonly Diagnostic[] }): readonly Diagnostic[];
 validateDesign(design: LepDesign): Diagnostic[]; // without the airfoils
 locateLep(text: string, options?: { file?: string }): Result<ReadonlyMap<string, FieldPosition>>;
+
+SECTIONS: readonly { number, key: keyof LepDesign, title }[]; // the 37 sections, in file order
+DXF2D_DEFAULTS, DXF3D_DEFAULTS; // sections 24 and 25 in mode 1, with the engine's mode 0 values
 ```
 
 - `LepDesign` holds the sections of `leparagliding.txt` (1 to 12, then 15 to
@@ -51,7 +54,8 @@ locateLep(text: string, options?: { file?: string }): Result<ReadonlyMap<string,
   `leparagliding.txt` is missing or unreadable; the diagnostics of reading
   the files; and those, then the diagnostics of `validate`. To validate a
   changed project (an editor), pass `reading` to `validate`: they come first,
-  and an airfoil that could not be read is not reported missing too.
+  and an airfoil that could not be read is not reported missing too. Pass
+  `design`, the diagnostics of `validateDesign`, if you already have them.
 - `Result<T>` is `{ ok: true, value, warnings }` or `{ ok: false, errors }`.
   A `Diagnostic` has a `severity`, a `message` and, when they apply, the
   `file`, the `section`, the model `field` (`lines.plans[0].paths[3].anchorRib`),

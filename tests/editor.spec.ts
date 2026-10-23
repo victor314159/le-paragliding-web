@@ -134,16 +134,29 @@ test('Cancel, close and Escape confirm dirty drafts and preserve original bytes'
   }
 });
 
-test('invalid values and hidden DXF fields survive navigation, including on mobile', async ({
+test('text that is not a number keeps the section, and empty and hidden fields survive navigation', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
   await opener(page).click();
-  await page.getByRole('textbox', { name: 'Rib edges (mm)', exact: true }).fill('-');
-  await page.getByRole('textbox', { name: 'V-rib edges (mm)', exact: true }).focus();
   const rib = page.getByRole('textbox', { name: 'Rib edges (mm)', exact: true });
+  await rib.fill('-');
+  await page.getByRole('textbox', { name: 'V-rib edges (mm)', exact: true }).focus();
   await expect(rib).toHaveAttribute('aria-invalid', 'true');
+  await expect(page.getByText('Enter a number.', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+  await expect(page.getByRole('dialog').getByRole('status')).toHaveText(
+    /1 error · Fix before saving/,
+  );
+  // Leaving would discard the text: the editor stays on its field.
+  await section(page, '24 · 2D DXF options');
+  await expect(page.getByRole('heading', { name: '6 · Sewing allowances' })).toBeVisible();
+  await expect(rib).toBeFocused();
+  await expect(rib).toHaveValue('-');
+  await rib.fill('');
+  await expect(rib).toHaveAttribute('aria-invalid', 'true');
+  await expect(page.getByText('Must be a number', { exact: true })).toBeVisible();
   await section(page, '24 · 2D DXF options');
   await choose(page, '2D DXF mode', '1');
   await page.getByRole('textbox', { name: 'A lines color', exact: true }).fill('');
@@ -151,18 +164,23 @@ test('invalid values and hidden DXF fields survive navigation, including on mobi
   await choose(page, '2D DXF mode', '1');
   await expect(page.getByRole('textbox', { name: 'A lines color', exact: true })).toHaveValue('');
   await section(page, '6 · Sewing allowances');
-  await expect(page.getByRole('textbox', { name: 'Rib edges (mm)', exact: true })).toHaveValue('-');
+  await expect(rib).toHaveValue('');
   await expect(rib).toHaveAttribute('aria-invalid', 'true');
-  await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
-  await page.getByRole('textbox', { name: 'Rib edges (mm)', exact: true }).fill('11.5');
+  await rib.fill('11.5');
   await expect(rib).toHaveAttribute('aria-invalid', 'false');
   await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
   // The footer says why Save is disabled and leads to the remaining error.
-  await expect(page.getByRole('status')).toHaveText(/1 error · Fix before saving/);
-  await page.getByRole('status').getByRole('button', { name: 'Show', exact: true }).click();
+  await expect(page.getByRole('dialog').getByRole('status')).toHaveText(
+    /1 error · Fix before saving/,
+  );
+  await page
+    .getByRole('dialog')
+    .getByRole('status')
+    .getByRole('button', { name: 'Show', exact: true })
+    .click();
   await expect(page.getByRole('textbox', { name: 'A lines color', exact: true })).toBeFocused();
   await choose(page, '2D DXF mode', '0');
-  await expect(page.getByRole('status')).toHaveCount(0);
+  await expect(page.getByRole('dialog').getByRole('status')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeEnabled();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
   await page.getByRole('button', { name: 'Save', exact: true }).click();

@@ -18,19 +18,21 @@ export interface LepProject {
  * Every error and warning of a project: its design, its airfoils and their
  * links. `reading`, the diagnostics of reading its files (`readProject`),
  * come first: an airfoil with a reading error is not reported missing too.
+ * `design`, those of `validateDesign(project.design)` if already computed,
+ * are not computed again.
  */
 export function validate(
   project: LepProject,
-  options: { reading?: readonly Diagnostic[] } = {},
+  options: { reading?: readonly Diagnostic[]; design?: readonly Diagnostic[] } = {},
 ): readonly Diagnostic[] {
   const { design, airfoils } = project;
-  const { reading = [] } = options;
+  const { reading = [], design: designDiagnostics = validateDesign(design) } = options;
   const unreadable = new Set(
     reading.flatMap(({ severity, file }) =>
       severity === 'error' && file && file !== DESIGN_FILE ? [file] : [],
     ),
   );
-  const diagnostics = [...reading, ...validateDesign(design)];
+  const diagnostics = [...reading, ...designDiagnostics];
   diagnostics.push(...new ProjectChecker(design, airfoils, unreadable).run());
   for (const [name, airfoil] of airfoils) {
     if (!design.airfoils.some((row) => row.airfoil === name)) {
@@ -109,8 +111,16 @@ class DesignChecker extends Checker {
 
   // --- helpers -----------------------------------------------------------------
 
+  /** A number, not null or another type (an untyped caller, an emptied form field). */
+  private number(field: string, value: unknown): value is number {
+    if (typeof value === 'number') return true;
+    this.error(field, 'Must be a number');
+    return false;
+  }
+
   /** An INTEGER, optionally within [min, max]. False if not. */
   private int(field: string, value: number, min = -2147483648, max = 2147483647): boolean {
+    if (!this.number(field, value)) return false;
     if (!Number.isInteger(value)) {
       this.error(field, `Must be an integer: ${value}`);
       return false;
@@ -124,7 +134,8 @@ class DesignChecker extends Checker {
 
   /** A REAL*8: finite. False if not. */
   private real(field: string, value: number): boolean {
-    if (typeof value !== 'number' || !Number.isFinite(value)) {
+    if (!this.number(field, value)) return false;
+    if (!Number.isFinite(value)) {
       this.error(field, `Must be a finite number: ${value}`);
       return false;
     }

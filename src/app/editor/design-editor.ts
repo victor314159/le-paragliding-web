@@ -1,9 +1,9 @@
-import { afterNextRender, Component, computed, inject, Injector, signal } from '@angular/core';
+import { NgComponentOutlet } from '@angular/common';
+import { afterNextRender, Component, computed, inject, Injector } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormRoot } from '@angular/forms/signals';
 import { MatButton, MatIconButton } from '@angular/material/button';
 import {
-  MAT_DIALOG_DATA,
   MatDialog,
   MatDialogActions,
   MatDialogClose,
@@ -12,25 +12,13 @@ import {
   MatDialogTitle,
 } from '@angular/material/dialog';
 import { MatIcon } from '@angular/material/icon';
-import { DESIGN_FILE, type Diagnostic, type LepProject } from '@lepara/format';
+import { DESIGN_FILE, SECTIONS, type Diagnostic } from '@lepara/format';
 import { filter } from 'rxjs';
 import { diagnosticLabel, withSeverity } from '../shared/diagnostics';
-import { Dxf2dSection } from './dxf2d-section';
-import { Dxf3dSection } from './dxf3d-section';
-import { EditorDraft, fieldAt } from './editor-draft';
-import { hasForm, SECTIONS, type Selection } from './sections';
-import { SewingSection } from './sewing-section';
+import { EditorState, fieldAt, type DesignEditorResult, type Selection } from './editor-state';
+import { SECTION_FORMS } from './sections';
 
 const MANUAL = 'https://www.laboratoridenvol.com/leparagliding/manual.en.html';
-
-export interface DesignEditorData {
-  /** The project as read: it may have errors, which the editor shows. */
-  readonly project: LepProject;
-  /** The diagnostics of reading its files, from `readProject`. */
-  readonly reading: readonly Diagnostic[];
-}
-
-export type DesignEditorResult = { project: LepProject } | { editText: string };
 
 /** Where the editor shows a diagnostic: its section or its airfoil; on every page otherwise. */
 function placeOf({ section, file }: Diagnostic): Selection | undefined {
@@ -58,38 +46,30 @@ interface NavigationItem {
 })
 class DiscardChangesDialog {}
 
-/** Edits the parameters of a project in a dialog; closes with the new project, if saved. */
+/** Edits the parameters of a project in a dialog; closes with the new design, if saved. */
 @Component({
   selector: 'app-design-editor',
-  imports: [FormRoot, MatButton, MatIconButton, MatIcon, SewingSection, Dxf2dSection, Dxf3dSection],
+  imports: [FormRoot, MatButton, MatIconButton, MatIcon, NgComponentOutlet],
   templateUrl: './design-editor.html',
   styleUrl: './design-editor.css',
+  providers: [EditorState],
 })
 export class DesignEditor {
-  private readonly data = inject<DesignEditorData>(MAT_DIALOG_DATA);
   private readonly ref = inject<MatDialogRef<DesignEditor, DesignEditorResult>>(MatDialogRef);
   private readonly dialogs = inject(MatDialog);
   private readonly injector = inject(Injector);
-  protected readonly draft = new EditorDraft(this.data.project, this.data.reading);
+  protected readonly editor = inject(EditorState);
+  protected readonly draft = this.editor.draft;
   protected readonly designFile = DESIGN_FILE;
-  protected readonly hasForm = hasForm;
   protected readonly diagnosticLabel = diagnosticLabel;
-  protected readonly selection = signal<Selection>(6);
-  protected readonly navOpen = signal(false);
-  protected readonly colorsByLineType = computed(() => {
-    const special = this.draft.project().design.specialParameters;
-    return (
-      special.mode === 1 &&
-      special.entries.some((entry) => entry.code === 1341 && entry.value === 1)
-    );
-  });
+  protected readonly sectionForm = computed(() => SECTION_FORMS.get(this.editor.selection()));
   protected readonly title = computed(() => {
-    const selected = this.selection();
+    const selected = this.editor.selection();
     return typeof selected === 'number'
       ? `${selected} · ${SECTIONS.find((section) => section.number === selected)?.title ?? ''}`
       : selected;
   });
-  protected readonly manualUrl = computed(() => `${MANUAL}#6.${this.selection()}`);
+  protected readonly manualUrl = computed(() => `${MANUAL}#6.${this.editor.selection()}`);
   /** The sections and airfoils, with their error counts: the way to every error. */
   protected readonly navigation = computed(() => {
     const counts = new Map<Selection | undefined, number>();
@@ -97,8 +77,9 @@ export class DesignEditor {
       const place = placeOf(error);
       counts.set(place, (counts.get(place) ?? 0) + 1);
     }
-    const item = (id: Selection, label: string, note: string): NavigationItem => {
+    const item = (id: Selection, label: string): NavigationItem => {
       const errors = counts.get(id) ?? 0;
+      const note = SECTION_FORMS.has(id) ? '' : 'Text only';
       const count = errors ? `${errors} ${errors === 1 ? 'error' : 'errors'}` : '';
       return { id, label, errors, note: [note, count].filter(Boolean).join(' · ') };
     };
@@ -106,14 +87,12 @@ export class DesignEditor {
     return [
       {
         title: 'Sections',
-        items: SECTIONS.map(({ number, title }) =>
-          item(number, `${number} · ${title}`, hasForm(number) ? '' : 'Text only'),
-        ),
+        items: SECTIONS.map(({ number, title }) => item(number, `${number} · ${title}`)),
       },
       {
         title: 'Airfoils',
         items: [...new Set(design.airfoils.map((row) => row.airfoil))].map((name) =>
-          item(name, name, 'Text only'),
+          item(name, name),
         ),
       },
     ];
@@ -123,15 +102,21 @@ export class DesignEditor {
    * shows the errors of its fields under them; the others are listed here.
    */
   protected readonly localDiagnostics = computed(() => {
-    const selected = this.selection();
+    const selected = this.editor.selection();
+    const form = !!this.sectionForm();
     return this.draft.diagnostics().filter((diagnostic) => {
       const place = placeOf(diagnostic);
       return (
         (place === undefined || place === selected) &&
-        !(hasForm(selected) && diagnostic.severity === 'error' && diagnostic.field)
+        !(form && diagnostic.severity === 'error' && diagnostic.field)
       );
     });
   });
+
+  /** The errors that block Save: text that is not a number first, then the design errors. */
+  protected readonly blocking = computed(
+    () => this.editor.unparsed().length + this.draft.errors().length,
+  );
 
   constructor() {
     this.ref
@@ -146,25 +131,28 @@ export class DesignEditor {
       });
   }
 
-  protected select(value: Selection): void {
-    this.selection.set(value);
-    this.navOpen.set(false);
+  protected showFirstError(): void {
+    const [first] = this.draft.errors();
+    if (!this.editor.focusUnparsed() && first) this.showDiagnostic(first);
   }
 
   protected showDiagnostic(diagnostic: Diagnostic): void {
     const place = placeOf(diagnostic);
-    if (place !== undefined) this.select(place);
-    const field = diagnostic.field && fieldAt(this.draft.form, diagnostic.field);
-    if (field) afterNextRender(() => field().focusBoundControl(), { injector: this.injector });
+    if (place === undefined || !this.editor.select(place)) return;
+    // A section without a form lists the error instead.
+    const field = SECTION_FORMS.has(place) && diagnostic.field;
+    const target = field && fieldAt(this.editor.form, field);
+    if (target) afterNextRender(() => target().focusBoundControl(), { injector: this.injector });
   }
 
   protected textTarget(): string {
-    const selected = this.selection();
+    const selected = this.editor.selection();
     return typeof selected === 'number' ? DESIGN_FILE : selected;
   }
 
   protected submit(): void {
-    if (!this.draft.form().invalid()) this.ref.close({ project: this.draft.project() });
+    if (this.editor.form().invalid()) return;
+    this.ref.close(this.draft.changed() ? { design: this.draft.project().design } : undefined);
   }
 
   /** Closes with `result`, after confirming that unsaved edits may be discarded. */

@@ -33,7 +33,7 @@ import { MatOption, MatSelect } from '@angular/material/select';
 import { MatTooltip } from '@angular/material/tooltip';
 import { DESIGN_FILE } from '@lepara/format';
 import { ComputeService } from '../compute/compute.service';
-import type { DesignEditorData, DesignEditorResult } from '../editor/design-editor';
+import type { DesignEditorData, DesignEditorResult } from '../editor/editor-state';
 import { diagnosticLabel, withSeverity } from '../shared/diagnostics';
 import { DesignFilesService, type InputFile } from './design-files.service';
 import { DESIGNS } from './designs';
@@ -127,7 +127,7 @@ export class DesignInput implements OnInit {
       .afterClosed()
       .subscribe((result: DesignEditorResult | undefined) => {
         if (!result) return;
-        if ('project' in result) this.inputs.applyProject(project, result.project);
+        if ('design' in result) this.inputs.applyDesign(result.design);
         else {
           const target = this.inputs.files().find((file) => file.name === result.editText);
           if (target) void this.edit(target);

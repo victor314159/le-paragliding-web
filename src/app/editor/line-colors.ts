@@ -1,5 +1,5 @@
 import { Component, input } from '@angular/core';
-import type { ColorForm } from './editor-draft';
+import type { EditorForm } from './editor-draft';
 import { NumberField } from './number-field';
 
 /** The same six line color controls in sections 24 and 25. */
@@ -14,9 +14,10 @@ import { NumberField } from './number-field';
           [label]="line + ' lines color'"
           [hint]="
             line === 'F'
-              ? 'DXF color index for the brake lines (integer).'
-              : 'DXF color index for the ' + line + ' lines (integer).'
+              ? 'DXF color index for the brake lines.'
+              : 'DXF color index for the ' + line + ' lines.'
           "
+          integer
           [field]="form()[index]"
         />
       }
@@ -29,6 +30,6 @@ import { NumberField } from './number-field';
   styleUrl: './section.css',
 })
 export class LineColors {
-  readonly form = input.required<ColorForm>();
+  readonly form = input.required<EditorForm['dxf2d']['lineColors']>();
   protected readonly lines = ['A', 'B', 'C', 'D', 'E', 'F'];
 }

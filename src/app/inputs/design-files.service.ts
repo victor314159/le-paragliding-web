@@ -1,10 +1,9 @@
 import { computed, Injectable, signal } from '@angular/core';
-import { DESIGN_FILE, readProject, type LepProject } from '@lepara/format';
+import { DESIGN_FILE, readProject, writeLep, type LepDesign } from '@lepara/format';
 import { withSeverity } from '../shared/diagnostics';
 import { saveFile, saveZip } from '../shared/download';
 import type { NamedFile } from '../shared/named-file';
 import { DESIGNS } from './designs';
-import { writeProjectChanges } from './write-project';
 
 export interface InputFile extends NamedFile {
   original: ArrayBuffer;
@@ -87,14 +86,15 @@ export class DesignFilesService {
     this.replace(file.name, new TextEncoder().encode(text).buffer);
   }
 
-  applyProject(before: LepProject, after: LepProject): void {
-    const written = writeProjectChanges(before, after);
-    this.error.set('');
+  /** Rewrites leparagliding.txt from `design`, unless writeLep refuses it. */
+  applyDesign(design: LepDesign): void {
+    const written = writeLep(design);
     if (!written.ok) {
       this.error.set(written.errors.map((error) => error.message).join('\n'));
       return;
     }
-    for (const file of written.value) this.replace(file.name, file.bytes);
+    this.error.set('');
+    this.replace(DESIGN_FILE, new TextEncoder().encode(written.value).buffer);
   }
 
   restore(file: InputFile): void {
