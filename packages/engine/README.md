@@ -130,4 +130,4 @@ scripts) is at <https://github.com/victor314159/le-paragliding-web>.
 
 LEparagliding is © Pere Casellas, [Laboratori d'envol](https://www.laboratoridenvol.com/).
 
-[patches]: https://github.com/victor314159/le-paragliding-web/blob/main/fortran/patches/README.md
+[patches]: https://github.com/victor314159/le-paragliding-web/blob/main/fortran/engine/patches/README.md

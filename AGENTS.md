@@ -45,8 +45,8 @@ Setup, build and test commands are in [README.md](README.md).
   `docker build --target engine-pkg --output pkg .`.
 
 - `build/fortran/leparagliding.f` is generated from the official zip plus
-  `fortran/patches/*.patch`: edit the patches, never the generated file, and
-  document them in `fortran/patches/README.md`.
+  `fortran/engine/patches/*.patch`: edit the patches, never the generated file, and
+  document them in `fortran/engine/patches/README.md`.
 - After an engine change, rebuild the WASM (`docker compose run --rm wasm`) and
   compare it with native gfortran, byte for byte:
   `docker compose run --rm oracle node scripts/check-wasm-oracle.ts`. Accepted
@@ -54,3 +54,11 @@ Setup, build and test commands are in [README.md](README.md).
 - `oracle/reference/` (native outputs) and `oracle/designs/` are committed.
   Regenerate them only on purpose, with `node scripts/run-oracle.ts` and
   `node scripts/build-designs.ts` in the `oracle` service.
+
+## Geometry preprocessor
+
+- `packages/preprocessor/` is the TypeScript port. Its native oracle uses
+  the official source in `fortran/preprocessor/original/` and the documented
+  patches in `fortran/preprocessor/patches/`: never edit the official source.
+  Run `docker compose run --rm oracle node scripts/check-preprocessor-native.ts`
+  and `docker compose run --rm web npm test -- preprocessor` after changing it.

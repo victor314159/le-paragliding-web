@@ -74,7 +74,7 @@ RUN npm install -g "playwright@${PLAYWRIGHT_VERSION}" \
 
 # --- release: wasm -> oracle-check -> site -> dist ---------------------------
 FROM flang AS wasm
-COPY fortran fortran
+COPY fortran/engine fortran/engine
 COPY scripts/make-patched.sh scripts/build-flang-wasm.sh scripts/closure-externs.js scripts/
 RUN scripts/build-flang-wasm.sh
 

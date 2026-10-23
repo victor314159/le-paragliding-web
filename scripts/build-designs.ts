@@ -2,7 +2,7 @@
 /*
  * build-designs.ts — Builds the oracle/web designs from the official examples.
  *
- * Sources: fortran/original/designs/<id>/, each extracted unmodified from an
+ * Sources: fortran/engine/original/designs/<id>/, each extracted unmodified from an
  * official LEparagliding or Laboratori d'envol archive (see its SOURCE.txt).
  * Output, for each design:
  *   oracle/designs/<id>/leparagliding.txt  runnable by LEparagliding 3.29
@@ -17,7 +17,7 @@
  *   - Designs written for an older program stop at section 32 (3.17+, 3.19) or
  *     37 (3.21T-3.28). 3.29 reads sections up to 39: each missing one is
  *     appended with the official 3-line header and its flag at 0 (program
- *     defaults), the contract documented in fortran/original/docs/Updates_log.txt
+ *     defaults), the contract documented in fortran/engine/original/docs/Updates_log.txt
  *     (report 3.20V, "SIMPLIFIED NEW SECTIONS STRUCTURE").
  *   - When section 32 is the last one, lines after its data (flag, then 10
  *     lines if the flag is 1) are removed: the older program never read them,
@@ -30,7 +30,7 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ROOT } from './oracle-lib.ts';
 
-const SRC = join(ROOT, 'fortran/original/designs');
+const SRC = join(ROOT, 'fortran/engine/original/designs');
 const OUT = join(ROOT, 'oracle/designs');
 
 // id, program version the example ships with. Order = order in the web UI.

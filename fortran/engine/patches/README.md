@@ -1,7 +1,10 @@
 # Patches applied to the LEparagliding 3.29 source
 
+The optional geometry preprocessor has [separate patches](../../preprocessor/patches/README.md)
+and its own native oracle; the engine build does not apply them.
+
 The single source of truth is the official zip
-`fortran/original/leparagliding3.29.f.zip`, unmodified (sha256 checked).
+`fortran/engine/original/leparagliding3.29.f.zip`, unmodified (sha256 checked).
 `scripts/make-patched.sh` extracts `leparagliding.f` from it and derives
 `build/fortran/leparagliding.f` (CRLF -> LF, then the patches below, in order;
 not versioned). That file is what gets compiled, both by gfortran (native

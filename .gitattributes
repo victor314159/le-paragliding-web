@@ -1,0 +1,2 @@
+# Preserve the official source bytes checked by the native oracle.
+fortran/preprocessor/original/pre-processor.f -text

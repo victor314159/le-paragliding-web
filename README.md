@@ -40,7 +40,7 @@ with it, and the WASM outputs must match the native ones byte for byte, on
 every example design (a few STL/SCAD files differ only by `-0.000` vs `0.000`,
 listed in `oracle/wasm-known-diffs.tsv`). Getting there took a few small fixes
 to the source, mostly out-of-bounds array accesses that each compiler resolved
-differently: see [fortran/patches](fortran/patches/README.md).
+differently: see [fortran/engine/patches](fortran/engine/patches/README.md).
 
 ## Requirements
 
@@ -62,6 +62,7 @@ it changes), installs the dependencies and serves the app with live reload.
 docker build --output dist .                # release build -> dist/
 docker compose run --rm web npm test        # browser tests against dist/
 docker compose run --rm web npm run check   # lint + types + format
+docker compose run --rm oracle node scripts/check-preprocessor-native.ts  # geometry preprocessor vs gfortran
 docker build --target engine-pkg --output pkg .   # npm package -> pkg/
 docker compose run --rm web scripts/assemble-format.sh   # @lepara/format -> build/format/
 ```
@@ -85,16 +86,17 @@ Both bump the patch version: add `-- minor` or `-- major` for the others.
 
 ## Layout
 
-| Path                | Contents                                                              |
-| ------------------- | --------------------------------------------------------------------- |
-| `src/`, `public/`   | Angular app                                                           |
-| `tests/`            | Playwright tests                                                      |
-| `fortran/original/` | Official source zip, docs and example designs, unmodified             |
-| `fortran/patches/`  | Fixes applied before compiling ([details](fortran/patches/README.md)) |
-| `packages/engine/`  | The engine as an npm package ([details](packages/engine/README.md))   |
-| `packages/format/`  | Input files as typed objects ([details](packages/format/README.md))   |
-| `oracle/`           | Example designs and the native outputs the WASM build must match      |
-| `scripts/`          | Engine build and oracle scripts                                       |
+| Path                     | Contents                                                                                           |
+| ------------------------ | -------------------------------------------------------------------------------------------------- |
+| `src/`, `public/`        | Angular app                                                                                        |
+| `tests/`                 | Playwright tests                                                                                   |
+| `fortran/engine/`        | Official engine source, docs, examples and [patches](fortran/engine/patches/README.md)             |
+| `fortran/preprocessor/`  | Official geometry preprocessor source and [oracle patches](fortran/preprocessor/patches/README.md) |
+| `packages/engine/`       | The engine as an npm package ([details](packages/engine/README.md))                                |
+| `packages/format/`       | Input files as typed objects ([details](packages/format/README.md))                                |
+| `packages/preprocessor/` | Geometry preprocessor in TypeScript ([details](packages/preprocessor/README.md))                   |
+| `oracle/`                | Example designs and the native outputs the WASM build must match                                   |
+| `scripts/`               | Engine build and oracle scripts                                                                    |
 
 The app bundles `@lepara/format` from its source (a TypeScript path alias);
 the parameter editor (`src/app/editor/`) is loaded on demand.
@@ -105,7 +107,7 @@ The example designs are by Pere Casellas,
 [Laboratori d'envol](https://www.laboratoridenvol.com/). They come from the
 official LEparagliding archives, except BHL7-22, from the
 [BHL7 project](https://www.laboratoridenvol.com/projects/BHL7/bhl7.en.html).
-Each one's exact source is in `fortran/original/designs/<id>/SOURCE.txt`.
+Each one's exact source is in `fortran/engine/original/designs/<id>/SOURCE.txt`.
 
 ## License
 

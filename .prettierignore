@@ -9,6 +9,6 @@ node_modules/
 package-lock.json
 
 # Upstream sources, patches and byte-exact oracle inputs/outputs
-fortran/original/
-fortran/patches/*.patch
+fortran/*/original/
+fortran/*/patches/*.patch
 oracle/

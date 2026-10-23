@@ -1,0 +1,13 @@
+LEparagliding geometry preprocessor 1.6 "Canigo" (2021-01-17)
+Pere Casellas, Laboratori d'envol. GNU GPL v3.
+
+Documentation: https://www.laboratoridenvol.com/leparagliding/pre.en.html
+Source: https://www.laboratoridenvol.com/leparagliding/pre/pre-processor.f
+Downloaded: 2026-10-23. Original bytes, including CRLF, unmodified.
+SHA256: 8f1dd2f3844150be247e9b86f87e4b14fb6d0402282beece4b28f2df1e75b9ef
+
+Official example: https://www.laboratoridenvol.com/leparagliding/pre/pre-data.txt
+Stored unmodified in tests/preprocessor/fixtures/pre-data.txt.
+
+Native oracle: scripts/check-preprocessor-native.ts
+Corrections and instrumentation: fortran/preprocessor/patches/README.md

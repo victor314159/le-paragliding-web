@@ -40,6 +40,8 @@ jobs:
       # tests check it against the WASM one.
       - name: Input format, native engine
         run: docker compose run --rm oracle node scripts/check-format-native.ts
+      - name: Geometry preprocessor, native oracle
+        run: docker compose run --rm oracle node scripts/check-preprocessor-native.ts
       - uses: actions/upload-pages-artifact@v5
         with:
           path: dist

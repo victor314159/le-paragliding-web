@@ -22,7 +22,7 @@
  * versioned, the files stay in build/oracle-runs/<design>-a/.
  *
  * When the official archive ships its own outputs
- * (fortran/original/designs/<id>/official-outputs.sha256), the reference is
+ * (fortran/engine/original/designs/<id>/official-outputs.sha256), the reference is
  * also compared with them; official-outputs.known-diffs.tsv lists the expected
  * differences and why (file<TAB>reason).
  *
@@ -130,7 +130,7 @@ for (const design of designIds()) {
   writeFileSync(join(ref, 'MANIFEST.sha256'), hashTree(ref));
   console.log(`[${design}] reference -> oracle/reference/${design}`);
 
-  const official = join(ROOT, 'fortran/original/designs', design, 'official-outputs.sha256');
+  const official = join(ROOT, 'fortran/engine/original/designs', design, 'official-outputs.sha256');
   if (existsSync(official)) {
     // file -> reason
     const tsv = official.replace(/\.sha256$/, '.known-diffs.tsv');
