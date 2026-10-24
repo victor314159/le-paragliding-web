@@ -3,7 +3,7 @@
     <div class="header-title">
       <h2>{{ designFile }}</h2>
       <span class="editor-mode mat-text-on-surface-variant">Edit parameters</span>
-      @if (draft.changed()) {
+      @if (editor.changed()) {
         <span class="mat-text-on-surface-variant">· Modified</span>
       }
     </div>
@@ -49,10 +49,10 @@
       <section #content aria-labelledby="editor-section-title">
         <div class="section-heading">
           <h3 id="editor-section-title">{{ title() }}</h3>
-          @if (section() !== undefined && sectionForm()) {
-            <a class="mat-font-body-sm" [href]="manualUrl()" target="_blank" rel="noopener"
-              >LEparagliding manual · Section {{ section() }}</a
-            >
+          @if (manual(); as manual) {
+            <a class="mat-font-body-sm" [href]="manual.href" target="_blank" rel="noopener">{{
+              manual.label
+            }}</a>
           }
         </div>
         <!-- Under the title: a long section would hide them below the fold. -->
@@ -70,7 +70,7 @@
           <ng-container *ngComponentOutlet="form" />
         } @else if (section() === undefined) {
           @if (unreadable()) {
-            <p>This airfoil could not be read: correct its file as text, or import it again.</p>
+            <p>{{ title() }} could not be read: correct it as text, or import it again.</p>
             <button matButton="outlined" type="button" (click)="close({ editText: textTarget() })">
               Edit text
             </button>
@@ -97,7 +97,7 @@
         {{ count }} {{ count === 1 ? 'error' : 'errors' }} · Fix before saving
         <button matButton type="button" (click)="showFirstError()">Show</button>
       </p>
-    } @else if (draft.changed()) {
+    } @else if (editor.changed()) {
       <p class="mat-font-body-sm mat-text-on-surface-variant">
         Saving rewrites {{ rewritten().join(', ') }}. Original comments and formatting will be
         replaced.

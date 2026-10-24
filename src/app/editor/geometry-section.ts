@@ -1,4 +1,6 @@
 import { Component, inject } from '@angular/core';
+import { MatButton } from '@angular/material/button';
+import { PRE_DATA_FILE } from '@lepara/preprocessor';
 import { EditorState } from './editor-state';
 import { NumberField } from './number-field';
 import { AddRow, RecordRow, RemoveRow } from './record-editor';
@@ -8,8 +10,29 @@ import { TextField } from './text-field';
 
 @Component({
   selector: 'app-geometry-section',
-  imports: [AddRow, NumberField, RecordRow, RemoveRow, SelectField, TableScroll, TextField],
+  imports: [
+    AddRow,
+    MatButton,
+    NumberField,
+    RecordRow,
+    RemoveRow,
+    SelectField,
+    TableScroll,
+    TextField,
+  ],
   template: `
+    @if (editor.preprocessor.loaded()) {
+      <p>
+        {{
+          editor.synced()
+            ? 'The cells and rib positions are those the parameters of pre-data.txt generate.'
+            : 'The cells and rib positions differ from those the parameters of pre-data.txt generate.'
+        }}
+        <button matButton type="button" (click)="editor.select(preDataFile)">
+          Edit pre-data.txt
+        </button>
+      </p>
+    }
     <fieldset>
       <legend>Wing</legend>
       <app-text-field label="Brand name" hint="Up to 50 UTF-8 bytes." [field]="form.brandName" />
@@ -194,4 +217,5 @@ import { TextField } from './text-field';
 export class GeometrySection {
   protected readonly editor = inject(EditorState);
   protected readonly form = this.editor.form.geometry;
+  protected readonly preDataFile = PRE_DATA_FILE;
 }

@@ -92,7 +92,7 @@ test('eight examples open with their values and a no-op Save preserves their byt
       String(design.sewingAllowances.ribs),
     );
     await expect(page.getByRole('navigation').getByRole('button')).toHaveCount(
-      37 + entry.airfoils.length,
+      38 + entry.airfoils.length,
     );
     await section(page, '24 · 2D DXF options');
     await expect(page.getByRole('combobox', { name: '2D DXF mode', exact: true })).toContainText(

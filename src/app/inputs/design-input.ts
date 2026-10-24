@@ -32,6 +32,7 @@ import { MatProgressBar } from '@angular/material/progress-bar';
 import { MatOption, MatSelect } from '@angular/material/select';
 import { MatTooltip } from '@angular/material/tooltip';
 import { DESIGN_FILE } from '@lepara/format';
+import { PRE_DATA_FILE } from '@lepara/preprocessor';
 import { ComputeService } from '../compute/compute.service';
 import type { DesignEditorData, DesignEditorResult, Selection } from '../editor/editor-state';
 import { diagnosticLabel, withSeverity } from '../shared/diagnostics';
@@ -106,15 +107,23 @@ export class DesignInput implements OnInit {
   }
 
   protected kind(file: InputFile): string {
+    if (file.name === PRE_DATA_FILE) return 'Geometry preprocessor parameters';
     return file.name === DESIGN_FILE ? 'Wing geometry and parameters' : 'Airfoil';
   }
 
-  /** The airfoils section 2 names, by file name: true for those read. */
-  protected readonly airfoils = computed(() => {
+  /**
+   * The files edited with the design, by name: the airfoils section 2 names,
+   * and pre-data.txt. True for those read.
+   */
+  protected readonly parameterFiles = computed(() => {
     const project = this.inputs.reading().project;
-    return new Map(
-      project?.design.airfoils.map(({ airfoil }) => [airfoil, project.airfoils.has(airfoil)]),
-    );
+    const preData = this.inputs.preDataReading();
+    return new Map([
+      ...(project?.design.airfoils.map(
+        ({ airfoil }) => [airfoil, project.airfoils.has(airfoil)] as const,
+      ) ?? []),
+      ...(project && preData ? [[PRE_DATA_FILE, preData.ok] as const] : []),
+    ]);
   });
 
   /** Opens the parameter editor, on `selection` if given: a section or an airfoil. */
@@ -122,7 +131,12 @@ export class DesignInput implements OnInit {
     const { DesignEditor } = await import('../editor/design-editor');
     const { project, reading } = this.inputs.reading();
     if (this.locked() || this.dialog.openDialogs.length || !project) return;
-    const data: DesignEditorData = { project, reading, selection };
+    const data: DesignEditorData = {
+      project,
+      reading,
+      selection,
+      preData: this.inputs.preDataReading(),
+    };
     this.dialog
       .open(DesignEditor, {
         data,
@@ -143,6 +157,7 @@ export class DesignInput implements OnInit {
         }
         if (result.design) this.inputs.applyDesign(result.design);
         for (const [name, airfoil] of result.airfoils) this.inputs.applyAirfoil(name, airfoil);
+        if (result.preData) this.inputs.applyPreData(result.preData);
       });
   }
 

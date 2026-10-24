@@ -14,17 +14,12 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormRoot } from '@angular/forms/signals';
 import { MatButton, MatIconButton } from '@angular/material/button';
-import {
-  MatDialog,
-  MatDialogActions,
-  MatDialogClose,
-  MatDialogContent,
-  MatDialogRef,
-  MatDialogTitle,
-} from '@angular/material/dialog';
+import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { MatIcon } from '@angular/material/icon';
 import { DESIGN_FILE, SECTIONS, type Diagnostic } from '@lepara/format';
+import { PRE_DATA_FILE } from '@lepara/preprocessor';
 import { filter } from 'rxjs';
+import { confirm } from '../shared/confirm-dialog';
 import { diagnosticLabel, withSeverity } from '../shared/diagnostics';
 import { AirfoilSection } from './airfoil-section';
 import { EditorPreview, PREVIEW_VIEWS } from './editor-preview';
@@ -32,9 +27,12 @@ import { EditorState, fieldAt, type DesignEditorResult, type Selection } from '.
 import { SECTION_FORMS } from './sections';
 
 const MANUAL = 'https://www.laboratoridenvol.com/leparagliding/manual.en.html';
+const PREPROCESSOR_MANUAL = 'https://www.laboratoridenvol.com/leparagliding/pre.en.html';
 
-/** Where the editor shows a diagnostic: its section or its airfoil; on every page otherwise. */
+/** Where the editor shows a diagnostic: its section or its file; on every page otherwise. */
 function placeOf({ section, file, field }: Diagnostic): Selection | undefined {
+  // Its fields are those of the preprocessor, not of the design.
+  if (file === PRE_DATA_FILE) return file;
   // A constraint can come from another section: XFLR5, for example, reports
   // errors on geometry.wingName and geometry.ribs[].xp, whose inputs are in 1.
   const key = field?.split(/[.[]/, 1)[0];
@@ -48,20 +46,6 @@ interface NavigationItem {
   readonly note: string;
   readonly errors: number;
 }
-
-@Component({
-  selector: 'app-discard-changes-dialog',
-  imports: [MatButton, MatDialogTitle, MatDialogContent, MatDialogActions, MatDialogClose],
-  template: `
-    <h2 mat-dialog-title>Discard changes?</h2>
-    <mat-dialog-content>Your parameter edits have not been saved.</mat-dialog-content>
-    <mat-dialog-actions>
-      <button matButton type="button" [mat-dialog-close]="false">Keep editing</button>
-      <button matButton="filled" type="button" [mat-dialog-close]="true">Discard changes</button>
-    </mat-dialog-actions>
-  `,
-})
-class DiscardChangesDialog {}
 
 /** Edits the parameters of a project in a dialog; closes with the new design, if saved. */
 @Component({
@@ -80,7 +64,11 @@ export class DesignEditor {
   protected readonly designFile = DESIGN_FILE;
   protected readonly diagnosticLabel = diagnosticLabel;
   protected readonly sectionForm = computed(() =>
-    this.editor.airfoil() ? AirfoilSection : SECTION_FORMS.get(this.editor.selection()),
+    this.editor.airfoil()
+      ? AirfoilSection
+      : this.unreadable()
+        ? undefined
+        : SECTION_FORMS.get(this.editor.selection()),
   );
   protected readonly section = computed(() => {
     const selected = this.editor.selection();
@@ -92,41 +80,47 @@ export class DesignEditor {
       ? `${selected} · ${SECTIONS.find((section) => section.number === selected)?.title ?? ''}`
       : selected;
   });
-  /** The selected airfoil has a file, with reading errors. */
+  /** The selected file exists, with reading errors. */
   protected readonly unreadable = computed(() => {
     const selected = this.editor.selection();
-    return this.draft.diagnostics().some(({ file }) => file === selected);
+    return selected === PRE_DATA_FILE
+      ? this.editor.preprocessor.unreadable
+      : this.draft.diagnostics().some(({ file }) => file === selected);
   });
-  protected readonly manualUrl = computed(() => `${MANUAL}#6.${this.editor.selection()}`);
-  protected readonly hasPreview = computed(
-    () => !!this.editor.airfoil() || PREVIEW_VIEWS.has(Number(this.editor.selection())),
-  );
-  /** The sections and airfoils, with their error counts: the way to every error. */
+  protected readonly manual = computed(() => {
+    const selected = this.editor.selection();
+    if (selected === PRE_DATA_FILE)
+      return { href: PREPROCESSOR_MANUAL, label: 'Preprocessor manual' };
+    return typeof selected === 'number' && this.sectionForm()
+      ? { href: `${MANUAL}#6.${selected}`, label: `LEparagliding manual · Section ${selected}` }
+      : undefined;
+  });
+  /** The preprocessor's preview shows the geometry its parameters generate, once read or created. */
+  protected readonly hasPreview = computed(() => {
+    const selected = this.editor.selection();
+    return (
+      !!this.editor.airfoil() ||
+      (PREVIEW_VIEWS.has(selected) &&
+        (selected !== PRE_DATA_FILE || this.editor.preprocessor.loaded()))
+    );
+  });
+  /** The sections and files, with their error counts: the way to every error. */
   protected readonly navigation = computed(() => {
     const counts = new Map<Selection | undefined, number>();
-    for (const error of withSeverity(this.draft.diagnostics(), 'error')) {
+    for (const error of withSeverity(this.editor.diagnostics(), 'error')) {
       const place = placeOf(error);
       counts.set(place, (counts.get(place) ?? 0) + 1);
     }
-    const airfoils = this.draft.airfoilValue();
-    const changed = this.draft.changedAirfoils();
     const item = (id: Selection, label: string): NavigationItem => {
       const errors = counts.get(id) ?? 0;
-      const note =
-        typeof id === 'number'
-          ? SECTION_FORMS.has(id)
-            ? ''
-            : 'Text only'
-          : !Object.hasOwn(airfoils, id)
-            ? 'Not read'
-            : changed.has(id)
-              ? 'Modified'
-              : '';
+      const note = this.noteOf(id);
       const count = errors ? `${errors} ${errors === 1 ? 'error' : 'errors'}` : '';
       return { id, label, errors, note: [note, count].filter(Boolean).join(' · ') };
     };
     const { design } = this.draft.project();
+    // Before the sections: it generates the rib table of section 1.
     return [
+      { title: 'Preprocessor', items: [item(PRE_DATA_FILE, PRE_DATA_FILE)] },
       {
         title: 'Sections',
         items: SECTIONS.map(({ number, title }) => item(number, `${number} · ${title}`)),
@@ -145,7 +139,7 @@ export class DesignEditor {
    */
   protected readonly localDiagnostics = computed(() => {
     const selected = this.editor.selection();
-    return this.draft.diagnostics().filter((diagnostic) => {
+    return this.editor.diagnostics().filter((diagnostic) => {
       const place = placeOf(diagnostic);
       if (place !== undefined && place !== selected) return false;
       return !this.inputOf(diagnostic);
@@ -154,15 +148,13 @@ export class DesignEditor {
 
   /** The errors that block Save: text that is not a number first, then the design errors. */
   protected readonly blocking = computed(
-    () =>
-      this.editor.unparsed().length +
-      this.draft.errors().length +
-      this.draft.airfoilErrors().length,
+    () => this.editor.unparsed().length + this.editor.errors().length,
   );
   /** The files that saving rewrites. */
   protected readonly rewritten = computed(() => [
     ...(this.draft.designChanged() ? [DESIGN_FILE] : []),
     ...this.draft.changedAirfoils().keys(),
+    ...(this.editor.preData() ? [PRE_DATA_FILE] : []),
   ]);
 
   private readonly content = viewChild<ElementRef<HTMLElement>>('content');
@@ -196,8 +188,26 @@ export class DesignEditor {
       });
   }
 
+  /** The state of a navigation item: a section without form, or a file not read or modified. */
+  private noteOf(id: Selection): string {
+    if (id === PRE_DATA_FILE) return this.preprocessorNote();
+    if (typeof id === 'number') return SECTION_FORMS.has(id) ? '' : 'Text only';
+    if (!Object.hasOwn(this.draft.airfoilValue(), id)) return 'Not read';
+    return this.draft.changedAirfoils().has(id) ? 'Modified' : '';
+  }
+
+  /** Whether pre-data.txt generates the rib table of section 1, and is created or modified. */
+  private preprocessorNote(): string {
+    const { preprocessor } = this.editor;
+    if (preprocessor.unreadable) return 'Not read';
+    if (!preprocessor.loaded()) return 'Not created';
+    const synced = this.editor.synced() ? 'In sync' : 'Out of sync';
+    if (!preprocessor.changed()) return synced;
+    return `${synced} · ${preprocessor.exists ? 'Modified' : 'Created'}`;
+  }
+
   protected showFirstError(): void {
-    const [first] = [...this.draft.errors(), ...this.draft.airfoilErrors()];
+    const [first] = this.editor.errors();
     if (!this.editor.focusUnparsed() && first) this.showDiagnostic(first);
   }
 
@@ -232,29 +242,33 @@ export class DesignEditor {
 
   protected submit(): void {
     if (this.blocking()) return;
-    if (!this.draft.changed()) {
+    if (!this.editor.changed()) {
       this.ref.close();
       return;
     }
+    const preData = this.editor.preData();
     this.ref.close({
       ...(this.draft.designChanged() && { design: this.draft.project().design }),
       airfoils: this.draft.changedAirfoils(),
+      ...(preData && { preData }),
     });
   }
 
   /** Closes with `result`, after confirming that unsaved edits may be discarded. */
   protected close(result?: DesignEditorResult): void {
-    if (!this.draft.changed()) {
+    if (!this.editor.changed()) {
       this.ref.close(result);
       return;
     }
     // A confirmation is already open above the editor.
     if (this.dialogs.openDialogs.length > 1) return;
-    this.dialogs
-      .open<DiscardChangesDialog, undefined, boolean>(DiscardChangesDialog)
-      .afterClosed()
-      .subscribe((discard) => {
-        if (discard) this.ref.close(result);
-      });
+    confirm(this.dialogs, {
+      title: 'Discard changes?',
+      message: 'Your parameter edits have not been saved.',
+      cancel: 'Keep editing',
+      confirm: 'Discard changes',
+    }).subscribe((discard) => {
+      if (discard) this.ref.close(result);
+    });
   }
 }

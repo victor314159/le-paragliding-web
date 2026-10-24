@@ -1,6 +1,8 @@
 import { readFile } from 'node:fs/promises';
 import { expect, test, type Page } from '@playwright/test';
 import JSZip from 'jszip';
+import { PREPROCESSOR_EXAMPLE, writePreData } from '../packages/preprocessor/src/index.ts';
+import { ok } from './format/helpers';
 import { acknowledge, editText } from './helpers';
 
 async function source(page: Page, name: string): Promise<void> {
@@ -100,7 +102,7 @@ test('exported ZIP can be imported again with exact bytes, including untouched C
   await expect(page.getByRole('alert')).toHaveCount(0);
 });
 
-test('personal inputs use their own airfoil names and results are cleared when inputs change', async ({
+test('personal inputs use their own airfoil names and results are cleared when engine inputs change', async ({
   page,
 }) => {
   const main = Buffer.from(
@@ -134,6 +136,10 @@ test('personal inputs use their own airfoil names and results are cleared when i
       return (await fetch((anchor as HTMLAnchorElement).href)).text();
     });
   expect(text).toBe(main.toString());
+  // The engine does not read pre-data.txt.
+  const preData = Buffer.from(ok(writePreData(PREPROCESSOR_EXAMPLE)));
+  await importFiles(page, [{ name: 'pre-data.txt', mimeType: 'text/plain', buffer: preData }]);
+  await expect(page.getByRole('heading', { name: 'Generated files' })).toBeVisible();
   await apply(page, main.toString().replace('Personal wing', 'Next draft'));
   await expect(page.getByTestId('compute-status')).toHaveAttribute('data-state', 'idle');
   await expect(page.getByRole('heading', { name: 'Generated files' })).toHaveCount(0);

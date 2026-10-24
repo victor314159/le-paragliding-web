@@ -18,14 +18,14 @@ import { dequal } from 'dequal';
 import { withSeverity } from '../shared/diagnostics';
 
 /** A model value whose numbers may be null: a number field the user empties. */
-type Nullable<T> = T extends number
+export type Nullable<T> = T extends number
   ? number | null
   : T extends object
     ? { [K in keyof T]: Nullable<T[K]> }
     : T;
 type Keys<T> = T extends unknown ? keyof T : never;
 /** Keep all branches of a mode in the form, including those currently hidden. */
-type AllModes<T> = {
+export type AllModes<T> = {
   readonly [K in Keys<T>]: T extends unknown ? (K extends keyof T ? T[K] : never) : never;
 };
 type Path = Omit<M.LinePath, 'lineTypes'> & { readonly lineTypes: readonly number[] };

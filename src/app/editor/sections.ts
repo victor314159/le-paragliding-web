@@ -1,4 +1,5 @@
 import type { Type } from '@angular/core';
+import { PRE_DATA_FILE } from '@lepara/preprocessor';
 import { AirfoilsSection } from './airfoils-section';
 import { AnchorsSection } from './anchors-section';
 import { AngleOfAttackSection } from './angle-of-attack-section';
@@ -25,6 +26,7 @@ import { MarkTypesSection } from './mark-types-section';
 import { MarksSection } from './marks-section';
 import { NoseMylarsSection } from './nose-mylars-section';
 import { PartsSeparationSection } from './parts-separation-section';
+import { PreprocessorSection } from './preprocessor-section';
 import { RamificationsSection } from './ramifications-section';
 import { RibPointsSection } from './rib-points-section';
 import { RisersSection } from './risers-section';
@@ -39,7 +41,10 @@ import { WingTipSection } from './wing-tip-section';
 import { Xflr5Section } from './xflr5-section';
 
 /** Section components share EditorState and bind the fields at their model paths. */
-export const SECTION_FORMS: ReadonlyMap<Selection, Type<unknown>> = new Map<number, Type<unknown>>([
+export const SECTION_FORMS: ReadonlyMap<Selection, Type<unknown>> = new Map<
+  Selection,
+  Type<unknown>
+>([
   [1, GeometrySection],
   [2, AirfoilsSection],
   [3, AnchorsSection],
@@ -77,4 +82,5 @@ export const SECTION_FORMS: ReadonlyMap<Selection, Type<unknown>> = new Map<numb
   [37, SpecialParametersSection],
   [38, HvrHolesSection],
   [39, HvrPositionsSection],
+  [PRE_DATA_FILE, PreprocessorSection],
 ]);

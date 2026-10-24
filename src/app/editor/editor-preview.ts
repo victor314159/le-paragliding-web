@@ -10,13 +10,15 @@ import {
 import { MatButton, MatIconButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 import { MatTooltip } from '@angular/material/tooltip';
+import { PRE_DATA_FILE } from '@lepara/preprocessor';
 import { AirfoilPreview } from './airfoil-preview';
 import { ColorsPreview } from './colors-preview';
 import { DetailPreview } from './detail-preview';
 import { DETAIL_PREVIEWS, type PreviewViews } from './detail-previews';
-import { EditorState } from './editor-state';
+import { EditorState, type Selection } from './editor-state';
 import { GeometryPreview } from './geometry-preview';
 import { HolesPreview } from './holes-preview';
+import { PreprocessorPreview } from './preprocessor-preview';
 import { RibPreview } from './rib-preview';
 import { SkinTensionPreview } from './skin-tension-preview';
 import { ThicknessPreview } from './thickness-preview';
@@ -33,19 +35,22 @@ const TENSION_VIEWS: PreviewViews = [
   ['intrados', 'Intrados'],
 ];
 
-/** The sections with a preview, and the views it offers: the first one by default. */
-export const PREVIEW_VIEWS: ReadonlyMap<number, PreviewViews> = new Map([
-  [1, WING_VIEWS],
-  [2, RIB_VIEWS],
-  [3, RIB_VIEWS],
-  [4, RIB_VIEWS],
-  [5, TENSION_VIEWS],
-  [15, []],
-  [16, []],
-  [30, []],
-  [31, TENSION_VIEWS],
-  ...[...DETAIL_PREVIEWS].map(([section, { views }]) => [section, views] as const),
-]);
+/** The sections and files with a preview, and the views it offers: the first one by default. */
+export const PREVIEW_VIEWS: ReadonlyMap<Selection, PreviewViews> = new Map<Selection, PreviewViews>(
+  [
+    [1, WING_VIEWS],
+    [2, RIB_VIEWS],
+    [3, RIB_VIEWS],
+    [4, RIB_VIEWS],
+    [5, TENSION_VIEWS],
+    [15, []],
+    [16, []],
+    [30, []],
+    [31, TENSION_VIEWS],
+    [PRE_DATA_FILE, [...WING_VIEWS, ['cells', 'Cells']]],
+    ...[...DETAIL_PREVIEWS].map(([section, { views }]) => [section, views] as const),
+  ],
+);
 
 /** A docked, resizable preview alongside independently scrolling fields. */
 @Component({
@@ -64,6 +69,7 @@ export const PREVIEW_VIEWS: ReadonlyMap<number, PreviewViews> = new Map([
     ThicknessPreview,
     SkinTensionPreview,
     DetailPreview,
+    PreprocessorPreview,
   ],
   host: {
     '[class.collapsed]': 'editor.previewCollapsed()',
@@ -206,6 +212,9 @@ export const PREVIEW_VIEWS: ReadonlyMap<number, PreviewViews> = new Map([
           @case (31) {
             <app-skin-tension-preview [view]="view()" />
           }
+          @case (preDataFile) {
+            <app-preprocessor-preview [view]="view()" />
+          }
           @case (15) {
             <app-colors-preview />
           }
@@ -226,7 +235,8 @@ export const PREVIEW_VIEWS: ReadonlyMap<number, PreviewViews> = new Map([
 })
 export class EditorPreview {
   protected readonly editor = inject(EditorState);
-  protected readonly section = computed(() => Number(this.editor.selection()));
+  protected readonly section = this.editor.selection;
+  protected readonly preDataFile = PRE_DATA_FILE;
   protected readonly views = computed(() => PREVIEW_VIEWS.get(this.section()) ?? []);
   /** Sections 5 and 31 draw the same overwidth curves, so they share a view. */
   private readonly viewKey = computed(() => (this.section() === 31 ? 5 : this.section()));

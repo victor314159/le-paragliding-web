@@ -7,6 +7,13 @@ import {
   type LepAirfoil,
   type LepDesign,
 } from '@lepara/format';
+import {
+  PRE_DATA_FILE,
+  parsePreData,
+  writePreData,
+  validatePreprocessor,
+  type PreprocessorInput,
+} from '@lepara/preprocessor';
 import { withSeverity } from '../shared/diagnostics';
 import { saveFile, saveZip } from '../shared/download';
 import type { NamedFile } from '../shared/named-file';
@@ -14,7 +21,8 @@ import { DESIGNS } from './designs';
 
 export interface InputFile extends NamedFile {
   original: ArrayBuffer;
-  imported: boolean;
+  /** A file of the example, imported, or created by the editor: the last two can be removed. */
+  origin: 'example' | 'imported' | 'created';
   modified: boolean;
 }
 
@@ -43,13 +51,33 @@ export class DesignFilesService {
   readonly reading = computed(() =>
     readProject(new Map(this.files().map((file) => [file.name, this.text(file)]))),
   );
-  /** Nothing to report before a file is imported. */
-  readonly diagnostics = computed(() => (this.files().length ? this.reading().diagnostics : []));
+  /** The files the engine reads: all but pre-data.txt. Edits of pre-data.txt keep the results. */
+  readonly engineFiles = computed(() => this.files().filter(({ name }) => name !== PRE_DATA_FILE), {
+    equal: (a, b) => a.length === b.length && a.every((file, i) => file === b[i]),
+  });
+  /** pre-data.txt, if present: the engine does not read it. */
+  readonly preDataReading = computed(() => {
+    const file = this.files().find(({ name }) => name === PRE_DATA_FILE);
+    return file && parsePreData(this.text(file));
+  });
+  /** Nothing to report before a file is imported. pre-data.txt as the design: read, then validated. */
+  readonly diagnostics = computed(() => {
+    if (!this.files().length) return [];
+    const preData = this.preDataReading();
+    return [
+      ...this.reading().diagnostics,
+      ...(!preData
+        ? []
+        : preData.ok
+          ? validatePreprocessor(preData.value).map((error) => ({ ...error, file: PRE_DATA_FILE }))
+          : preData.errors),
+    ];
+  });
   readonly ready = computed(
     () =>
       !this.pending() &&
       !!this.reading().project &&
-      !withSeverity(this.diagnostics(), 'error').length,
+      !withSeverity(this.reading().diagnostics, 'error').length,
   );
   // Drafts last for this page session and stay separate for each source.
   private readonly drafts = new Map<string, InputFile[]>();
@@ -70,11 +98,11 @@ export class DesignFilesService {
     this.loading.set(true);
     try {
       const files = await Promise.all(
-        [DESIGN_FILE, ...design.airfoils].map(async (name) => {
+        [DESIGN_FILE, ...design.airfoils].map(async (name): Promise<InputFile> => {
           const response = await fetch(new URL(`examples/${design.id}/${name}`, document.baseURI));
           if (!response.ok) throw new Error(`Could not load ${name} (HTTP ${response.status}).`);
           const bytes = await response.arrayBuffer();
-          return { name, bytes, original: bytes, imported: false, modified: false };
+          return { name, bytes, original: bytes, origin: 'example', modified: false };
         }),
       );
       this.files.set(files);
@@ -102,6 +130,22 @@ export class DesignFilesService {
     }
     this.error.set('');
     this.replace(DESIGN_FILE, new TextEncoder().encode(written.value).buffer);
+  }
+
+  /** Writes pre-data.txt from `input`, unless writePreData refuses it; adds it if missing. */
+  applyPreData(input: PreprocessorInput): void {
+    const written = writePreData(input);
+    if (!written.ok) {
+      this.error.set(written.errors.map((error) => error.message).join('\n'));
+      return;
+    }
+    const bytes = new TextEncoder().encode(written.value).buffer;
+    if (this.files().some(({ name }) => name === PRE_DATA_FILE)) this.replace(PRE_DATA_FILE, bytes);
+    else
+      this.files.update((files) => [
+        ...files,
+        { name: PRE_DATA_FILE, bytes, original: bytes, origin: 'created', modified: false },
+      ]);
   }
 
   /**
@@ -161,7 +205,7 @@ export class DesignFilesService {
         else
           this.files.update((files) => [
             ...files,
-            { ...file, original: file.bytes, imported: true, modified: false },
+            { ...file, original: file.bytes, origin: 'imported', modified: false },
           ]);
       }
     } catch (error: unknown) {

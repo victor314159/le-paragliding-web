@@ -13,6 +13,13 @@ their comments. **Edit text**, in the menu of each file, edits any file. Most
 sections show a live drawing of their input, before the engine's corrections:
 zoom with the wheel, pan by dragging.
 
+**Preprocessor** edits `pre-data.txt`, the parameters of the [geometry
+preprocessor](https://www.laboratoridenvol.com/leparagliding/pre.en.html), like
+an airfoil: saving rewrites it when they change. Without the file, it can be
+created from the documented example. The editor shows whether the rib table of
+section 1 is the one they generate, rounded as `geometry-out.txt`; replacing
+it keeps the other rib columns. Remove the file from the list of input files.
+
 ## Safety disclaimer
 
 This application is an experimental browser port of LEparagliding. Errors may

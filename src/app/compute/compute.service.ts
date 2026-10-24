@@ -51,7 +51,7 @@ export class ComputeService implements OnDestroy {
     // Results and logs belong to the inputs used for their calculation.
     effect(() => {
       this.inputs.sourceId();
-      this.inputs.files();
+      this.inputs.engineFiles();
       untracked(() => this.clear());
     });
   }
@@ -59,7 +59,7 @@ export class ComputeService implements OnDestroy {
   /** Runs an independent snapshot of the current input files. */
   start(): void {
     if (this.busy() || !this.inputs.ready()) return;
-    const files = this.inputs.files().map(({ name, bytes }) => ({ name, bytes }));
+    const files = this.inputs.engineFiles().map(({ name, bytes }) => ({ name, bytes }));
     this.releaseFiles();
     this.logs.set([]);
     this.error.set('');

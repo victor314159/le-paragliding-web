@@ -36,9 +36,11 @@
           <span matListItemTitle>{{ file.name }}</span>
           <span matListItemLine>{{ kind(file) }}</span>
           <div matListItemMeta class="file-actions">
-            @if (file.modified) {
+            @if (file.origin === 'created') {
+              <mat-chip>Created</mat-chip>
+            } @else if (file.modified) {
               <mat-chip>Modified</mat-chip>
-            } @else if (file.imported) {
+            } @else if (file.origin === 'imported') {
               <mat-chip>Imported</mat-chip>
             }
             @if (file.name === designFile) {
@@ -59,10 +61,10 @@
                   <mat-icon svgIcon="tune" />
                 </button>
               </span>
-            } @else if (airfoils().has(file.name)) {
+            } @else if (parameterFiles().has(file.name)) {
               <span
                 [matTooltip]="
-                  airfoils().get(file.name) || locked()
+                  parameterFiles().get(file.name) || locked()
                     ? 'Edit parameters'
                     : 'Fix ' + file.name + ' with Edit text first.'
                 "
@@ -70,7 +72,7 @@
                 <button
                   matIconButton
                   type="button"
-                  [disabled]="locked() || !airfoils().get(file.name)"
+                  [disabled]="locked() || !parameterFiles().get(file.name)"
                   [attr.aria-label]="'Edit parameters of ' + file.name"
                   (click)="editParameters(file.name)"
                 >
@@ -172,11 +174,13 @@
       Replace…
     </button>
     <mat-divider />
-    <button mat-menu-item [disabled]="!file.modified" (click)="inputs.restore(file)">
-      <mat-icon svgIcon="history" />
-      Restore original
-    </button>
-    @if (file.imported) {
+    @if (file.origin !== 'created') {
+      <button mat-menu-item [disabled]="!file.modified" (click)="inputs.restore(file)">
+        <mat-icon svgIcon="history" />
+        Restore original
+      </button>
+    }
+    @if (file.origin !== 'example') {
       <button mat-menu-item (click)="inputs.remove(file)">
         <mat-icon svgIcon="delete" />
         Remove file
