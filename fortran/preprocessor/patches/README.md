@@ -51,14 +51,14 @@ the last edge segment (`xp1(kmax1) = xm`). Rounding can put it slightly past
 every segment, and y-LE and y-TE stay 0: the tip rib has no chord.
 
 This is frequent. On the official example, for every cell count from 2 to
-200 in single precision:
+199 (the limit of `rib(0:100,…)`), in single precision:
 
 - uniform distribution (mode 1): 80 of 199 counts, including 27, 29, 36,
   38, 41, 43, 44, 45 and 49;
 - linear distribution (mode 2, coefficient 0.7): 70 of 199 counts,
   including 6, 14, 23, 25, 27, 29 and 30.
 
-In double precision the counts differ but are as frequent (77 and 68).
+In double precision the counts differ but are as frequent (77 and 67).
 Distribution 3 avoids it on the official example, because the tip keeps the
 chord from its last width iteration.
 
@@ -94,8 +94,15 @@ test:
   The segment that crosses `xm` starts before `x1`, so it is not clipped.
   The contour then continues along the ellipse to x = `a1`. With the official
   example and `x1 = x2 = 575.49` on both edges, the leading edge has 158
-  points and ends at x = 710.21, past the half span (575.5). Patched, it has
-  96 points and ends at 575.50.
+  points and ends at x = 710.21, past the half span (575.5). With the
+  official `c01 = 48.30`, its last y no longer fits the printed format
+  (`**********`). Patched, it has 96 points and ends at 575.50.
+
+  The patch does not apply such a late correction, and neither does the
+  original. With the official `c01 = 48.30` and `x1 = x2 = 575.49`, the tip
+  rib keeps the uncorrected y-LE (100.66 cm, both versions), while the
+  correction is defined as the deflection at the tip. Applying it would need
+  a change to the sampling that we leave to the author.
 
 The patch:
 
@@ -131,6 +138,11 @@ vault segment is therefore never used. A rib within it keeps `xp`, `z` and
 `beta` from storage, which is 0 when the compiler zero-initializes static
 storage. That 0 is exact for the centre rib of an even wing (x = 0).
 `rib=0.` at the start makes this explicit, without changing results.
+
+This only stabilizes the existing behavior. It does not correct the
+interpolation: a rib inside the first segment with x > 0 still gets
+`xp = z = beta = 0`. For example, with explicit widths `0.01, 38, 30, 20`,
+rib 1 gets `xp = 0`, where it should be about 0.0327 cm.
 
 ### No effect on results
 
