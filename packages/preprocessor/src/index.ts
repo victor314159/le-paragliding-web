@@ -6,5 +6,13 @@ export {
   PREPROCESSOR_EXAMPLE,
 } from './defaults.ts';
 export { generateGeometry } from './geometry.ts';
+export {
+  SHAPE_LIMITS,
+  fromShape,
+  shapeLosses,
+  shapeOf,
+  type ShapePart,
+  type WingShape,
+} from './shape.ts';
 export { PRE_DATA_FILE, parsePreData, writePreData } from './pre-data.ts';
 export { cellCount, validatePreprocessor } from './validate.ts';

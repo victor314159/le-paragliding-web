@@ -57,6 +57,19 @@ comments after values, CRLF and quoted names are accepted. Writing produces
 canonical records; comments/layout are not retained. Other list-directed
 syntax (repetition, null values, record continuation) is not supported.
 
+## Shape
+
+An optional extension, without a native equivalent nor an oracle: a
+`WingShape` of ten settings (flat area and aspect ratio, tip chord, sweep,
+edge roundness, vault tip angle and curl, cells and their uniformity) sets
+every parameter. `fromShape(shape, base)` gives elliptic edges without
+corrections, four vault arcs and cells proportional to chord, rounded to
+0.01, with the flat area of the shape; it keeps the name and correction starts
+of `base`. `shapeOf(input, result)` reads the shape of valid parameters,
+clamped to `SHAPE_LIMITS`. `shapeLosses(shape, input)` lists the parts of the
+parameters that the shape replaces: none when they are a shape's within
+rounding, vault arcs being compared by length and angle.
+
 ## Native oracle
 
 ```sh

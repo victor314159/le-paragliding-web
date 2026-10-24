@@ -110,6 +110,8 @@ test('generating replaces the generated columns only, and is recognized afterwar
 const button = (page: Page, name: string) => page.getByRole('button', { name, exact: true });
 const field = (page: Page, name: string) => page.getByRole('textbox', { name, exact: true });
 const HALF_SPAN = 'Flat half span · xm (cm)';
+const mode = (page: Page, name: 'Auto' | 'Manual') =>
+  page.getByRole('radio', { name, exact: true });
 
 async function navigate(page: Page, name: string | RegExp, blocked = false): Promise<void> {
   const menu = button(page, 'Sections and airfoils');
@@ -526,4 +528,32 @@ test('status separates invalid parameters from differences and warns only when a
   await button(page, 'Replace the rib table of section 1').click();
   await expect(warning).toHaveCount(0);
   await expect(page.getByText(SYNCED, { exact: true })).toBeVisible();
+});
+
+test('Auto lists what its shape replaces before tuning, and keeps the inactive modes', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await open(page);
+  await button(page, 'Create from the documented example').click();
+  await expect(mode(page, 'Manual')).toBeChecked();
+  await choose(page, 'Vault shape', '1');
+  await field(page, 'Vault horizontal radius · a1 (cm)').fill('450');
+  await choose(page, 'Vault shape', '2');
+  await mode(page, 'Auto').click();
+  await expect(
+    page.getByText(
+      'it replaces the leading edge corrections, the trailing edge correction, and the vault arcs.',
+    ),
+  ).toBeVisible();
+  const taper = page.getByRole('slider', { name: 'Tip chord' });
+  await expect(taper).toBeDisabled();
+  await button(page, 'Replace with the Auto shape').click();
+  await expect(taper).toBeEnabled();
+  await taper.press('ArrowRight');
+  await expect(page.getByText('it replaces')).toHaveCount(0);
+  await mode(page, 'Manual').click();
+  await expect(field(page, 'First tip correction · c01 (cm)')).toHaveValue('0');
+  await choose(page, 'Vault shape', '1');
+  await expect(field(page, 'Vault horizontal radius · a1 (cm)')).toHaveValue('450');
 });

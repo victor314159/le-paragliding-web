@@ -1,10 +1,12 @@
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, inject, linkedSignal, untracked } from '@angular/core';
 import { MatButton } from '@angular/material/button';
+import { MatButtonToggle, MatButtonToggleGroup } from '@angular/material/button-toggle';
 import { EditorState, type PreprocessorStatus } from './editor-state';
 import { NumberField } from './number-field';
 import { toExplicitWidths } from './preprocessor-draft';
 import { AddRow, RecordRow, RemoveRow } from './record-editor';
 import { SelectField } from './select-field';
+import { ShapeFields } from './shape-fields';
 import { TextField } from './text-field';
 
 const STATUS: Readonly<Record<PreprocessorStatus, string>> = {
@@ -16,7 +18,18 @@ const STATUS: Readonly<Record<PreprocessorStatus, string>> = {
 /** The parameters of pre-data.txt, and whether they generate the rib table of section 1. */
 @Component({
   selector: 'app-preprocessor-section',
-  imports: [AddRow, MatButton, NumberField, RecordRow, RemoveRow, SelectField, TextField],
+  imports: [
+    AddRow,
+    MatButton,
+    MatButtonToggle,
+    MatButtonToggleGroup,
+    NumberField,
+    RecordRow,
+    RemoveRow,
+    SelectField,
+    ShapeFields,
+    TextField,
+  ],
   template: `
     @if (!editor.preprocessor.loaded()) {
       <p>
@@ -58,177 +71,194 @@ const STATUS: Readonly<Record<PreprocessorStatus, string>> = {
           </button>
         }
       </p>
-      <fieldset>
-        <legend>Wing</legend>
-        <app-text-field
-          label="Name"
-          hint="Read and not used by the preprocessor."
-          [field]="form.name"
-          (focusin)="editor.focusPreprocessor(undefined)"
-        />
-        <app-number-field
-          label="Flat half span · xm"
-          unit="cm"
-          hint="Shared by both edges."
-          [field]="form.halfSpan"
-          (focusin)="editor.focusPreprocessor({ part: 'span' })"
-        />
-      </fieldset>
-      <fieldset>
-        <legend>Leading edge</legend>
-        <p>
-          Corrections grow from their start to the tip. Set the tip correction to zero to disable
-          it.
-        </p>
-        @for (group of leadingEdge; track group.label) {
-          <fieldset (focusin)="editor.focusPreprocessor(group.focus)">
-            <legend>{{ group.label }}</legend>
-            @for (field of group.fields; track field[0]) {
-              <app-number-field
-                [label]="field[1]"
-                [unit]="field[2]"
-                [field]="form.leadingEdge[field[0]]"
-              />
-            }
-          </fieldset>
-        }
-      </fieldset>
-      <fieldset>
-        <legend>Trailing edge</legend>
-        <p>
-          The ellipse offset sets the central chord. Set the tip correction to zero to disable it.
-        </p>
-        @for (group of trailingEdge; track group.label) {
-          <fieldset (focusin)="editor.focusPreprocessor(group.focus)">
-            <legend>{{ group.label }}</legend>
-            @for (field of group.fields; track field[0]) {
-              <app-number-field
-                [label]="field[1]"
-                [unit]="field[2]"
-                [field]="form.trailingEdge[field[0]]"
-              />
-            }
-          </fieldset>
-        }
-      </fieldset>
-      <fieldset>
-        <legend>Vault</legend>
-        <p>Scaled so that its developed length is the flat half span.</p>
-        <app-select-field
-          label="Vault shape"
-          [field]="form.vault.mode"
-          (focusin)="editor.focusPreprocessor({ part: 'vault' })"
-          [options]="[
-            [1, 'Corrected ellipse'],
-            [2, 'Four tangent arcs'],
-          ]"
-        />
-        @if (form.vault.mode().value() === 1) {
-          @for (group of ellipse; track group.label) {
+      <mat-button-toggle-group
+        aria-label="Shape mode"
+        hideSingleSelectionIndicator
+        [value]="mode()"
+        (change)="mode.set($event.value)"
+      >
+        <mat-button-toggle value="auto">Auto</mat-button-toggle>
+        <mat-button-toggle value="manual">Manual</mat-button-toggle>
+      </mat-button-toggle-group>
+      @if (mode() === 'auto') {
+        <app-shape-fields />
+      } @else {
+        <fieldset>
+          <legend>Wing</legend>
+          <app-text-field
+            label="Name"
+            hint="Read and not used by the preprocessor."
+            [field]="form.name"
+            (focusin)="editor.focusPreprocessor(undefined)"
+          />
+          <app-number-field
+            label="Flat half span · xm"
+            unit="cm"
+            hint="Shared by both edges."
+            [field]="form.halfSpan"
+            (focusin)="editor.focusPreprocessor({ part: 'span' })"
+          />
+        </fieldset>
+        <fieldset>
+          <legend>Leading edge</legend>
+          <p>
+            Corrections grow from their start to the tip. Set the tip correction to zero to disable
+            it.
+          </p>
+          @for (group of leadingEdge; track group.label) {
             <fieldset (focusin)="editor.focusPreprocessor(group.focus)">
               <legend>{{ group.label }}</legend>
               @for (field of group.fields; track field[0]) {
                 <app-number-field
                   [label]="field[1]"
                   [unit]="field[2]"
-                  [field]="form.vault[field[0]]"
+                  [field]="form.leadingEdge[field[0]]"
                 />
               }
             </fieldset>
           }
-        } @else {
-          @for (arc of form.vault.arcs; track $index; let i = $index) {
-            <fieldset (focusin)="editor.focusPreprocessor({ part: 'vault', arc: i })">
-              <legend>
-                Arc {{ i + 1 }} · {{ i === 0 ? 'Center' : i === 3 ? 'Tip' : 'Intermediate' }}
-              </legend>
-              <app-number-field
-                [label]="'Arc ' + (i + 1) + ' radius'"
-                unit="cm"
-                [field]="arc.radius"
-              />
-              <app-number-field
-                [label]="'Arc ' + (i + 1) + ' angle'"
-                unit="deg"
-                [field]="arc.angle"
-              />
+        </fieldset>
+        <fieldset>
+          <legend>Trailing edge</legend>
+          <p>
+            The ellipse offset sets the central chord. Set the tip correction to zero to disable it.
+          </p>
+          @for (group of trailingEdge; track group.label) {
+            <fieldset (focusin)="editor.focusPreprocessor(group.focus)">
+              <legend>{{ group.label }}</legend>
+              @for (field of group.fields; track field[0]) {
+                <app-number-field
+                  [label]="field[1]"
+                  [unit]="field[2]"
+                  [field]="form.trailingEdge[field[0]]"
+                />
+              }
             </fieldset>
           }
-        }
-      </fieldset>
-      <fieldset>
-        <legend>Cells</legend>
-        <app-select-field
-          label="Cell distribution"
-          [field]="form.distribution.mode"
-          (focusin)="editor.focusPreprocessor({ part: 'cells' })"
-          (changed)="changeDistribution($event)"
-          [options]="[
-            [1, 'Uniform'],
-            [2, 'Linear'],
-            [3, 'Proportional to chord'],
-            [4, 'Explicit widths'],
-          ]"
-        />
-        @switch (form.distribution.mode().value()) {
-          @case (4) {
-            <app-select-field
-              label="Wing center"
-              [field]="form.distribution.center"
-              (focusin)="editor.focusPreprocessor({ part: 'cells' })"
-              [options]="[
-                ['rib', 'Central rib · even cell count'],
-                ['cell', 'Central cell · odd cell count'],
-              ]"
-            />
-            <p>
-              Widths of the half wing, from center to tip, normalized to the span. A central cell
-              has its full width in the first row.
-            </p>
-            @for (width of form.distribution.widths; track width; let i = $index) {
-              <div
-                class="width"
-                [appRecordRow]="form.distribution.widths"
-                [index]="i"
-                (focusin)="editor.focusPreprocessor({ part: 'cells', cell: i })"
-              >
-                <app-number-field
-                  [label]="
-                    form.distribution.center().value() === 'cell' && i === 0
-                      ? 'Central cell width'
-                      : 'Cell ' + (i + 1) + ' width'
-                  "
-                  unit="cm"
-                  [field]="width"
-                />
-                <app-remove-row [rows]="form.distribution.widths" [index]="i" label="cell width" />
-              </div>
+        </fieldset>
+        <fieldset>
+          <legend>Vault</legend>
+          <p>Scaled so that its developed length is the flat half span.</p>
+          <app-select-field
+            label="Vault shape"
+            [field]="form.vault.mode"
+            (focusin)="editor.focusPreprocessor({ part: 'vault' })"
+            [options]="[
+              [1, 'Corrected ellipse'],
+              [2, 'Four tangent arcs'],
+            ]"
+          />
+          @if (form.vault.mode().value() === 1) {
+            @for (group of ellipse; track group.label) {
+              <fieldset (focusin)="editor.focusPreprocessor(group.focus)">
+                <legend>{{ group.label }}</legend>
+                @for (field of group.fields; track field[0]) {
+                  <app-number-field
+                    [label]="field[1]"
+                    [unit]="field[2]"
+                    [field]="form.vault[field[0]]"
+                  />
+                }
+              </fieldset>
             }
-            <app-add-row
-              label="cell width"
-              [rows]="form.distribution.widths"
-              [row]="20"
-              [max]="99"
-            />
+          } @else {
+            @for (arc of form.vault.arcs; track $index; let i = $index) {
+              <fieldset (focusin)="editor.focusPreprocessor({ part: 'vault', arc: i })">
+                <legend>
+                  Arc {{ i + 1 }} · {{ i === 0 ? 'Center' : i === 3 ? 'Tip' : 'Intermediate' }}
+                </legend>
+                <app-number-field
+                  [label]="'Arc ' + (i + 1) + ' radius'"
+                  unit="cm"
+                  [field]="arc.radius"
+                />
+                <app-number-field
+                  [label]="'Arc ' + (i + 1) + ' angle'"
+                  unit="deg"
+                  [field]="arc.angle"
+                />
+              </fieldset>
+            }
           }
-          @default {
-            <app-number-field
-              label="Cells"
-              integer
-              [field]="form.distribution.cells"
-              (focusin)="editor.focusPreprocessor({ part: 'cells' })"
-            />
-            @if (form.distribution.mode().value() !== 1) {
-              <app-number-field
-                label="Distribution coefficient"
+        </fieldset>
+        <fieldset>
+          <legend>Cells</legend>
+          <app-select-field
+            label="Cell distribution"
+            [field]="form.distribution.mode"
+            (focusin)="editor.focusPreprocessor({ part: 'cells' })"
+            (changed)="changeDistribution($event)"
+            [options]="[
+              [1, 'Uniform'],
+              [2, 'Linear'],
+              [3, 'Proportional to chord'],
+              [4, 'Explicit widths'],
+            ]"
+          />
+          @switch (form.distribution.mode().value()) {
+            @case (4) {
+              <app-select-field
+                label="Wing center"
+                [field]="form.distribution.center"
                 (focusin)="editor.focusPreprocessor({ part: 'cells' })"
-                hint="0: strongest taper, or fully proportional to chord. 1: uniform widths."
-                [field]="form.distribution.coefficient"
+                [options]="[
+                  ['rib', 'Central rib · even cell count'],
+                  ['cell', 'Central cell · odd cell count'],
+                ]"
+              />
+              <p>
+                Widths of the half wing, from center to tip, normalized to the span. A central cell
+                has its full width in the first row.
+              </p>
+              @for (width of form.distribution.widths; track width; let i = $index) {
+                <div
+                  class="width"
+                  [appRecordRow]="form.distribution.widths"
+                  [index]="i"
+                  (focusin)="editor.focusPreprocessor({ part: 'cells', cell: i })"
+                >
+                  <app-number-field
+                    [label]="
+                      form.distribution.center().value() === 'cell' && i === 0
+                        ? 'Central cell width'
+                        : 'Cell ' + (i + 1) + ' width'
+                    "
+                    unit="cm"
+                    [field]="width"
+                  />
+                  <app-remove-row
+                    [rows]="form.distribution.widths"
+                    [index]="i"
+                    label="cell width"
+                  />
+                </div>
+              }
+              <app-add-row
+                label="cell width"
+                [rows]="form.distribution.widths"
+                [row]="20"
+                [max]="99"
               />
             }
+            @default {
+              <app-number-field
+                label="Cells"
+                integer
+                [field]="form.distribution.cells"
+                (focusin)="editor.focusPreprocessor({ part: 'cells' })"
+              />
+              @if (form.distribution.mode().value() !== 1) {
+                <app-number-field
+                  label="Distribution coefficient"
+                  (focusin)="editor.focusPreprocessor({ part: 'cells' })"
+                  hint="0: strongest taper, or fully proportional to chord. 1: uniform widths."
+                  [field]="form.distribution.coefficient"
+                />
+              }
+            }
           }
-        }
-      </fieldset>
+        </fieldset>
+      }
     }
   `,
   styleUrl: './section.css',
@@ -243,6 +273,9 @@ const STATUS: Readonly<Record<PreprocessorStatus, string>> = {
     .geometry-status p {
       margin: 0;
       font: var(--mat-sys-title-small);
+    }
+    mat-button-toggle-group {
+      margin-block: 8px;
     }
     .width {
       display: flex;
@@ -273,6 +306,18 @@ export class PreprocessorSection {
   protected readonly newCellCount = computed(() => {
     const cells = this.editor.generated()?.cells;
     return cells !== this.editor.draft.value().geometry.cells ? cells : undefined;
+  });
+
+  /**
+   * Auto tunes a few settings, Manual edits the parameters: first if Auto
+   * would replace some, once they are loaded.
+   */
+  protected readonly mode = linkedSignal<boolean, 'auto' | 'manual'>({
+    source: this.editor.preprocessor.loaded,
+    computation: () => {
+      const { shape, shapeLosses } = this.editor.preprocessor;
+      return untracked(() => !!shape() && !shapeLosses().length) ? 'auto' : 'manual';
+    },
   });
 
   protected readonly leadingEdge = [

@@ -9,11 +9,15 @@ import {
   PRE_DATA_FILE,
   cellCount,
   generateGeometry,
+  shapeLosses,
+  shapeOf,
   type CellDistribution,
   type GeometryResult,
   type PreprocessorInput,
   type Result,
+  type ShapePart,
   type Vault,
+  type WingShape,
 } from '@lepara/preprocessor';
 import { dequal } from 'dequal';
 import type { AllModes, DesignForm, Nullable } from './editor-draft';
@@ -167,6 +171,10 @@ export class PreprocessorDraft {
   readonly errors: Signal<readonly Diagnostic[]>;
   /** Saving writes pre-data.txt: it was created, or its parameters changed. */
   readonly changed: Signal<boolean>;
+  /** The shape of the parameters, if they generate a wing. */
+  readonly shape: Signal<WingShape | undefined>;
+  /** What applying that shape replaces: none when the parameters are a shape's. */
+  readonly shapeLosses: Signal<readonly ShapePart[]>;
 
   constructor(reading?: Result<PreprocessorInput>) {
     this.exists = !!reading;
@@ -188,6 +196,14 @@ export class PreprocessorDraft {
           }));
     });
     this.changed = computed(() => this.loaded() && !dequal(this.input(), read));
+    this.shape = computed(() => {
+      const result = this.result();
+      return result.ok ? shapeOf(this.input(), result.value) : undefined;
+    });
+    this.shapeLosses = computed(() => {
+      const shape = this.shape();
+      return shape ? shapeLosses(shape, this.input()) : [];
+    });
   }
 
   /** Starts from the documented example, without a file. */
