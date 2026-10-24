@@ -21,9 +21,9 @@ const count = (n: number, noun: string) => `${n} ${n === 1 ? noun : noun + 's'}`
 export const ribRange = (row: { firstRib: number | null; lastRib: number | null }) =>
   `Ribs ${row.firstRib}–${row.lastRib}`;
 
-/** A table row of a collection: focusing it selects it, for the preview. */
+/** A row of a collection: focusing it selects it, for the preview. */
 @Directive({
-  selector: 'tr[appRecordRow]',
+  selector: '[appRecordRow]',
   host: {
     '[class.selected]': 'editor.selectedRecord(appRecordRow()) === index()',
     '(focusin)': 'editor.selectRecord(appRecordRow(), index())',

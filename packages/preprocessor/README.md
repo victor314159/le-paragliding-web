@@ -38,7 +38,7 @@ cell count; otherwise it is the full central-cell width. Widths and vault
 length are normalized to the flat half span. Supports 2–199 cells.
 
 The result contains the half-wing rib table, sampled contours and vault
-(with the junctions of its arcs),
+(split into its arcs),
 and the original geometric metrics. Coordinates start at the central
 leading edge / top of the vault, without CAD drawing offsets. Spans are
 **m**, areas **m²**, chords **cm**; ratios are dimensionless. Maximum/minimum

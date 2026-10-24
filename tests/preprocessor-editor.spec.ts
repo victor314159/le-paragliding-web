@@ -127,7 +127,7 @@ async function open(page: Page): Promise<void> {
   await navigate(page, /^pre-data\.txt/);
 }
 
-const SYNCED = 'The cells and rib positions of section 1 are those these parameters generate.';
+const SYNCED = 'Geometry in sync with section 1';
 
 /** Replaces the rib table of section 1 with the one the parameters generate. */
 async function apply(page: Page): Promise<void> {
@@ -342,7 +342,7 @@ test('invalid parameters are read and corrected in the form', async ({ page }) =
   await importFile(page, 'pre-data.txt', Buffer.from(text));
   await expect(button(page, 'Edit parameters of pre-data.txt')).toBeEnabled();
   await open(page);
-  await expect(note(page, 'Out of sync · 1 error')).toBeVisible();
+  await expect(note(page, 'Invalid parameters · 1 error')).toBeVisible();
   await expect(field(page, 'First correction exponent · ex1')).toHaveValue('0');
   await field(page, 'First correction exponent · ex1').fill('2');
   await expect(note(page, '(In|Out of) sync · Modified$')).toBeVisible();
@@ -423,4 +423,107 @@ test('changing the cell count resizes the table; other sections are corrected be
     coefficient: 0.7,
     cells: 4,
   });
+});
+
+test('focusing parameters highlights their geometry in a view that draws it, without changing the draft', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await importPreData(page, PREPROCESSOR_EXAMPLE);
+  await open(page);
+  const preview = page.locator('app-preprocessor-preview');
+  await field(page, 'First correction start · x1 (cm)').focus();
+  await expect(preview.locator('figcaption')).toContainText('Leading edge correction 1');
+  await expect(preview.locator('circle.selected')).toHaveCount(1);
+  const highlights = preview.locator('path.highlight');
+  await expect(highlights).toHaveCount(2);
+  // Each correction stays on its half wing, without a line crossing the center.
+  const halves = await highlights.evaluateAll((paths) =>
+    paths.map((path) => {
+      const box = (path as SVGPathElement).getBBox();
+      return { left: box.x, right: box.x + box.width };
+    }),
+  );
+  expect(halves[0].right).toBeLessThan(0);
+  expect(halves[1].left).toBeGreaterThan(0);
+
+  await field(page, 'Arc 2 radius (cm)').focus();
+  await expect(button(page, 'Front')).toHaveAttribute('aria-pressed', 'true');
+  await expect(preview.locator('figcaption')).toContainText('Arc 2');
+  await expect(highlights).toHaveCount(2);
+  await expect(preview.locator('circle.selected')).toHaveCount(2);
+  await field(page, 'Arc 1 radius (cm)').focus();
+  await expect(preview.locator('figcaption')).toContainText('Arc 1');
+  await expect(preview.locator('circle.selected')).toHaveCount(1);
+  // The flat half span is drawn in both views: the view stays.
+  await field(page, HALF_SPAN).focus();
+  await expect(button(page, 'Front')).toHaveAttribute('aria-pressed', 'true');
+  await field(page, 'Second correction start · x2 (cm)').focus();
+  await expect(button(page, 'Planform')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByText('· Modified', { exact: true })).toHaveCount(0);
+});
+
+for (const center of ['rib', 'cell'] as const) {
+  test(`explicit widths select the same cell in both views, with a central ${center}`, async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await importPreData(page, {
+      ...PREPROCESSOR_EXAMPLE,
+      distribution: { mode: 4, widths: center === 'rib' ? [0, 20, 30, 40] : [20, 30, 40] },
+    });
+    await open(page);
+    const preview = page.locator('app-preprocessor-preview');
+    const central = center === 'cell';
+    const first = field(page, central ? 'Central cell width (cm)' : 'Cell 1 width (cm)');
+    await first.focus();
+    await expect(preview.locator('path.cell-selection')).toHaveCount(central ? 1 : 2);
+    const label = central ? 'Central cell' : 'Cell 1';
+    await expect(preview.locator('figcaption')).toContainText(label);
+    await button(page, 'Cells').click();
+    await expect(preview.locator('path.highlight')).toHaveCount(1);
+    const result = ok(
+      generateGeometry({
+        ...PREPROCESSOR_EXAMPLE,
+        distribution: { mode: 4, widths: central ? [20, 30, 40] : [0, 20, 30, 40] },
+      }),
+    );
+    const width = central ? result.ribs[0].x * 2 : result.ribs[1].x;
+    await expect(preview.locator('path.highlight title')).toHaveText(
+      `${label} · ${width.toFixed(2)} cm`,
+    );
+    await field(page, 'Cell 2 width (cm)').focus();
+    await expect(preview.locator('figcaption')).toContainText('Cell 2');
+    await expect(preview.locator('path.curve title')).toHaveCount(3);
+    await button(page, 'Planform').click();
+    await expect(preview.locator('path.cell-selection')).toHaveCount(2);
+    await expect(preview.locator('figcaption')).toContainText('Cell 2');
+    await expect(page.getByText('· Modified', { exact: true })).toHaveCount(0);
+  });
+}
+
+test('status separates invalid parameters from differences and warns only when applying changes the cell count', async ({
+  page,
+}) => {
+  await page.goto('/');
+  const source = ok(parseLep(await download(page, 'leparagliding.txt')));
+  await importPreData(page, withCells(source.geometry.cells));
+  await open(page);
+  const warning = page.getByText(/Replacing the rib table changes the cell count/);
+  await expect(warning).toHaveCount(0);
+  await apply(page);
+  await field(page, HALF_SPAN).fill('abc');
+  await expect(page.getByRole('status').filter({ hasText: 'Invalid parameters' })).toBeVisible();
+  await expect(note(page, 'Invalid parameters')).toBeVisible();
+  await expect(button(page, 'Replace the rib table of section 1')).toBeDisabled();
+  await expect(page.getByRole('img', { name: 'Generated geometry' })).toHaveCount(0);
+  await field(page, HALF_SPAN).fill('575.5');
+  await expect(page.getByText(SYNCED, { exact: true })).toBeVisible();
+  await field(page, 'Cells').fill(String(source.geometry.cells + 2));
+  await expect(warning).toContainText(
+    `from ${source.geometry.cells} to ${source.geometry.cells + 2}`,
+  );
+  await button(page, 'Replace the rib table of section 1').click();
+  await expect(warning).toHaveCount(0);
+  await expect(page.getByText(SYNCED, { exact: true })).toBeVisible();
 });

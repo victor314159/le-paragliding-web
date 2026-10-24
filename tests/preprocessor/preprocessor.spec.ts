@@ -28,7 +28,10 @@ test('reads the official 1.6 file and produces the native example dimensions', (
   expect(result.metrics.projectedSpan).toBeCloseTo(9.45, 2);
   expect(result.metrics.maxChord).toBeCloseTo(271.02, 5);
   expect(result.curves.vault).toHaveLength(397);
-  expect(result.curves.vaultJunctions).toEqual([99, 198, 297].map((i) => result.curves.vault[i]));
+  expect(result.curves.vaultArcs.map((arc) => arc[0])).toEqual(
+    [0, 99, 198, 297].map((i) => result.curves.vault[i]),
+  );
+  expect(result.curves.vaultArcs.flat()).toHaveLength(400);
   expect(PREPROCESSOR_EXAMPLE).toEqual(EXAMPLE);
   expect(EXAMPLE.vault).toEqual(ARC_VAULT_DEFAULTS);
 });

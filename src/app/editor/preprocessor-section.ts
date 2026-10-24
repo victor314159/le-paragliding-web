@@ -1,16 +1,22 @@
-import { Component, inject } from '@angular/core';
+import { Component, computed, inject } from '@angular/core';
 import { MatButton } from '@angular/material/button';
-import { EditorState } from './editor-state';
+import { EditorState, type PreprocessorStatus } from './editor-state';
 import { NumberField } from './number-field';
 import { toExplicitWidths } from './preprocessor-draft';
-import { AddRow, RemoveRow } from './record-editor';
+import { AddRow, RecordRow, RemoveRow } from './record-editor';
 import { SelectField } from './select-field';
 import { TextField } from './text-field';
+
+const STATUS: Readonly<Record<PreprocessorStatus, string>> = {
+  invalid: 'Invalid parameters',
+  synced: 'Geometry in sync with section 1',
+  differs: 'Geometry differs from section 1',
+};
 
 /** The parameters of pre-data.txt, and whether they generate the rib table of section 1. */
 @Component({
   selector: 'app-preprocessor-section',
-  imports: [AddRow, MatButton, NumberField, RemoveRow, SelectField, TextField],
+  imports: [AddRow, MatButton, NumberField, RecordRow, RemoveRow, SelectField, TextField],
   template: `
     @if (!editor.preprocessor.loaded()) {
       <p>
@@ -21,69 +27,88 @@ import { TextField } from './text-field';
         Create from the documented example
       </button>
     } @else {
-      @if (!editor.preprocessor.exists) {
-        <p>
+      <div class="geometry-status">
+        <p role="status" [class.mat-text-error]="status() === 'invalid'">
+          {{ statusText() }}
+        </p>
+        @if (status() !== 'synced') {
+          <button
+            matButton="filled"
+            type="button"
+            [disabled]="status() === 'invalid'"
+            (click)="editor.applyPreprocessor()"
+          >
+            Replace the rib table of section 1
+          </button>
+        }
+      </div>
+      @if (newCellCount(); as cells) {
+        <p class="mat-text-on-surface-variant">
+          Replacing the rib table changes the cell count from
+          {{ editor.draft.value().geometry.cells }} to {{ cells }}; other sections may need
+          corrections.
+        </p>
+      }
+      <p class="mat-text-on-surface-variant">
+        Lengths are before Wing scale. Applying keeps the other rib columns.
+        @if (!editor.preprocessor.exists) {
           Saving creates pre-data.txt.
           <button matButton type="button" (click)="editor.preprocessor.discard()">
             Discard pre-data.txt
           </button>
-        </p>
-      }
-      @if (editor.synced()) {
-        <p>The cells and rib positions of section 1 are those these parameters generate.</p>
-      } @else {
-        <p>
-          The cells and rib positions of section 1 differ from those these parameters generate.
-          Applying them keeps its other columns; changing the cell count may require corrections in
-          other sections.
-        </p>
-        <button
-          matButton="filled"
-          type="button"
-          [disabled]="!editor.preprocessor.result().ok"
-          (click)="editor.applyPreprocessor()"
-        >
-          Replace the rib table of section 1
-        </button>
-      }
-      <p>Lengths are before Wing scale.</p>
+        }
+      </p>
       <fieldset>
         <legend>Wing</legend>
         <app-text-field
           label="Name"
           hint="Read and not used by the preprocessor."
           [field]="form.name"
+          (focusin)="editor.focusPreprocessor(undefined)"
         />
         <app-number-field
           label="Flat half span · xm"
           unit="cm"
           hint="Shared by both edges."
           [field]="form.halfSpan"
+          (focusin)="editor.focusPreprocessor({ part: 'span' })"
         />
       </fieldset>
       <fieldset>
         <legend>Leading edge</legend>
         <p>
-          An ellipse with two tip corrections. Each correction starts at x1 or x2 and reaches its
-          displacement at the tip; zero disables it.
+          Corrections grow from their start to the tip. Set the tip correction to zero to disable
+          it.
         </p>
-        @for (field of leadingEdge; track field[0]) {
-          <app-number-field
-            [label]="field[1]"
-            [unit]="field[2]"
-            [field]="form.leadingEdge[field[0]]"
-          />
+        @for (group of leadingEdge; track group.label) {
+          <fieldset (focusin)="editor.focusPreprocessor(group.focus)">
+            <legend>{{ group.label }}</legend>
+            @for (field of group.fields; track field[0]) {
+              <app-number-field
+                [label]="field[1]"
+                [unit]="field[2]"
+                [field]="form.leadingEdge[field[0]]"
+              />
+            }
+          </fieldset>
         }
       </fieldset>
       <fieldset>
         <legend>Trailing edge</legend>
-        <p>An offset ellipse with one tip correction. The offset sets the central chord.</p>
-        @for (field of trailingEdge; track field[0]) {
-          <app-number-field
-            [label]="field[1]"
-            [unit]="field[2]"
-            [field]="form.trailingEdge[field[0]]"
-          />
+        <p>
+          The ellipse offset sets the central chord. Set the tip correction to zero to disable it.
+        </p>
+        @for (group of trailingEdge; track group.label) {
+          <fieldset (focusin)="editor.focusPreprocessor(group.focus)">
+            <legend>{{ group.label }}</legend>
+            @for (field of group.fields; track field[0]) {
+              <app-number-field
+                [label]="field[1]"
+                [unit]="field[2]"
+                [field]="form.trailingEdge[field[0]]"
+              />
+            }
+          </fieldset>
         }
       </fieldset>
       <fieldset>
@@ -92,18 +117,28 @@ import { TextField } from './text-field';
         <app-select-field
           label="Vault shape"
           [field]="form.vault.mode"
+          (focusin)="editor.focusPreprocessor({ part: 'vault' })"
           [options]="[
             [1, 'Corrected ellipse'],
             [2, 'Four tangent arcs'],
           ]"
         />
         @if (form.vault.mode().value() === 1) {
-          @for (field of ellipse; track field[0]) {
-            <app-number-field [label]="field[1]" [unit]="field[2]" [field]="form.vault[field[0]]" />
+          @for (group of ellipse; track group.label) {
+            <fieldset (focusin)="editor.focusPreprocessor(group.focus)">
+              <legend>{{ group.label }}</legend>
+              @for (field of group.fields; track field[0]) {
+                <app-number-field
+                  [label]="field[1]"
+                  [unit]="field[2]"
+                  [field]="form.vault[field[0]]"
+                />
+              }
+            </fieldset>
           }
         } @else {
           @for (arc of form.vault.arcs; track $index; let i = $index) {
-            <fieldset>
+            <fieldset (focusin)="editor.focusPreprocessor({ part: 'vault', arc: i })">
               <legend>
                 Arc {{ i + 1 }} · {{ i === 0 ? 'Center' : i === 3 ? 'Tip' : 'Intermediate' }}
               </legend>
@@ -126,6 +161,7 @@ import { TextField } from './text-field';
         <app-select-field
           label="Cell distribution"
           [field]="form.distribution.mode"
+          (focusin)="editor.focusPreprocessor({ part: 'cells' })"
           (changed)="changeDistribution($event)"
           [options]="[
             [1, 'Uniform'],
@@ -139,6 +175,7 @@ import { TextField } from './text-field';
             <app-select-field
               label="Wing center"
               [field]="form.distribution.center"
+              (focusin)="editor.focusPreprocessor({ part: 'cells' })"
               [options]="[
                 ['rib', 'Central rib · even cell count'],
                 ['cell', 'Central cell · odd cell count'],
@@ -149,7 +186,12 @@ import { TextField } from './text-field';
               has its full width in the first row.
             </p>
             @for (width of form.distribution.widths; track width; let i = $index) {
-              <div class="width">
+              <div
+                class="width"
+                [appRecordRow]="form.distribution.widths"
+                [index]="i"
+                (focusin)="editor.focusPreprocessor({ part: 'cells', cell: i })"
+              >
                 <app-number-field
                   [label]="
                     form.distribution.center().value() === 'cell' && i === 0
@@ -170,10 +212,16 @@ import { TextField } from './text-field';
             />
           }
           @default {
-            <app-number-field label="Cells" integer [field]="form.distribution.cells" />
+            <app-number-field
+              label="Cells"
+              integer
+              [field]="form.distribution.cells"
+              (focusin)="editor.focusPreprocessor({ part: 'cells' })"
+            />
             @if (form.distribution.mode().value() !== 1) {
               <app-number-field
                 label="Distribution coefficient"
+                (focusin)="editor.focusPreprocessor({ part: 'cells' })"
                 hint="0: strongest taper, or fully proportional to chord. 1: uniform widths."
                 [field]="form.distribution.coefficient"
               />
@@ -185,11 +233,29 @@ import { TextField } from './text-field';
   `,
   styleUrl: './section.css',
   styles: `
+    .geometry-status {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px 16px;
+      margin-block: 16px 8px;
+    }
+    .geometry-status p {
+      margin: 0;
+      font: var(--mat-sys-title-small);
+    }
     .width {
       display: flex;
       align-items: start;
       gap: 4px;
       min-width: 0;
+      /* The selection background goes around the field, which stays aligned. */
+      margin: -4px;
+      padding: 4px;
+      border-radius: 8px;
+    }
+    .width.selected {
+      background: var(--mat-sys-secondary-container);
     }
     .width app-number-field {
       flex: 1;
@@ -201,29 +267,79 @@ export class PreprocessorSection {
   protected readonly editor = inject(EditorState);
   protected readonly form = this.editor.preprocessorForm;
 
+  protected readonly status = this.editor.preprocessorStatus;
+  protected readonly statusText = computed(() => STATUS[this.status()]);
+  /** The cell count that replacing the rib table sets, if it changes. */
+  protected readonly newCellCount = computed(() => {
+    const cells = this.editor.generated()?.cells;
+    return cells !== this.editor.draft.value().geometry.cells ? cells : undefined;
+  });
+
   protected readonly leadingEdge = [
-    ['a', 'Ellipse horizontal radius · a1', 'cm'],
-    ['b', 'Ellipse vertical radius · b1', 'cm'],
-    ['x1', 'First correction start · x1', 'cm'],
-    ['correction1', 'First tip correction · c01', 'cm'],
-    ['exponent1', 'First correction exponent · ex1', ''],
-    ['x2', 'Second correction start · x2', 'cm'],
-    ['correction2', 'Second tip correction · c02', 'cm'],
-    ['exponent2', 'Second correction exponent · ex2', ''],
+    {
+      label: 'Ellipse',
+      focus: { part: 'leadingEdge' },
+      fields: [
+        ['a', 'Ellipse horizontal radius · a1', 'cm'],
+        ['b', 'Ellipse vertical radius · b1', 'cm'],
+      ],
+    },
+    {
+      label: 'Correction 1',
+      focus: { part: 'leadingEdge', correction: 1 },
+      fields: [
+        ['x1', 'First correction start · x1', 'cm'],
+        ['correction1', 'First tip correction · c01', 'cm'],
+        ['exponent1', 'First correction exponent · ex1', ''],
+      ],
+    },
+    {
+      label: 'Correction 2',
+      focus: { part: 'leadingEdge', correction: 2 },
+      fields: [
+        ['x2', 'Second correction start · x2', 'cm'],
+        ['correction2', 'Second tip correction · c02', 'cm'],
+        ['exponent2', 'Second correction exponent · ex2', ''],
+      ],
+    },
   ] as const;
   protected readonly trailingEdge = [
-    ['a', 'Ellipse horizontal radius · a1', 'cm'],
-    ['b', 'Ellipse vertical radius · b1', 'cm'],
-    ['offset', 'Ellipse offset · y0', 'cm'],
-    ['x1', 'Correction start · x1', 'cm'],
-    ['correction', 'Tip correction · c0', 'cm'],
-    ['exponent', 'Correction exponent · ex1', ''],
+    {
+      label: 'Ellipse',
+      focus: { part: 'trailingEdge' },
+      fields: [
+        ['a', 'Ellipse horizontal radius · a1', 'cm'],
+        ['b', 'Ellipse vertical radius · b1', 'cm'],
+        ['offset', 'Ellipse offset · y0', 'cm'],
+      ],
+    },
+    {
+      label: 'Tip correction',
+      focus: { part: 'trailingEdge', correction: 1 },
+      fields: [
+        ['x1', 'Correction start · x1', 'cm'],
+        ['correction', 'Tip correction · c0', 'cm'],
+        ['exponent', 'Correction exponent · ex1', ''],
+      ],
+    },
   ] as const;
   protected readonly ellipse = [
-    ['a', 'Vault horizontal radius · a1', 'cm'],
-    ['b', 'Vault vertical radius · b1', 'cm'],
-    ['x1', 'Vault correction start · x1', 'cm'],
-    ['correction', 'Vault tip correction · c1', 'cm'],
+    {
+      label: 'Ellipse',
+      focus: { part: 'vault' },
+      fields: [
+        ['a', 'Vault horizontal radius · a1', 'cm'],
+        ['b', 'Vault vertical radius · b1', 'cm'],
+      ],
+    },
+    {
+      label: 'Tip correction',
+      focus: { part: 'vault' },
+      fields: [
+        ['x1', 'Vault correction start · x1', 'cm'],
+        ['correction', 'Vault tip correction · c1', 'cm'],
+      ],
+    },
   ] as const;
 
   protected changeDistribution(mode: number | null): void {

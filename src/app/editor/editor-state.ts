@@ -41,6 +41,26 @@ export type DesignEditorResult =
 /** A section number, or the name of a file: an airfoil or pre-data.txt. */
 export type Selection = number | string;
 
+/** A parameter group of pre-data.txt, highlighted in its preview. */
+export type PreprocessorFocus =
+  | { readonly part: 'span' }
+  | { readonly part: 'cells'; readonly cell?: number }
+  | { readonly part: 'leadingEdge'; readonly correction?: 1 | 2 }
+  | { readonly part: 'trailingEdge'; readonly correction?: 1 }
+  | { readonly part: 'vault'; readonly arc?: number };
+
+/** Whether the rib table of section 1 is the one valid parameters of pre-data.txt generate. */
+export type PreprocessorStatus = 'invalid' | 'synced' | 'differs';
+
+/** The preprocessor's preview views that draw each part, the first shown on focus. */
+const FOCUS_VIEWS: Readonly<Record<PreprocessorFocus['part'], readonly string[]>> = {
+  span: ['planform', 'front'],
+  cells: ['planform', 'cells'],
+  leadingEdge: ['planform'],
+  trailingEdge: ['planform'],
+  vault: ['front'],
+};
+
 /** The keys of a model path such as `dxf3d.surfaces[0].color`. */
 const pathKeys = (path: string) => path.split(/[.[\]]+/).filter(Boolean);
 
@@ -112,14 +132,20 @@ export class EditorState {
     this.preprocessor.changed() ? this.preprocessor.input() : undefined,
   );
   readonly changed = computed(() => this.draft.changed() || this.preData() !== undefined);
-  /** The rib table of section 1 is the one the parameters of pre-data.txt generate. */
-  readonly synced = computed(() => {
+  /** The geometry the parameters of pre-data.txt generate, if they are valid. */
+  readonly generated = computed(() => {
     const result = this.preprocessor.result();
-    return (
-      this.preprocessor.loaded() &&
-      result.ok &&
-      generatesGeometry(this.draft.project().design.geometry, result.value)
-    );
+    return this.preprocessor.loaded() && !this.preprocessorForm().invalid() && result.ok
+      ? result.value
+      : undefined;
+  });
+  /** Read only when pre-data.txt is loaded: without it, there is nothing to generate. */
+  readonly preprocessorStatus = computed<PreprocessorStatus>(() => {
+    const generated = this.generated();
+    if (!generated) return 'invalid';
+    return generatesGeometry(this.draft.project().design.geometry, generated)
+      ? 'synced'
+      : 'differs';
   });
   /** Those of the draft, then those of pre-data.txt: unreadable, or of generating. */
   readonly diagnostics = computed(() => [
@@ -157,13 +183,23 @@ export class EditorState {
   readonly previewRibs = signal<Readonly<Record<number, number>>>({});
   /** The surface of the shaping cut last focused, in section 29. */
   readonly shapingSurface = signal<'upper' | 'lower'>('upper');
+  /** The parameter group of pre-data.txt last focused. */
+  readonly preprocessorFocus = signal<PreprocessorFocus | undefined>(undefined);
   private readonly recordSelections = new WeakMap<object, WritableSignal<number>>();
 
   /** Replaces the cells and rib positions of section 1 with those the parameters generate. */
   applyPreprocessor(): void {
-    const result = this.preprocessor.result();
-    if (this.focusUnparsed() || !result.ok) return;
-    this.draft.value.update((value) => applyGeneratedGeometry(value, result.value));
+    const generated = this.generated();
+    if (this.focusUnparsed() || !generated) return;
+    this.draft.value.update((value) => applyGeneratedGeometry(value, generated));
+  }
+
+  /** Highlights a parameter group, showing a preview view that draws it. */
+  focusPreprocessor(focus: PreprocessorFocus | undefined): void {
+    this.preprocessorFocus.set(focus);
+    const views = focus && FOCUS_VIEWS[focus.part];
+    const view = this.previewViews()[PRE_DATA_FILE] ?? 'planform';
+    if (views && !views.includes(view)) this.setPreviewView(PRE_DATA_FILE, views[0]);
   }
 
   setPreviewView(section: Selection, view: string): void {

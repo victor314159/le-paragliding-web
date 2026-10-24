@@ -19,6 +19,9 @@ an airfoil: saving rewrites it when they change. Without the file, it can be
 created from the documented example. The editor shows whether the rib table of
 section 1 is the one they generate, rounded as `geometry-out.txt`; replacing
 it keeps the other rib columns. Remove the file from the list of input files.
+Focus a parameter group to highlight its edge, correction or vault arc, in a
+view that draws it; explicit cell widths highlight the same cell in the
+planform and cell-width views.
 
 ## Safety disclaimer
 

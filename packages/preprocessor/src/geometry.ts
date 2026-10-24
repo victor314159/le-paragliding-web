@@ -211,9 +211,11 @@ export function generateGeometry(input: PreprocessorInput): Result<GeometryResul
       leadingEdge: points(le),
       trailingEdge: points(te),
       vault: vaultPoints,
-      vaultJunctions:
+      vaultArcs:
         input.vault.mode === 2
-          ? input.vault.arcs.slice(1).map((_, i) => vaultPoints[(i + 1) * ARC_SEGMENTS])
+          ? input.vault.arcs.map((_, i) =>
+              vaultPoints.slice(i * ARC_SEGMENTS, (i + 1) * ARC_SEGMENTS + 1),
+            )
           : [],
     },
     metrics: {
@@ -232,7 +234,10 @@ export function generateGeometry(input: PreprocessorInput): Result<GeometryResul
   const valid =
     ribs.every((rib) => allFinite(Object.values(rib)) && rib.yTE > rib.yLE) &&
     allFinite(Object.values(value.metrics)) &&
-    Object.values(value.curves).every((curve) => curve.every(allFinite)) &&
+    // The vault arcs are parts of the vault.
+    [value.curves.leadingEdge, value.curves.trailingEdge, vaultPoints].every((curve) =>
+      curve.every(allFinite),
+    ) &&
     flatArea > 0 &&
     projectedArea > 0;
   if (!valid) {

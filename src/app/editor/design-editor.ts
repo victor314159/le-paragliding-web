@@ -23,11 +23,22 @@ import { confirm } from '../shared/confirm-dialog';
 import { diagnosticLabel, withSeverity } from '../shared/diagnostics';
 import { AirfoilSection } from './airfoil-section';
 import { EditorPreview, PREVIEW_VIEWS } from './editor-preview';
-import { EditorState, fieldAt, type DesignEditorResult, type Selection } from './editor-state';
+import {
+  EditorState,
+  fieldAt,
+  type DesignEditorResult,
+  type PreprocessorStatus,
+  type Selection,
+} from './editor-state';
 import { SECTION_FORMS } from './sections';
 
 const MANUAL = 'https://www.laboratoridenvol.com/leparagliding/manual.en.html';
 const PREPROCESSOR_MANUAL = 'https://www.laboratoridenvol.com/leparagliding/pre.en.html';
+const PREPROCESSOR_NOTES: Readonly<Record<PreprocessorStatus, string>> = {
+  invalid: 'Invalid parameters',
+  synced: 'In sync',
+  differs: 'Out of sync',
+};
 
 /** Where the editor shows a diagnostic: its section or its file; on every page otherwise. */
 function placeOf({ section, file, field }: Diagnostic): Selection | undefined {
@@ -201,9 +212,9 @@ export class DesignEditor {
     const { preprocessor } = this.editor;
     if (preprocessor.unreadable) return 'Not read';
     if (!preprocessor.loaded()) return 'Not created';
-    const synced = this.editor.synced() ? 'In sync' : 'Out of sync';
-    if (!preprocessor.changed()) return synced;
-    return `${synced} · ${preprocessor.exists ? 'Modified' : 'Created'}`;
+    const status = PREPROCESSOR_NOTES[this.editor.preprocessorStatus()];
+    if (!preprocessor.changed()) return status;
+    return `${status} · ${preprocessor.exists ? 'Modified' : 'Created'}`;
   }
 
   protected showFirstError(): void {

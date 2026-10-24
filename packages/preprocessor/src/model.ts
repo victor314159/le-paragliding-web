@@ -72,8 +72,8 @@ export interface GeometryResult {
     readonly leadingEdge: readonly Point[];
     readonly trailingEdge: readonly Point[];
     readonly vault: readonly Point[];
-    /** The junctions of the vault arcs; none for an ellipse. */
-    readonly vaultJunctions: readonly Point[];
+    /** The points of each vault arc, which share their ends; none for an ellipse. */
+    readonly vaultArcs: readonly (readonly Point[])[];
   };
   readonly metrics: {
     /** Full wing spans in m and areas in m², as in geometry-out.txt. */

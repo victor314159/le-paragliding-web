@@ -23,11 +23,17 @@ import { TextField } from './text-field';
   template: `
     @if (editor.preprocessor.loaded()) {
       <p>
-        {{
-          editor.synced()
-            ? 'The cells and rib positions are those the parameters of pre-data.txt generate.'
-            : 'The cells and rib positions differ from those the parameters of pre-data.txt generate.'
-        }}
+        @switch (editor.preprocessorStatus()) {
+          @case ('synced') {
+            The cells and rib positions are those the parameters of pre-data.txt generate.
+          }
+          @case ('differs') {
+            The cells and rib positions differ from those the parameters of pre-data.txt generate.
+          }
+          @default {
+            The parameters of pre-data.txt are invalid.
+          }
+        }
         <button matButton type="button" (click)="editor.select(preDataFile)">
           Edit pre-data.txt
         </button>
