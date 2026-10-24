@@ -88,7 +88,17 @@
  
         theta1=(2.*atan(1.))*float(i)/300.
  
-@@ -647,7 +665,9 @@
+@@ -523,7 +541,8 @@
+ 
+ c      Modification zone
+ 
+-       if (xq.ge.x1.and.jcontrol.eq.0) then
++c      PATCH preprocessor 001: none at x1=a1 (y1=0), as before.
++       if (xq.ge.x1.and.x1.lt.a1.and.jcontrol.eq.0) then
+  
+        y1=b1*sqrt(1.-(x1*x1/(a1*a1)))
+ 
+@@ -647,7 +666,9 @@
  
  c      First circle
  
@@ -99,7 +109,7 @@
  
         k=k+1
  
-@@ -664,7 +684,9 @@
+@@ -664,7 +685,9 @@
  
  c       k=k-1
  
@@ -110,7 +120,7 @@
  
         k=k+1
  
-@@ -681,7 +703,9 @@
+@@ -681,7 +704,9 @@
  
  c       k=k-1
  
@@ -121,7 +131,7 @@
  
         k=k+1
  
-@@ -699,7 +723,9 @@
+@@ -699,7 +724,9 @@
  
  c       k=k-1
  
@@ -132,7 +142,7 @@
  
         k=k+1
  
-@@ -949,7 +975,7 @@
+@@ -949,7 +976,7 @@
  c      Normalize to total span
         coefg=xm/rib(nribss,2)
         do i=1,nribss
@@ -141,7 +151,7 @@
         rib(i,22)=rib(i,22)*coefg
         end do
  
-@@ -994,11 +1020,13 @@
+@@ -994,11 +1021,13 @@
         do i=2,nribss
         rib(i,2)=rib(i-1,2)+rib(i,22)
         end do
@@ -156,7 +166,7 @@
  
         if (xq1(k).lt.rib(i,2).and.xp1(k).ge.rib(i,2)) then
  
-@@ -1081,11 +1109,13 @@
+@@ -1081,11 +1110,13 @@
         do i=2,nribss
         rib(i,2)=rib(i-1,2)+rib(i,22)
         end do
@@ -171,14 +181,13 @@
  
         if (xq1(k).le.rib(i,2).and.xp1(k).ge.rib(i,2)) then
  
-@@ -1193,7 +1223,13 @@
+@@ -1193,7 +1224,13 @@
         do i=2,nribss
         rib(i,2)=rib(i-1,2)+rib(i,22)
         end do
--
 +c      PATCH preprocessor 001: avoid missing the tip by rounding.
 +       rib(nribss,2)=xm
-+
+ 
 +c      PATCH preprocessor 001: zero-width tip cells may share x=xm.
 +       do i=1,nribss
 +       rib(i,2)=min(rib(i,2),xm)
