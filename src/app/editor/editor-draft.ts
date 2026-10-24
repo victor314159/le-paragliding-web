@@ -136,10 +136,15 @@ export const skinPoint = (): M.SkinTensionPoint => ({
   intradosPosition: 0,
   intradosOverwidth: 0,
 });
-const coefficients = () =>
-  Array.from({ length: 6 }, () => ({ horizontal: 1, vertical: 1 })) as unknown as NonNullable<
-    M.HvrPositions['coefficients']
-  >;
+const unit = () => ({ horizontal: 1, vertical: 1 });
+const coefficients = (): NonNullable<M.HvrPositions['coefficients']> => [
+  unit(),
+  unit(),
+  unit(),
+  unit(),
+  unit(),
+  unit(),
+];
 
 export function toForm(design: LepDesign): DesignForm {
   const { geometry, joncs, risers } = design;
@@ -296,9 +301,10 @@ const colors = (section: DesignForm['extradosColors']) =>
     : { mode: 'ribs', ribs: section.ribs };
 function pathDesign(path: Nullable<Path>, typed: boolean) {
   const { lineTypes, branches, ...rest } = path;
+  const [b1, b2, b3, b4, b5] = branches;
   return {
     ...rest,
-    branches: branches.slice(0, path.levels === 5 ? 5 : 4),
+    branches: path.levels === 5 ? ([b1, b2, b3, b4, b5] as const) : ([b1, b2, b3, b4] as const),
     ...(typed && { lineTypes: lineTypes.slice(0, path.levels ?? 0) }),
   };
 }
@@ -437,7 +443,7 @@ export function toDesign(value: DesignForm): LepDesign {
     hvrHoles: active(value.hvrHoles),
     hvrPositions:
       value.hvrHoles.mode === 1 ? value.hvrPositions : { mode: value.hvrPositions.mode },
-  } as unknown as LepDesign;
+  } as LepDesign;
 }
 
 /** An airfoil in the form: a .dat airfoil keeps the counts of the .txt format, unused. */
