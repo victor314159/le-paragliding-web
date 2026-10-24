@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import { parseLep, validateDesign } from '../../packages/format/src/index.ts';
 import {
+  ARC_VAULT_DEFAULTS,
+  PREPROCESSOR_EXAMPLE,
   generateGeometry,
   parsePreData,
   validatePreprocessor,
@@ -26,6 +28,9 @@ test('reads the official 1.6 file and produces the native example dimensions', (
   expect(result.metrics.projectedSpan).toBeCloseTo(9.45, 2);
   expect(result.metrics.maxChord).toBeCloseTo(271.02, 5);
   expect(result.curves.vault).toHaveLength(397);
+  expect(result.curves.vaultJunctions).toEqual([99, 198, 297].map((i) => result.curves.vault[i]));
+  expect(PREPROCESSOR_EXAMPLE).toEqual(EXAMPLE);
+  expect(EXAMPLE.vault).toEqual(ARC_VAULT_DEFAULTS);
 });
 
 const parsedDesign = parseLep(readFileSync('oracle/designs/swoop2/leparagliding.txt', 'utf8'));
@@ -113,6 +118,14 @@ test('bad records return located diagnostics', () => {
       expect(parsed.errors[0]).toMatchObject({ file: 'pre-data.txt', line: expect.any(Number) });
   }
   expect(parsePreData(OFFICIAL.replace('1\na1=', '9\na1=')).ok).toBe(false);
+});
+
+test('reading does not validate the values, like leparagliding.txt', () => {
+  const input = ok(parsePreData(OFFICIAL.replace('a1= 710.21', 'a1= 0')));
+  expect(input.leadingEdge.a).toBe(0);
+  expect(validatePreprocessor(input)).toContainEqual(
+    expect.objectContaining({ field: 'leadingEdge.a' }),
+  );
 });
 
 test('invalid domains fail before computation or writing', () => {

@@ -1,9 +1,13 @@
 import type { CircularArc, PreprocessorInput, Result } from './model.ts';
 import { validatePreprocessor } from './validate.ts';
 
+export const PRE_DATA_FILE = 'pre-data.txt';
 const separator = '**********************************';
 
-/** Read the fixed records of pre-data.txt 1.6; headings and parameter labels are ignored by Fortran. */
+/**
+ * Read the fixed records of pre-data.txt 1.6; headings and parameter labels are ignored by Fortran.
+ * Like `parseLep`, it does not validate the values: see `validatePreprocessor`.
+ */
 export function parsePreData(text: string): Result<PreprocessorInput> {
   const lines = text
     .replace(/^\uFEFF/, '')
@@ -115,23 +119,18 @@ export function parsePreData(text: string): Result<PreprocessorInput> {
         cells: numbers()[0],
       };
     }
-    const value: PreprocessorInput = {
-      name,
-      halfSpan,
-      leadingEdge,
-      trailingEdge,
-      vault,
-      distribution,
+    return {
+      ok: true,
+      value: { name, halfSpan, leadingEdge, trailingEdge, vault, distribution },
+      warnings: [],
     };
-    const errors = validatePreprocessor(value);
-    return errors.length ? { ok: false, errors } : { ok: true, value, warnings: [] };
   } catch (error) {
     return {
       ok: false,
       errors: [
         {
           severity: 'error',
-          file: 'pre-data.txt',
+          file: PRE_DATA_FILE,
           line: cursor,
           message: error instanceof Error ? error.message : String(error),
         },

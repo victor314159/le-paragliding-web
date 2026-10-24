@@ -17,7 +17,13 @@ if (input.ok) {
 }
 ```
 
-`validatePreprocessor(input)` returns field diagnostics. Parsing, writing and
+`parsePreData` reads the records without validating the values, like
+`parseLep`: `validatePreprocessor(input)` returns their field diagnostics,
+and generating or writing fails on them. `cellCount` gives the
+cell count of a distribution. `PREPROCESSOR_EXAMPLE` is the documented example
+(the official `pre-data.txt`), with its parts `ARC_VAULT_DEFAULTS` and
+`DISTRIBUTION_DEFAULTS`; `ELLIPSE_VAULT_DEFAULTS` is a corrected-ellipse
+vault. `PRE_DATA_FILE` is the file name. Parsing, writing and
 generation return `{ ok: true, value, warnings }` or `{ ok: false, errors }`,
 like `@lepara/format`. Inputs are readonly and are never mutated.
 
@@ -31,7 +37,8 @@ Explicit widths describe the half wing: a zero first width means an even
 cell count; otherwise it is the full central-cell width. Widths and vault
 length are normalized to the flat half span. Supports 2–199 cells.
 
-The result contains the half-wing rib table, sampled contours and vault,
+The result contains the half-wing rib table, sampled contours and vault
+(with the junctions of its arcs),
 and the original geometric metrics. Coordinates start at the central
 leading edge / top of the vault, without CAD drawing offsets. Spans are
 **m**, areas **m²**, chords **cm**; ratios are dimensionless. Maximum/minimum

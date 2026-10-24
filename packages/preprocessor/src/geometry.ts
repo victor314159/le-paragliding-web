@@ -5,6 +5,8 @@ import { cellCount, validatePreprocessor } from './validate.ts';
 
 type Segment = readonly [Point, Point];
 const radians = Math.PI / 180;
+/** Segments of each vault arc. */
+const ARC_SEGMENTS = 99;
 const length = ([a, b]: Segment) => Math.hypot(b[0] - a[0], b[1] - a[1]);
 const points = (segments: readonly Segment[]): Point[] => [
   ...segments.map(([a]) => a),
@@ -76,10 +78,10 @@ function vaultSegments(input: PreprocessorInput): Segment[] {
       cx += (previousRadius - arc.radius) * Math.sin(angle * radians);
       cy += (previousRadius - arc.radius) * Math.cos(angle * radians);
       const point = (i: number): Point => {
-        const theta = (angle + i * (arc.angle / 99)) * radians;
+        const theta = (angle + i * (arc.angle / ARC_SEGMENTS)) * radians;
         return [cx + arc.radius * Math.sin(theta), cy + arc.radius * Math.cos(theta)];
       };
-      for (let i = 0; i < 99; i++) segments.push([point(i), point(i + 1)]);
+      for (let i = 0; i < ARC_SEGMENTS; i++) segments.push([point(i), point(i + 1)]);
       angle += arc.angle;
       previousRadius = arc.radius;
     }
@@ -199,12 +201,21 @@ export function generateGeometry(input: PreprocessorInput): Result<GeometryResul
   };
   const flatSpan = (input.halfSpan * 2) / 100;
   const projectedSpan = (ribs.at(-1)!.xp * 2) / 100;
+  const vaultPoints = points(vault);
   const flatArea = area('x');
   const projectedArea = area('xp');
   const value: GeometryResult = {
     cells,
     ribs,
-    curves: { leadingEdge: points(le), trailingEdge: points(te), vault: points(vault) },
+    curves: {
+      leadingEdge: points(le),
+      trailingEdge: points(te),
+      vault: vaultPoints,
+      vaultJunctions:
+        input.vault.mode === 2
+          ? input.vault.arcs.slice(1).map((_, i) => vaultPoints[(i + 1) * ARC_SEGMENTS])
+          : [],
+    },
     metrics: {
       flatSpan,
       projectedSpan,
