@@ -241,7 +241,7 @@ test('the airfoil form edits points and counts, previews them and rewrites only 
   await expect(page.getByRole('textbox', { name: 'Extrados', exact: true })).toHaveValue(
     String(airfoil.extrados),
   );
-  const preview = page.getByRole('img', { name: 'Airfoil gnuReflex.txt', exact: true });
+  const preview = page.getByRole('img', { name: /^Airfoil gnuReflex\.txt · / });
   await expect(preview.locator('circle:not(.selected)')).toHaveCount(airfoil.points.length);
   const rows = page
     .getByRole('region', { name: 'Airfoil points', exact: true })
@@ -692,10 +692,7 @@ test('rib tables compare many rows at once and the active row drives the live pr
   const row = table.getByRole('row').nth(20);
   await row.getByRole('textbox', { name: 'A position (% chord)', exact: true }).fill('23');
   await page.getByRole('button', { name: 'Profile', exact: true }).click();
-  const preview = page.getByRole('img', {
-    name: 'Airfoil of rib 20 and anchor positions on the chord',
-    exact: true,
-  });
+  const preview = page.getByRole('img', { name: 'Rib 20 · anchors', exact: true });
   await expect(preview).toBeVisible();
   await expect(preview.locator('circle').first()).toHaveAttribute('cx', '0.23');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
@@ -826,11 +823,11 @@ test('geometry previews follow edited coordinates and focus in both views', asyn
   const plan = page.getByRole('img', { name: 'Wing planform', exact: true });
   const front = page.getByRole('img', { name: 'Wing front view', exact: true });
   await row.getByRole('textbox', { name: 'Planform X (cm)', exact: true }).fill('60');
-  await expect(plan.locator('line.selected')).toHaveCount(2);
-  await expect(plan.locator('line.selected').last()).toHaveAttribute('x1', '60');
-  await expect(plan.locator('line.selected').first()).toHaveAttribute('x1', '-60');
+  await expect(plan.locator('path.rib.selected')).toHaveCount(2);
+  await expect(plan.locator('path.rib.selected').last()).toHaveAttribute('d', /^M60,/);
+  await expect(plan.locator('path.rib.selected').first()).toHaveAttribute('d', /^M-60,/);
   await row.getByRole('textbox', { name: 'Leading edge Y (cm)', exact: true }).fill('3');
-  await expect(plan.locator('line.selected').last()).toHaveAttribute('y1', '3');
+  await expect(plan.locator('path.rib.selected').last()).toHaveAttribute('d', /^M60,3 /);
   await page.getByRole('button', { name: 'Front', exact: true }).click();
   await expect(plan).toHaveCount(0);
   await row.getByRole('textbox', { name: 'Final X′ (cm)', exact: true }).fill('58');
@@ -839,7 +836,7 @@ test('geometry previews follow edited coordinates and focus in both views', asyn
   await expect(front.locator('circle.selected').last()).toHaveAttribute('cy', '4');
   await page.getByRole('button', { name: 'Planform', exact: true }).click();
   await row.getByRole('textbox', { name: 'Planform X (cm)', exact: true }).fill('');
-  await expect(plan.locator('line.selected')).toHaveCount(0);
+  await expect(plan.locator('path.rib.selected')).toHaveCount(0);
   await expect(plan.locator('path.outline')).not.toHaveAttribute('d', /NaN|Infinity|null/);
   await page.getByRole('button', { name: 'Front', exact: true }).click();
   await expect(front.locator('circle.selected')).toHaveCount(2);
@@ -877,7 +874,7 @@ test('hole previews follow the group, rib, active hole and live dimensions on mo
   );
   await opener(page).click();
   await section(page, '4 · Lightening holes');
-  const preview = page.getByRole('img', { name: 'Lightening holes on rib 1', exact: true });
+  const preview = page.getByRole('img', { name: 'Rib holes · group 1 · rib 1', exact: true });
   await expect(preview.locator('path.hole')).toHaveCount(3);
   await expect(preview.locator('path.profile')).toHaveAttribute('d', /^M/);
   const rows = page.getByRole('table', { name: 'Holes', exact: true }).getByRole('row');
@@ -892,13 +889,13 @@ test('hole previews follow the group, rib, active hole and live dimensions on mo
   await expect(preview.locator('path.hole.selected')).toHaveAttribute('d', / A/);
   await page.getByRole('combobox', { name: 'Preview rib', exact: true }).selectOption('1');
   await expect(
-    page.getByRole('img', { name: 'Lightening holes on rib 2', exact: true }),
+    page.getByRole('img', { name: 'Rib holes · group 1 · rib 2', exact: true }),
   ).toBeVisible();
   await rows.nth(1).getByRole('textbox', { name: 'Width / base (% chord)', exact: true }).fill('');
   await expect(page.getByText(/Not drawn: holes 1 /)).toBeVisible();
   await rows.nth(1).getByRole('textbox', { name: 'Width / base (% chord)', exact: true }).fill('8');
   await choose(page, 'Select hole group', '2');
-  const other = page.getByRole('img', { name: 'Lightening holes on rib 3', exact: true });
+  const other = page.getByRole('img', { name: 'Rib holes · group 2 · rib 3', exact: true });
   await expect(other.locator('path.hole')).toHaveCount(1);
   await expect(
     page.getByRole('combobox', { name: 'Preview rib', exact: true }).locator('option'),
@@ -906,7 +903,9 @@ test('hole previews follow the group, rib, active hole and live dimensions on mo
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
   await page.getByRole('button', { name: 'Remove hole group', exact: true }).click();
   await expect(
-    page.getByRole('img', { name: 'Lightening holes on rib 2', exact: true }).locator('path.hole'),
+    page
+      .getByRole('img', { name: 'Rib holes · group 1 · rib 2', exact: true })
+      .locator('path.hole'),
   ).toHaveCount(3);
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   const saved = ok(parseLep((await downloadFile(page)).toString()));
@@ -1061,13 +1060,10 @@ test('anchor and hole previews share whole-wing views and detailed profile conte
       .locator('circle.anchor-dot'),
   ).not.toHaveCount(0);
   await page.getByRole('button', { name: 'Profile', exact: true }).click();
-  const profile = page.getByRole('img', {
-    name: 'Airfoil of rib 20 and anchor positions on the chord',
-    exact: true,
-  });
+  const profile = page.getByRole('img', { name: 'Rib 20 · anchors', exact: true });
   await expect(profile.locator('circle').first()).not.toHaveAttribute('cy', '0');
   await section(page, '4 · Lightening holes');
-  const holes = page.getByRole('img', { name: 'Lightening holes on rib 1', exact: true });
+  const holes = page.getByRole('img', { name: 'Rib holes · group 1 · rib 1', exact: true });
   await expect(holes.locator('path.allowance')).toHaveAttribute('d', /^M/);
   await expect(holes.locator('text').last()).toContainText('cm · chord');
   await expect(holes.locator('circle.anchor-dot')).not.toHaveCount(0);
@@ -1232,7 +1228,7 @@ test('thickness previews compare original and modified profiles, including zero 
   const coefficients = page.getByRole('textbox', { name: 'Thickness coefficient', exact: true });
   await coefficients.nth(1).fill('0.5');
   const svg = page.getByRole('img', {
-    name: 'Original and modified airfoil of rib 2',
+    name: 'Thickness · rib 2 · original and modified',
     exact: true,
   });
   await expect(svg).toBeVisible();
@@ -1248,12 +1244,12 @@ test('thickness previews compare original and modified profiles, including zero 
     .toBe(true);
   await page.getByRole('combobox', { name: 'Preview rib', exact: true }).selectOption('0');
   await expect(
-    page.getByRole('img', { name: 'Original and modified airfoil of rib 1', exact: true }),
+    page.getByRole('img', { name: 'Thickness · rib 1 · original and modified', exact: true }),
   ).toBeVisible();
   await choose(page, 'Thickness mode', '0');
-  await expect(page.locator('app-thickness-preview p')).toContainText('disabled');
-  expect(await page.locator('app-thickness-preview path.modified').getAttribute('d')).toBe(
-    await page.locator('app-thickness-preview path.original').getAttribute('d'),
+  await expect(page.locator('app-section-preview p')).toContainText('disabled');
+  expect(await page.locator('app-section-preview path.modified').getAttribute('d')).toBe(
+    await page.locator('app-section-preview path.original').getAttribute('d'),
   );
   await choose(page, 'Thickness mode', '1');
   await expect(coefficients.nth(1)).toHaveValue('0');
@@ -1298,17 +1294,17 @@ test('color previews follow panel cuts, active rows and rib mark modes on both s
   );
   await opener(page).click();
   await section(page, '15 · Extrados colors');
-  const upper = page.getByRole('img', { name: 'Extrados color cuts and rib marks', exact: true });
-  await expect(upper.locator('line.color-cut')).toHaveCount(4);
-  await expect(upper.locator('path.active-panel')).toHaveCount(2);
-  const firstY = await upper.locator('line.color-cut').first().getAttribute('y1');
+  const upper = page.getByRole('img', { name: 'Extrados · color layout', exact: true });
+  await expect(upper.locator('path.color-cut')).toHaveCount(4);
+  await expect(upper.locator('path.panel.selected')).toHaveCount(2);
+  const firstY = await upper.locator('path.color-cut').first().getAttribute('d');
   const left = page.getByRole('textbox', { name: 'Left end (% chord)', exact: true });
   await left.nth(0).fill('35');
-  await expect(upper.locator('line.color-cut').first()).not.toHaveAttribute('y1', firstY!);
+  await expect(upper.locator('path.color-cut').first()).not.toHaveAttribute('d', firstY!);
   await left.nth(1).focus();
-  await expect(upper.locator('line.active-cut title').first()).toContainText('Cut 2');
+  await expect(upper.locator('path.color-cut.selected title').first()).toContainText('Cut 2');
   await left.nth(0).fill('');
-  await expect(upper.locator('line.color-cut')).toHaveCount(2);
+  await expect(upper.locator('path.color-cut')).toHaveCount(2);
   expect(
     await upper
       .locator('path')
@@ -1316,7 +1312,7 @@ test('color previews follow panel cuts, active rows and rib mark modes on both s
   ).toBe(true);
   await left.nth(0).fill('25');
   await section(page, '16 · Intrados colors');
-  const lower = page.getByRole('img', { name: 'Intrados color cuts and rib marks', exact: true });
+  const lower = page.getByRole('img', { name: 'Intrados · color layout', exact: true });
   await expect(lower.locator('circle.color-mark')).toHaveCount(4);
   const positions = page.getByRole('textbox', { name: 'First position (% chord)', exact: true });
   await positions.nth(1).focus();
@@ -1365,16 +1361,16 @@ test('skin tension previews follow live points and selected groups while keeping
   const before = await downloadFile(page);
   await opener(page).click();
   await section(page, '5 · Skin tension');
-  const svg = page.getByRole('img', { name: 'Skin tension overwidth curves', exact: true });
-  await expect(svg.locator('path.curve')).toHaveCount(2);
-  const upper = svg.locator('g.extrados path.curve');
-  const lower = svg.locator('g.intrados path.curve');
+  const svg = page.locator('app-section-preview svg');
+  await expect(svg.locator('path.extrados, path.intrados')).toHaveCount(2);
+  const upper = svg.locator('path.extrados');
+  const lower = svg.locator('path.intrados');
   const previous = await upper.getAttribute('d');
   const values = page.getByRole('textbox', { name: 'Extrados overwidth (% chord)', exact: true });
   const initial = await values.nth(1).inputValue();
   await values.nth(1).fill('-1');
   await expect(upper).not.toHaveAttribute('d', previous!);
-  await expect(svg.locator('g.extrados circle.active-point title')).toContainText('Point 2');
+  await expect(svg.locator('circle.extrados.selected title')).toContainText('Point 2');
   await page.getByRole('button', { name: 'Intrados', exact: true }).click();
   await expect(upper).toHaveCount(0);
   await expect(lower).toHaveCount(1);
@@ -1387,13 +1383,13 @@ test('skin tension previews follow live points and selected groups while keeping
   await page.getByRole('button', { name: 'Both', exact: true }).click();
   const previousGroup = await upper.getAttribute('d');
   await choose(page, 'Select skin tension group', '2');
-  await expect(page.locator('app-skin-tension-preview figcaption')).toContainText('group 2');
+  await expect(page.locator('app-section-preview figcaption')).toContainText('group 2');
   await expect(upper).not.toHaveAttribute('d', previousGroup!);
   const groups = page.getByRole('textbox', { name: 'Extrados overwidth (% chord)', exact: true });
   await groups.nth(1).focus();
-  await expect(svg.locator('g.extrados circle.active-point title')).toContainText('Point 2');
+  await expect(svg.locator('circle.extrados.selected title')).toContainText('Point 2');
   await choose(page, 'Skin tension groups mode', '0');
-  await expect(page.locator('app-skin-tension-preview')).toContainText('groups are disabled');
+  await expect(page.locator('app-section-preview')).toContainText('groups are disabled');
   await choose(page, 'Skin tension groups mode', '1');
   await expect(svg).toBeVisible();
   await page.getByRole('button', { name: 'Save', exact: true }).click();
@@ -1406,7 +1402,7 @@ test('seam and mark previews follow dimensions, selected rows and print or laser
   await page.goto('/');
   await opener(page).click();
   await section(page, '6 · Sewing allowances');
-  const svg = page.locator('app-detail-preview svg');
+  const svg = page.locator('app-section-preview svg');
   await expect(svg).toHaveAttribute('aria-label', 'Sewing allowances');
   const before = await svg.locator('path.allowance').first().getAttribute('d');
   await page.getByRole('textbox', { name: 'Upper panels · Sides (mm)', exact: true }).fill('15');
@@ -1443,7 +1439,7 @@ test('connection, distribution and ramification previews track plans, paths and 
   await page.goto('/');
   await opener(page).click();
   await section(page, '9 · Suspension lines');
-  const svg = page.locator('app-detail-preview svg');
+  const svg = page.locator('app-section-preview svg');
   await expect(svg).toHaveAttribute('aria-label', 'Suspension connections · plan 1');
   await expect(svg.locator('path.connection.selected')).not.toHaveCount(0);
   await choose(page, 'Select line plan', '2');
@@ -1478,7 +1474,7 @@ test('reinforcements and additional points follow selected records and incomplet
   await page.goto('/');
   await opener(page).click();
   await section(page, '12 · H, V and VH ribs');
-  const svg = page.locator('app-detail-preview svg');
+  const svg = page.locator('app-section-preview svg');
   await expect(svg.locator('path.reinforcement.selected')).toHaveCount(2);
   const row = page
     .getByRole('table', { name: 'H, V and VH ribs', exact: true })
@@ -1587,7 +1583,7 @@ test('rods and shaping previews follow groups, rib choice, pockets and influence
   );
   await opener(page).click();
   await section(page, '21 · Nylon rods');
-  const svg = page.locator('app-detail-preview svg');
+  const svg = page.locator('app-section-preview svg');
   await expect(svg.locator('path.rod')).toHaveCount(1);
   await expect(svg.locator('path.allowance')).toHaveCount(2);
   const before = await svg.locator('path.rod').getAttribute('d');
@@ -1610,7 +1606,7 @@ test('inlet, wingtip and HVR hole previews follow each mode and the engine colum
 }) => {
   await page.goto('/');
   await opener(page).click();
-  const svg = page.locator('app-detail-preview svg');
+  const svg = page.locator('app-section-preview svg');
   await section(page, '26 · Glue vents');
   await choose(page, 'Glue vents mode', '1');
   await choose(
@@ -1630,7 +1626,7 @@ test('inlet, wingtip and HVR hole previews follow each mode and the engine colum
   await page.getByRole('textbox', { name: 'Parabola distance (% chord)', exact: true }).fill('60');
   await expect(svg.locator('path.detail')).not.toHaveAttribute('d', tip!);
   await choose(page, 'Wing tip mode', '4');
-  await expect(page.locator('app-detail-preview p')).toContainText('does not apply');
+  await expect(page.locator('app-section-preview p')).toContainText('does not apply');
   await section(page, '38 · HVR holes');
   await choose(page, 'HVR holes mode', '1');
   const table = page.getByRole('table', { name: 'HVR holes', exact: true });

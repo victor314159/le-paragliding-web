@@ -115,7 +115,7 @@ test('profile previews interpolate the intrados, apply thickness and use the sca
   expect(profile.anchors[0].x).toBe(0.25);
   expect(profile.anchors[0].y).toBeCloseTo(0.1);
   expect(profile.anchors[0].onSurface).toBe(true);
-  expect(profile.intake).toMatch(/^M/);
+  expect(profile.intake.length).toBeGreaterThan(1);
   expect(contourPoint(profile.lower, 1.1)).toBeUndefined();
   const flat = ribProfile(
     { ...previewDesign(), thickness: { mode: 1, ribs: [0] } },

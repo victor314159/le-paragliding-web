@@ -1,7 +1,10 @@
 # AGENTS.md
 
-As simple, lean, clean as possible.
-Use best practices and factorize when possible.
+Before each commit, review the diff, take a step back, and ensure that:
+
+- The changes are as simple, lean, and clean as possible.
+- The code follows best practices and shared logic is refactored where appropriate.
+- The solution addresses the root problem and achieves the intended goal in the best possible way.
 
 Setup, build and test commands are in [README.md](README.md).
 
@@ -81,6 +84,7 @@ Setup, build and test commands are in [README.md](README.md).
   check. The editor's form adapters stay in `src/app/editor/`.
   Run `docker compose run --rm web npm test -- design` after changing it.
 - `packages/views/` draws a design: each scene is a function of a
-  `PreviewContext` (the `LepDesign` sections it reads) returning a
-  `PreviewScene`, which the editor renders and `toSvg` writes. Drawing code
-  goes there, not in components. Run `npm test -- views` after changing it.
+  `PreviewContext` (the `LepDesign` sections it reads), or of the file it
+  draws, returning a `PreviewScene`, which the editor renders with
+  `ScenePreview` and `toSvg` writes. Drawing code goes there, not in
+  components; a new section scene goes into `SECTION_SCENES`. Run `npm test -- views` after changing it.

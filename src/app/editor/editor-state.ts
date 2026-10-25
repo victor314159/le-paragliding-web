@@ -10,6 +10,7 @@ import {
 } from '@lepara/format';
 import { fitShape, isGeneratedGeometry, newPreData } from '@lepara/design';
 import { PRE_DATA_FILE, type PreprocessorInput, type Result } from '@lepara/preprocessor';
+import type { PreprocessorFocus } from '@lepara/views';
 import { EditorDraft, type AirfoilsForm, type EditorForm } from './editor-draft';
 import {
   PreprocessorDraft,
@@ -40,14 +41,6 @@ export type DesignEditorResult =
 
 /** A section number, or the name of a file: an airfoil or pre-data.txt. */
 export type Selection = number | string;
-
-/** A parameter group of pre-data.txt, highlighted in its preview. */
-export type PreprocessorFocus =
-  | { readonly part: 'span' }
-  | { readonly part: 'cells'; readonly cell?: number }
-  | { readonly part: 'leadingEdge'; readonly correction?: 1 | 2 }
-  | { readonly part: 'trailingEdge'; readonly correction?: 1 }
-  | { readonly part: 'vault'; readonly arc?: number };
 
 /** Whether the rib table of section 1 is the one valid parameters of pre-data.txt generate. */
 export type PreprocessorStatus = 'invalid' | 'synced' | 'differs';

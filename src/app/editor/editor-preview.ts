@@ -11,43 +11,22 @@ import { MatButton, MatIconButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 import { MatTooltip } from '@angular/material/tooltip';
 import { PRE_DATA_FILE } from '@lepara/preprocessor';
-import { SECTION_SCENES, type PreviewViews } from '@lepara/views';
-import { AirfoilPreview } from './airfoil-preview';
-import { ColorsPreview } from './colors-preview';
-import { DetailPreview } from './detail-preview';
+import { airfoilScene, preprocessorScene, SECTION_SCENES, type PreviewViews } from '@lepara/views';
 import { EditorState, type Selection } from './editor-state';
-import { GeometryPreview } from './geometry-preview';
-import { HolesPreview } from './holes-preview';
-import { PreprocessorPreview } from './preprocessor-preview';
-import { RibPreview } from './rib-preview';
-import { SkinTensionPreview } from './skin-tension-preview';
-import { ThicknessPreview } from './thickness-preview';
-import { WingContextPreview } from './wing-context-preview';
-
-const WING_VIEWS: PreviewViews = [
-  ['planform', 'Planform'],
-  ['front', 'Front'],
-];
-const RIB_VIEWS: PreviewViews = [...WING_VIEWS, ['profile', 'Profile']];
-const TENSION_VIEWS: PreviewViews = [
-  ['both', 'Both'],
-  ['extrados', 'Extrados'],
-  ['intrados', 'Intrados'],
-];
+import { ScenePreview } from './scene-preview';
+import { SectionPreview } from './section-preview';
 
 /** The sections and files with a preview, and the views it offers: the first one by default. */
 export const PREVIEW_VIEWS: ReadonlyMap<Selection, PreviewViews> = new Map<Selection, PreviewViews>(
   [
-    [1, WING_VIEWS],
-    [2, RIB_VIEWS],
-    [3, RIB_VIEWS],
-    [4, RIB_VIEWS],
-    [5, TENSION_VIEWS],
-    [15, []],
-    [16, []],
-    [30, []],
-    [31, TENSION_VIEWS],
-    [PRE_DATA_FILE, [...WING_VIEWS, ['cells', 'Cells']]],
+    [
+      PRE_DATA_FILE,
+      [
+        ['planform', 'Planform'],
+        ['front', 'Front'],
+        ['cells', 'Cells'],
+      ],
+    ],
     ...[...SECTION_SCENES].map(([section, { views }]) => [section, views] as const),
   ],
 );
@@ -55,22 +34,7 @@ export const PREVIEW_VIEWS: ReadonlyMap<Selection, PreviewViews> = new Map<Selec
 /** A docked, resizable preview alongside independently scrolling fields. */
 @Component({
   selector: 'app-editor-preview',
-  imports: [
-    MatButton,
-    MatIconButton,
-    MatIcon,
-    MatTooltip,
-    AirfoilPreview,
-    GeometryPreview,
-    HolesPreview,
-    RibPreview,
-    WingContextPreview,
-    ColorsPreview,
-    ThicknessPreview,
-    SkinTensionPreview,
-    DetailPreview,
-    PreprocessorPreview,
-  ],
+  imports: [MatButton, MatIconButton, MatIcon, MatTooltip, ScenePreview, SectionPreview],
   host: {
     '[class.collapsed]': 'editor.previewCollapsed()',
     '[class.resizing]': 'resizing()',
@@ -160,74 +124,16 @@ export const PREVIEW_VIEWS: ReadonlyMap<Selection, PreviewViews> = new Map<Selec
       aria-labelledby="preview-title"
       [hidden]="editor.previewCollapsed()"
     >
-      @if (editor.airfoil(); as airfoil) {
-        <app-airfoil-preview [name]="airfoil" />
-      } @else {
-        @switch (section()) {
-          @case (1) {
-            <app-geometry-preview
-              [row]="editor.selectedRecord(editor.form.geometry.ribs)"
-              [view]="wingView()"
-            />
-          }
-          @case (2) {
-            @if (view() === 'profile') {
-              <app-rib-preview [row]="editor.selectedRecord(editor.form.airfoils)" />
-            } @else {
-              <app-wing-context-preview
-                [row]="editor.selectedRecord(editor.form.airfoils)"
-                [view]="wingView()"
-              />
-            }
-          }
-          @case (3) {
-            @if (view() === 'profile') {
-              <app-rib-preview [row]="editor.selectedRecord(editor.form.anchors)" anchors />
-            } @else {
-              <app-wing-context-preview
-                [row]="editor.selectedRecord(editor.form.anchors)"
-                [view]="wingView()"
-              />
-            }
-          }
-          @case (4) {
-            @if (editor.form.holes.length) {
-              @if (view() === 'profile') {
-                <app-holes-preview [group]="holeGroup()" [active]="activeHole()" />
-              } @else {
-                <app-wing-context-preview
-                  [row]="holeRib()"
-                  [view]="wingView()"
-                  [group]="holeGroup()"
-                  [activeHole]="activeHole()"
-                />
-              }
-            } @else {
-              <p>Add a hole group to preview its layout.</p>
-            }
-          }
-          @case (5) {
-            <app-skin-tension-preview [view]="view()" />
-          }
-          @case (31) {
-            <app-skin-tension-preview [view]="view()" />
-          }
-          @case (preDataFile) {
-            <app-preprocessor-preview [view]="view()" />
-          }
-          @case (15) {
-            <app-colors-preview />
-          }
-          @case (16) {
-            <app-colors-preview />
-          }
-          @case (30) {
-            <app-thickness-preview />
-          }
-          @default {
-            <app-detail-preview [view]="view()" />
-          }
+      @if (editor.airfoil()) {
+        <app-scene-preview [scene]="airfoil()" />
+      } @else if (section() === preDataFile) {
+        @if (generated(); as scene) {
+          <app-scene-preview [scene]="scene" />
+        } @else {
+          <p class="empty">Correct the parameters to see the geometry.</p>
         }
+      } @else {
+        <app-section-preview [view]="view()" />
       }
     </div>
   `,
@@ -244,26 +150,33 @@ export class EditorPreview {
     const chosen = this.editor.previewViews()[this.viewKey()];
     return this.views().some(([view]) => view === chosen) ? chosen : (this.views()[0]?.[0] ?? '');
   });
-  protected readonly wingView = computed(() => (this.view() === 'front' ? 'front' : 'planform'));
+  protected readonly airfoil = computed(() => {
+    const name = this.editor.airfoil() ?? '';
+    const rows = this.editor.airfoilForm[name]?.points;
+    return airfoilScene(
+      name,
+      this.editor.draft.project().airfoils.get(name),
+      rows ? this.editor.selectedRecord(rows) : -1,
+    );
+  });
+  protected readonly generated = computed(() => {
+    const result = this.editor.generated();
+    return (
+      result &&
+      preprocessorScene(
+        result,
+        this.editor.preprocessor.input(),
+        this.view(),
+        this.editor.preprocessorFocus(),
+      )
+    );
+  });
   private readonly element = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
   private readonly destroy = inject(DestroyRef);
   protected readonly limits = signal({ min: 160, max: 600 });
   protected readonly height = signal(280);
   protected readonly resizing = signal(false);
   private drag?: { y: number; height: number; previous: number | null };
-  protected readonly holeGroup = computed(() => this.editor.selectedRecord(this.editor.form.holes));
-  protected readonly activeHole = computed(() => {
-    const group = this.editor.form.holes[this.holeGroup()];
-    return group ? this.editor.selectedRecord(group.holes) : 0;
-  });
-  /** The rib chosen in the profile view, if in the selected group. */
-  protected readonly holeRib = computed(() => {
-    const group = this.editor.draft.value().holes[this.holeGroup()];
-    const first = (group?.firstRib ?? 1) - 1;
-    const requested = this.editor.previewRibs()[4] ?? first;
-    return requested >= first && requested < (group?.lastRib ?? 0) ? requested : first;
-  });
-
   constructor() {
     afterNextRender(() => {
       const parent = this.element.parentElement;

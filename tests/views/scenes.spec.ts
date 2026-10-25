@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { parseLep, type LepAirfoil, type RodCurve } from '../../packages/format/src/index.ts';
 import {
+  ANCHOR_COLORS,
   SECTION_SCENES,
   arcPoints,
   deflectedRod,
@@ -265,4 +266,16 @@ test('a scene is a standalone SVG document, its texts escaped', () => {
   expect(svg.match(/<path /g)).toHaveLength(scene.paths.length);
   expect(svg.match(/<text /g)).toHaveLength(scene.labels.length);
   expect(svg.trimEnd().endsWith('</svg>')).toBe(true);
+});
+
+test('anchor rows keep their colors and legend in the scene and its SVG', () => {
+  const scene = SECTION_SCENES.get(3)!.draw({ ...context(), view: 'planform' });
+  const tracks = scene.paths.filter((p) => p.kind === 'anchor-track');
+  expect(tracks.map((p) => p.color)).toEqual(ANCHOR_COLORS);
+  expect(scene.legend.map((entry) => entry.color)).toEqual(ANCHOR_COLORS);
+  const svg = toSvg(scene);
+  expect(svg).toContain(
+    `class="anchor-track" d="${tracks[0].d}" style="stroke:${ANCHOR_COLORS[0]}"`,
+  );
+  expect(svg).toContain(`style="fill:${ANCHOR_COLORS[5]}">● F · brake</text>`);
 });

@@ -1,0 +1,231 @@
+path,
+line,
+circle {
+  vector-effect: non-scaling-stroke;
+}
+.outline,
+.profile {
+  fill: var(--mat-sys-secondary-container);
+  stroke: var(--mat-sys-primary);
+  stroke-width: 1.5;
+}
+.rib,
+.arch {
+  fill: none;
+  stroke: var(--mat-sys-outline);
+  stroke-width: 1;
+}
+.arch {
+  stroke: var(--mat-sys-primary);
+  stroke-width: 2;
+}
+.axis,
+.chord {
+  fill: none;
+  stroke: var(--mat-sys-outline);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+}
+.hole {
+  fill: color-mix(in srgb, var(--mat-sys-tertiary) 25%, var(--mat-sys-surface-container-low));
+  stroke: var(--mat-sys-tertiary);
+  stroke-width: 1.5;
+}
+.allowance {
+  fill: none;
+  stroke: var(--mat-sys-tertiary);
+  stroke-width: 1;
+  stroke-dasharray: 5 4;
+}
+.dimension {
+  fill: none;
+  stroke: var(--mat-sys-outline);
+  stroke-width: 1;
+}
+.anchor-track {
+  fill: none;
+  stroke-width: 1.2;
+}
+.anchor-dot {
+  stroke: var(--mat-sys-surface);
+  stroke-width: 0.6;
+}
+.hole-center {
+  fill: var(--mat-sys-surface);
+  stroke: var(--mat-sys-tertiary);
+  stroke-width: 1.2;
+}
+.group-rib {
+  fill: none;
+  stroke: var(--mat-sys-tertiary);
+  stroke-width: 2;
+}
+.legend {
+  display: flex;
+  flex-shrink: 0;
+  gap: 4px 12px;
+  flex-wrap: wrap;
+  font: var(--mat-sys-label-small);
+}
+.selected {
+  stroke: var(--mat-sys-tertiary);
+  stroke-width: 3;
+}
+circle {
+  fill: var(--mat-sys-primary);
+  stroke: var(--mat-sys-surface);
+  stroke-width: 1;
+}
+circle.selected {
+  fill: var(--mat-sys-tertiary);
+  stroke: var(--mat-sys-surface);
+  stroke-width: 1;
+}
+.rib-number {
+  fill: var(--mat-sys-on-surface-variant);
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+}
+text.selected {
+  fill: var(--mat-sys-tertiary);
+  stroke: none;
+  font-weight: 700;
+}
+.detail,
+.rod,
+.vent,
+.connection,
+.dimension,
+.influence-upper,
+.influence-lower {
+  fill: none;
+  stroke: var(--mat-sys-primary);
+  stroke-width: 1.5;
+}
+.connection {
+  stroke: var(--mat-sys-outline-variant);
+  stroke-width: 1;
+}
+.connection.selected {
+  stroke: var(--mat-sys-tertiary);
+  stroke-width: 2.5;
+}
+.baseline {
+  fill: none;
+  stroke: var(--mat-sys-outline);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+}
+.reinforcement {
+  fill: color-mix(in srgb, var(--mat-sys-primary) 12%, transparent);
+  stroke: var(--mat-sys-outline);
+  stroke-width: 1;
+}
+.reinforcement.selected {
+  fill: color-mix(in srgb, #b38900 25%, transparent);
+  stroke: #b38900;
+  stroke-width: 2.5;
+}
+.influence-upper {
+  stroke: #13899d;
+  stroke-width: 4;
+}
+.influence-lower {
+  stroke: #b38900;
+  stroke-width: 4;
+}
+.influence-upper.selected,
+.influence-lower.selected {
+  stroke-width: 7;
+}
+text {
+  fill: var(--mat-sys-on-surface);
+}
+circle.reinforcement-point {
+  fill: #b38900;
+}
+.intake {
+  fill: none;
+  stroke: #d04b47;
+  stroke-width: 3;
+}
+.inlet {
+  fill: none;
+  stroke: var(--mat-sys-tertiary);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+circle.inlet-point {
+  fill: #d04b47;
+}
+circle.ring.selected {
+  fill: none;
+  stroke: var(--mat-sys-tertiary);
+  stroke-width: 2.5;
+}
+.modified {
+  fill: var(--mat-sys-secondary-container);
+  stroke: var(--mat-sys-primary);
+  stroke-width: 2;
+}
+.original {
+  fill: none;
+  stroke: var(--mat-sys-tertiary);
+  stroke-width: 1.5;
+  stroke-dasharray: 6 4;
+}
+.panel {
+  fill: none;
+  stroke: var(--mat-sys-outline);
+  stroke-width: 1;
+}
+.panel.selected {
+  stroke: var(--mat-sys-primary);
+  stroke-width: 2.5;
+}
+.band-0,
+.band-1,
+.band-2 {
+  stroke: none;
+  fill: var(--mat-sys-surface-container-high);
+}
+.band-1 {
+  fill: color-mix(in srgb, #13899d 30%, var(--mat-sys-surface));
+}
+.band-2 {
+  fill: color-mix(in srgb, #b38900 30%, var(--mat-sys-surface));
+}
+.color-cut,
+.curve,
+.highlight {
+  fill: none;
+  stroke: var(--mat-sys-primary);
+  stroke-width: 1.5;
+}
+.color-cut.selected,
+.highlight.selected {
+  stroke: var(--mat-sys-tertiary);
+  stroke-width: 3;
+}
+.cell-selection {
+  fill: color-mix(in srgb, var(--mat-sys-tertiary) 25%, transparent);
+  stroke: var(--mat-sys-tertiary);
+  stroke-width: 1.5;
+}
+.tick-grid {
+  stroke: var(--mat-sys-outline-variant);
+  stroke-width: 0.6;
+}
+.zero {
+  stroke: var(--mat-sys-outline);
+  stroke-width: 1;
+}
+path.extrados,
+path.intrados {
+  fill: none;
+  stroke-width: 2;
+}
+path.intrados {
+  stroke-dasharray: 6 4;
+}

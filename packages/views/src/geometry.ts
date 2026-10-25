@@ -2,6 +2,15 @@ export type Point = readonly [number, number];
 export const finite = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value);
 
+/** A point of the right half wing on the left half. */
+export const flipX = ([x, y]: Point): Point => [-x, y];
+
+/** Both halves of a wing from the left tip, given its right half from the center. */
+export const mirrored = <T>(half: readonly T[], flip: (item: T) => T): T[] => [
+  ...[...half].reverse().map(flip),
+  ...half,
+];
+
 export function pointPath(points: readonly Point[], close = false): string {
   if (!points.length) return '';
   return points.map(([x, y], i) => `${i ? 'L' : 'M'}${x},${y}`).join(' ') + (close ? ' Z' : '');

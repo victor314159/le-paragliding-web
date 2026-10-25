@@ -116,3 +116,10 @@ h4 {
     padding: 0 16px 8px;
   }
 }
+.empty {
+  display: grid;
+  place-content: center;
+  margin: 0;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-small);
+}

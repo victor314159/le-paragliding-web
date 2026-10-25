@@ -1,5 +1,5 @@
 import type { LepAirfoil, LepDesign } from '@lepara/format';
-import { finite, pointPath, previewBounds, type Point } from './geometry.ts';
+import { finite, pointPath, previewBounds, ribNumbers, type Point } from './geometry.ts';
 
 /**
  * What a scene draws: the sections `K` of a design, its airfoils by file
@@ -16,14 +16,34 @@ export interface PreviewContext<K extends keyof LepDesign = keyof LepDesign> {
   readonly secondary: number;
   readonly surface: 'upper' | 'lower';
 }
+/**
+ * A drawing in its declared units. `kind` names the style of an item (its
+ * CSS class); `color`, when set, is its stroke (paths) or fill (dots), for
+ * colors that carry meaning, such as the anchor rows of `legend`.
+ */
 export interface PreviewScene {
   title: string;
   note: string;
   viewBox: string;
   fontSize: number;
-  paths: { d: string; kind: string; selected: boolean; title: string }[];
-  dots: { point: Point; radius: number; kind: string; selected: boolean; title: string }[];
-  labels: { point: Point; text: string; anchor: 'start' | 'middle' | 'end'; fontSize?: number }[];
+  paths: { d: string; kind: string; selected: boolean; title: string; color?: string }[];
+  dots: {
+    point: Point;
+    radius: number;
+    kind: string;
+    selected: boolean;
+    title: string;
+    color?: string;
+  }[];
+  labels: {
+    point: Point;
+    text: string;
+    anchor: 'start' | 'middle' | 'end';
+    fontSize?: number;
+    kind: string;
+    selected: boolean;
+  }[];
+  legend: { text: string; color: string }[];
 }
 
 /** Drawing primitives shared by the input schematics, all in their declared units. */
@@ -32,6 +52,7 @@ export class PreviewDrawing {
   private paths: PreviewScene['paths'] = [];
   private dots: PreviewScene['dots'] = [];
   private labels: PreviewScene['labels'] = [];
+  readonly legend: PreviewScene['legend'] = [];
   private readonly title: string;
   private readonly note: string;
   constructor(title: string, note: string) {
@@ -44,28 +65,54 @@ export class PreviewDrawing {
     selected = false,
     title = '',
     close = false,
+    color?: string,
   ): void {
-    if (!points.length || !points.every((p) => p.every(finite))) return;
-    this.points.push(...points);
-    this.paths.push({ d: pointPath(points, close), kind, selected, title });
+    if (points.length) this.shape(pointPath(points, close), points, kind, selected, title, color);
   }
-  dot(point: Point, radius: number, title = '', selected = false, kind = 'detail'): void {
+  /** A path given as SVG data, such as arcs, framed by `bounds`. */
+  shape(
+    d: string,
+    bounds: readonly Point[],
+    kind = 'detail',
+    selected = false,
+    title = '',
+    color?: string,
+  ): void {
+    if (!bounds.every((p) => p.every(finite))) return;
+    this.points.push(...bounds);
+    this.paths.push({ d, kind, selected, title, color });
+  }
+  dot(
+    point: Point,
+    radius: number,
+    title = '',
+    selected = false,
+    kind = 'detail',
+    color?: string,
+  ): void {
     if (!point.every(finite) || !finite(radius) || radius <= 0) return;
     this.points.push(
       [point[0] - radius, point[1] - radius],
       [point[0] + radius, point[1] + radius],
     );
-    this.dots.push({ point, radius, title, selected, kind });
+    this.dots.push({ point, radius, title, selected, kind, color });
   }
   label(
     point: Point,
     text: string,
     anchor: 'start' | 'middle' | 'end' = 'middle',
     fontSize?: number,
+    kind = '',
+    selected = false,
   ): void {
     if (!point.every(finite)) return;
     this.points.push(point);
-    this.labels.push({ point, text, anchor, fontSize });
+    this.labels.push({ point, text, anchor, fontSize, kind, selected });
+  }
+  /** The numbers of `ribs`, set off along their direction; the rib `selected` emphasized. */
+  ribNumbers(ribs: Parameters<typeof ribNumbers>[0], fontSize: number, selected?: number): void {
+    for (const { point, text, index } of ribNumbers(ribs, fontSize, selected))
+      this.label(point, text, 'middle', fontSize, 'rib-number', index === selected);
   }
   frame(points: readonly Point[]): void {
     this.points.push(...points.filter((p) => p.every(finite)));
@@ -94,6 +141,7 @@ export class PreviewDrawing {
       paths: this.paths,
       dots: this.dots,
       labels: this.labels,
+      legend: this.legend,
     };
   }
 }

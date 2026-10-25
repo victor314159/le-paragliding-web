@@ -190,11 +190,11 @@ test('without pre-data.txt, it is created in Auto with the default shape without
   await open(page);
   await expect(note(page, 'Not created')).toBeVisible();
   await expect(mode(page, 'Auto')).toHaveCount(0);
-  await expect(page.getByRole('img', { name: 'Generated geometry' })).toHaveCount(0);
+  await expect(page.getByRole('img', { name: /^Generated / })).toHaveCount(0);
   await button(page, 'Create pre-data.txt').click();
   await expect(mode(page, 'Auto')).toBeChecked();
   await expect(page.getByText('it replaces')).toHaveCount(0);
-  await expect(page.getByRole('img', { name: 'Generated geometry' })).toBeVisible();
+  await expect(page.getByRole('img', { name: /^Generated / })).toBeVisible();
   await expect(note(page, 'Out of sync · Created')).toBeVisible();
   await mode(page, 'Manual').click();
   await expect(field(page, HALF_SPAN)).toHaveValue(String(created.halfSpan));
@@ -236,7 +236,7 @@ test('applying the parameters replaces the table, which stays editable and is re
   const preData = await importPreData(page, PREPROCESSOR_EXAMPLE);
   await open(page);
   await expect(note(page, 'Out of sync$')).toBeVisible();
-  await expect(page.getByRole('img', { name: 'Generated geometry' })).toBeVisible();
+  await expect(page.getByRole('img', { name: /^Generated / })).toBeVisible();
   await apply(page);
   await expect(note(page, 'In sync$')).toBeVisible();
   await navigate(page, '1 · Geometry');
@@ -389,7 +389,7 @@ test('vault modes and explicit widths keep their values; Show reaches their erro
   await expect(field(page, 'Arc 1 radius (cm)')).toHaveValue('750');
   await button(page, 'Front').click();
   // 26 ribs and the 3 junctions of the arcs.
-  await expect(page.locator('app-preprocessor-preview circle')).toHaveCount(29);
+  await expect(page.locator('app-editor-preview circle')).toHaveCount(29);
   await choose(page, 'Cell distribution', '4');
   await choose(page, 'Wing center', 'cell');
   await field(page, 'Central cell width (cm)').fill('-1');
@@ -440,7 +440,7 @@ test('focusing parameters highlights their geometry without changing the view or
   await page.goto('/');
   await importPreData(page, PREPROCESSOR_EXAMPLE);
   await open(page);
-  const preview = page.locator('app-preprocessor-preview');
+  const preview = page.locator('app-editor-preview');
   await field(page, 'First correction start · x1 (cm)').focus();
   await expect(preview.locator('figcaption')).toContainText('Leading edge correction 1');
   await expect(preview.locator('circle.selected')).toHaveCount(1);
@@ -482,7 +482,7 @@ for (const center of ['rib', 'cell'] as const) {
       distribution: { mode: 4, widths: center === 'rib' ? [0, 20, 30, 40] : [20, 30, 40] },
     });
     await open(page);
-    const preview = page.locator('app-preprocessor-preview');
+    const preview = page.locator('app-editor-preview');
     const central = center === 'cell';
     const first = field(page, central ? 'Central cell width (cm)' : 'Cell 1 width (cm)');
     await first.focus();
@@ -525,7 +525,7 @@ test('status separates invalid parameters from differences and warns only when a
   await expect(page.getByRole('status').filter({ hasText: 'Invalid parameters' })).toBeVisible();
   await expect(note(page, 'Invalid parameters')).toBeVisible();
   await expect(button(page, 'Apply to section 1')).toBeDisabled();
-  await expect(page.getByRole('img', { name: 'Generated geometry' })).toHaveCount(0);
+  await expect(page.getByRole('img', { name: /^Generated / })).toHaveCount(0);
   await field(page, HALF_SPAN).fill('575.5');
   await expect(page.getByText(SYNCED, { exact: true })).toBeVisible();
   await field(page, 'Cells').fill(String(source.geometry.cells + 2));

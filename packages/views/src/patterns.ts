@@ -1,5 +1,6 @@
 import type { Colors, Geometry, RibGeometry, SkinTensionPoint } from '@lepara/format';
-import { finite, pointPath, type Point } from './geometry.ts';
+import { finite, flipX, previewBounds, type Point } from './geometry.ts';
+import { PreviewDrawing, type PreviewContext } from './scene.ts';
 
 const validRib = (rib: RibGeometry | undefined): rib is RibGeometry =>
   !!rib && finite(rib.x) && finite(rib.yLE) && finite(rib.yTE);
@@ -39,15 +40,12 @@ export function colorPlanform(geometry: Geometry, colors: Colors) {
     const regions = crossed
       ? []
       : borders.slice(1).map((cut, i) => ({
-          path: pointPath(
-            [
-              point(left, borders[i].left),
-              point(right, borders[i].right),
-              point(right, cut.right),
-              point(left, cut.left),
-            ],
-            true,
-          ),
+          points: [
+            point(left, borders[i].left),
+            point(right, borders[i].right),
+            point(right, cut.right),
+            point(left, cut.left),
+          ],
           band: i,
         }));
     const points = [point(left, 0), point(right, 0), point(right, 100), point(left, 100)];
@@ -59,7 +57,6 @@ export function colorPlanform(geometry: Geometry, colors: Colors) {
         regions,
         crossed,
         points,
-        path: pointPath(points, true),
         omitted: source.length - cuts.length,
       },
     ];
@@ -133,4 +130,191 @@ export function tensionScale(values: readonly number[]) {
     (_, i) => low + step * i,
   );
   return { low, high, ticks };
+}
+
+/** Sections 15 and 16: the color cuts or rib marks of a surface, on both halves of the planform. */
+export function colorsScene(
+  { design, selected, active }: PreviewContext<'geometry' | 'extradosColors' | 'intradosColors'>,
+  upper: boolean,
+) {
+  const colors = upper ? design.extradosColors : design.intradosColors;
+  const layout = colorPlanform(design.geometry, colors);
+  const d = new PreviewDrawing(
+    `${upper ? 'Extrados' : 'Intrados'} · color layout`,
+    [
+      colors.mode === 'panels'
+        ? 'Positions from TE · Shading distinguishes regions, not fabric colors. Selected panel and cut highlighted.'
+        : 'Marks on ribs, measured from TE · No connections inferred between marks.',
+      layout.omitted && `${layout.omitted} incomplete or out-of-range marks/cuts omitted.`,
+      layout.panels.some((p) => p.crossed) &&
+        'Crossing cuts: only boundaries shown in affected panels.',
+    ]
+      .filter(Boolean)
+      .join(' '),
+  );
+  const outline = layout.panels.flatMap((p) => p.points);
+  const bounds = previewBounds([...outline, ...outline.map(flipX)]);
+  const width = bounds.right - bounds.left;
+  for (const side of [flipX, (p: Point) => p]) {
+    const flip = (points: readonly Point[]) => points.map(side);
+    for (const panel of layout.panels) {
+      const chosen = panel.record === selected && panel.record >= 0;
+      for (const region of panel.regions)
+        d.path(flip(region.points), `band-${region.band % 3}`, false, '', true);
+      d.path(flip(panel.points), 'panel', chosen, `Panel ${panel.number}`, true);
+      for (const cut of panel.cuts)
+        d.path(
+          flip(cut.points),
+          'color-cut',
+          chosen && cut.index === active,
+          `Panel ${panel.number} · Cut ${cut.number} · ${cut.left}% / ${cut.right}% from TE`,
+        );
+    }
+    for (const mark of layout.marks) {
+      const chosen = mark.record === selected && mark.index === active;
+      d.dot(
+        side(mark.point),
+        width * 0.003 * (chosen ? 1.7 : 1),
+        `Rib ${mark.rib} · Mark ${mark.number} · ${mark.percent}% from TE`,
+        chosen,
+        'color-mark',
+      );
+    }
+  }
+  const fontSize = width * 0.016;
+  const numbers = design.geometry.ribs.flatMap((r, index) =>
+    finite(r.x) && finite(r.yLE) && finite(r.yTE)
+      ? [{ index, point: [r.x, r.yTE] as Point, direction: [0, r.yTE - r.yLE] as Point }]
+      : [],
+  );
+  d.ribNumbers(numbers, fontSize);
+  return d.finish();
+}
+
+/** The colors of the surfaces, as in the reinforcement views of section 12. */
+export const SURFACE_COLORS: Readonly<Record<TensionSurface, string>> = {
+  extrados: '#13899d',
+  intrados: '#b38900',
+};
+
+/**
+ * Sections 5 and 31: the overwidth curves of section 5, or of the group
+ * `selected` of section 31, on a chart 640 by 200 units; `view` is a
+ * `TensionView`.
+ */
+export function tensionScene(
+  { design, view, selected, active }: PreviewContext<'skinTension' | 'skinTensionGroups'>,
+  grouped: boolean,
+) {
+  const groups = design.skinTensionGroups;
+  const group = groups.mode === 1 ? groups.groups[selected] : undefined;
+  const title = grouped
+    ? `Skin tension · group ${group?.group ?? '—'} · ribs ${group?.firstRib ?? '—'}–${group?.lastRib ?? '—'}`
+    : 'Skin tension · section 5';
+  const input = grouped ? group?.points : design.skinTension.points;
+  if (!input) {
+    const d = new PreviewDrawing(title, '');
+    d.label(
+      [0, 0],
+      groups.mode === 0
+        ? 'Skin tension groups are disabled; section 5 supplies the base curve.'
+        : 'Add a skin tension group to preview its curves.',
+    );
+    return d.finish();
+  }
+  const curves = (['extrados', 'intrados'] as const).map((surface) => ({
+    surface,
+    points: tensionCurve(input, surface),
+  }));
+  const d = new PreviewDrawing(
+    title,
+    [
+      'Intrados positions converted from TE.',
+      !grouped && groups.mode === 1 && 'Section 31 is active; these are the section 5 base values.',
+      curves.some((curve) => curve.points.length !== input.length) &&
+        'Incomplete or out-of-range points omitted; gaps are not interpolated.',
+    ]
+      .filter(Boolean)
+      .join(' '),
+  );
+  d.legend.push(
+    { text: 'Extrados', color: SURFACE_COLORS.extrados },
+    { text: 'Intrados (dashed)', color: SURFACE_COLORS.intrados },
+  );
+  const width = 640,
+    height = 200,
+    left = 54,
+    right = width - 18,
+    top = 25,
+    bottom = height - 40,
+    font = 12;
+  const scale = tensionScale(curves.flatMap((curve) => curve.points.map((p) => p.value)));
+  const y = (value: number) =>
+    bottom - ((value - scale.low) / (scale.high - scale.low)) * (bottom - top);
+  const x = (value: number) => left + (value / 100) * (right - left);
+  d.label([8, 15], `Overwidth (${grouped ? '% panel width' : '% chord'})`, 'start', font);
+  for (const tick of scale.ticks) {
+    d.path(
+      [
+        [left, y(tick)],
+        [right, y(tick)],
+      ],
+      'tick-grid',
+    );
+    d.label([left - 8, y(tick) + 4], Number(tick.toPrecision(4)).toString(), 'end', font);
+  }
+  for (const tick of [0, 25, 50, 75, 100]) {
+    d.path(
+      [
+        [x(tick), top],
+        [x(tick), bottom],
+      ],
+      'tick-grid',
+    );
+    d.label([x(tick), bottom + 17], String(tick), 'middle', font);
+  }
+  d.path(
+    [
+      [left, y(0)],
+      [right, y(0)],
+    ],
+    'zero',
+  );
+  for (const { surface, points } of curves) {
+    if (view !== 'both' && view !== surface) continue;
+    const drawn = points.map((p) => ({ ...p, point: [x(p.x), y(p.value)] as Point }));
+    // Rows missing between two points leave a gap.
+    const path = drawn
+      .map((p, i) => `${i && p.index === drawn[i - 1].index + 1 ? 'L' : 'M'}${p.point.join(',')}`)
+      .join(' ');
+    const color = SURFACE_COLORS[surface];
+    d.shape(
+      path,
+      drawn.map((p) => p.point),
+      surface,
+      false,
+      '',
+      color,
+    );
+    for (const p of drawn)
+      d.dot(
+        p.point,
+        p.index === active ? 5 : 3.5,
+        `${surface} · Point ${p.index + 1} · ${p.position}% from ${surface === 'extrados' ? 'LE' : 'TE'} · overwidth ${p.value}%`,
+        p.index === active,
+        surface,
+        color,
+      );
+  }
+  d.label(
+    [(left + right) / 2, height - 4],
+    `${grouped ? 'Position along panel edge (%)' : 'Position (% chord)'} · LE → TE`,
+    'middle',
+    font,
+  );
+  d.frame([
+    [0, 0],
+    [width, height],
+  ]);
+  return d.finish();
 }

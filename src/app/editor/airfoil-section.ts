@@ -2,25 +2,19 @@ import { Component, computed, inject } from '@angular/core';
 import { MatIconButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 import { MatTooltip } from '@angular/material/tooltip';
+import { airfoilPart } from '@lepara/views';
 import type { AirfoilForm } from './editor-draft';
 import { EditorState } from './editor-state';
 import { NumberField } from './number-field';
 import { RecordRow, RemoveRow } from './record-editor';
 import { TableScroll } from './table-scroll';
 
-type Part = 'extrados' | 'inlet' | 'intrados';
+type Part = ReturnType<typeof airfoilPart>;
 const PART_LABELS: Readonly<Record<Part, string>> = {
   extrados: 'Extrados',
   inlet: 'Air inlet',
   intrados: 'Intrados',
 };
-
-/** The part a point belongs to: the parts share their end points, given to the first. */
-export function airfoilPart(airfoil: AirfoilForm, index: number): Part {
-  if (index < (airfoil.extrados ?? 0)) return 'extrados';
-  if (index < (airfoil.extrados ?? 0) + (airfoil.inlet ?? 0) - 1) return 'inlet';
-  return 'intrados';
-}
 
 /** The ranges of ribs, from 1-based numbers in order: 1–3, 7. */
 const ribRanges = (ribs: readonly number[]) =>

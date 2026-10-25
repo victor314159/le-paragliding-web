@@ -5,7 +5,10 @@
   "compilerOptions": {
     "rootDir": "..",
     "noEmit": true,
-    "paths": { "@lepara/format": ["../format/src/index.ts"] }
+    "paths": {
+      "@lepara/format": ["../format/src/index.ts"],
+      "@lepara/preprocessor": ["../preprocessor/src/index.ts"]
+    }
   },
   "include": ["src"]
 }

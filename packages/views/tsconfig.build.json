@@ -4,6 +4,9 @@
     "rootDir": "src",
     "outDir": "../../build/views",
     "noEmit": false,
-    "paths": { "@lepara/format": ["../../build/format/index.d.ts"] }
+    "paths": {
+      "@lepara/format": ["../../build/format/index.d.ts"],
+      "@lepara/preprocessor": ["../../build/preprocessor/index.d.ts"]
+    }
   }
 }

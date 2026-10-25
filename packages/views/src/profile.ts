@@ -1,11 +1,21 @@
 import type { LepAirfoil, LepDesign } from '@lepara/format';
-import { finite, pointPath, type Point } from './geometry.ts';
+import { finite, type Point } from './geometry.ts';
 
 /** The sections a rib profile reads. */
 export type ProfileSections = 'geometry' | 'airfoils' | 'thickness' | 'anchors';
 
 export const ANCHOR_COLORS = ['#d04b47', '#b38900', '#13899d', '#6270c9', '#a55aba', '#4d913a'];
 export const ANCHOR_NAMES = ['A', 'B', 'C', 'D', 'E', 'F'];
+
+/** The part of a .txt airfoil a point belongs to: the parts share their end points, given to the first. */
+export function airfoilPart(
+  airfoil: { readonly extrados: number | null; readonly inlet: number | null },
+  index: number,
+): 'extrados' | 'inlet' | 'intrados' {
+  if (index < (airfoil.extrados ?? 0)) return 'extrados';
+  if (index < (airfoil.extrados ?? 0) + (airfoil.inlet ?? 0) - 1) return 'inlet';
+  return 'intrados';
+}
 
 /** Interpolate the input contour at a chord position. No extrapolation across missing data. */
 export function contourPoint(points: readonly Point[], x: number): Point | undefined {
@@ -79,7 +89,7 @@ export function ribProfile(
     thickness,
     chord,
     open: row?.open,
-    intake: pointPath(intakePoints),
+    intake: intakePoints,
   };
 }
 

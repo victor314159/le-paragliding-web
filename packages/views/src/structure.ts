@@ -1,5 +1,5 @@
 import type { LepDesign } from '@lepara/format';
-import { centroid, finite, ribNumbers, type Point } from './geometry.ts';
+import { centroid, finite, type Point } from './geometry.ts';
 import { contourPoint, frontPoint, ribProfile, type ProfileSections } from './profile.ts';
 import { PreviewDrawing, type PreviewContext } from './scene.ts';
 
@@ -161,16 +161,14 @@ export function reinforcementScene(context: PreviewContext<ProfileSections | 'hv
   const fontSize = Math.max(0, ...ends.map(({ a }) => Math.abs(a[0]))) * 2 * 0.016;
   const center = centroid(ends.flatMap(({ a, b }) => [a, b, [-a[0], a[1]] as Point]));
   if (fontSize > 0)
-    for (const label of ribNumbers(
+    d.ribNumbers(
       ends.map(({ index, a, b }) =>
         view === 'front'
           ? { index, point: a, direction: [a[0] - center[0], a[1] - center[1]] as Point }
           : { index, point: b, direction: [b[0] - a[0], b[1] - a[1]] as Point },
       ),
       fontSize,
-    ))
-      // Scene labels sit on their baseline: lower by about half a cap height to center them.
-      d.label([label.point[0], label.point[1] + fontSize * 0.35], label.text, 'middle', fontSize);
+    );
   const row = design.hvRibs.ribs[selected];
   if (row) {
     const scene = d.finish();
