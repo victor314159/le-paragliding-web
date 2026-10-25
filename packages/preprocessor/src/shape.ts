@@ -171,10 +171,14 @@ export function fromShape(shape: WingShape, base: PreprocessorInput): Preprocess
   return withChord(result.ok ? (100 * shape.area) / result.value.metrics.flatArea : 100, round);
 }
 
-/** Two parameter sets equal within rounding. */
+/**
+ * Two parameter sets equal within rounding: of each parameter to 0.01, and
+ * of the half span, which the radii and heights amplify (0.01 cm of span
+ * moves a 700 cm radius by 0.02 cm).
+ */
 const close = (a: unknown, b: unknown): boolean =>
   typeof a === 'number' && typeof b === 'number'
-    ? Math.abs(a - b) <= 0.015
+    ? Math.abs(a - b) <= 0.015 + 1e-4 * Math.max(Math.abs(a), Math.abs(b))
     : typeof a === 'object' && typeof b === 'object' && a !== null && b !== null
       ? Object.keys(a).length === Object.keys(b).length &&
         Object.entries(a).every(([key, value]) => close(value, (b as Record<string, unknown>)[key]))
