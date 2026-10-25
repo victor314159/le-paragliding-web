@@ -434,7 +434,7 @@ test('changing the cell count resizes the table; other sections are corrected be
   });
 });
 
-test('focusing parameters highlights their geometry in a view that draws it, without changing the draft', async ({
+test('focusing parameters highlights their geometry without changing the view or the draft', async ({
   page,
 }) => {
   await page.goto('/');
@@ -456,19 +456,19 @@ test('focusing parameters highlights their geometry in a view that draws it, wit
   expect(halves[0].right).toBeLessThan(0);
   expect(halves[1].left).toBeGreaterThan(0);
 
+  // The vault is drawn in Front only: focusing it keeps Planform.
   await field(page, 'Arc 2 radius (cm)').focus();
-  await expect(button(page, 'Front')).toHaveAttribute('aria-pressed', 'true');
+  await expect(button(page, 'Planform')).toHaveAttribute('aria-pressed', 'true');
+  await button(page, 'Front').click();
+  await field(page, 'Arc 2 radius (cm)').focus();
   await expect(preview.locator('figcaption')).toContainText('Arc 2');
   await expect(highlights).toHaveCount(2);
   await expect(preview.locator('circle.selected')).toHaveCount(2);
   await field(page, 'Arc 1 radius (cm)').focus();
   await expect(preview.locator('figcaption')).toContainText('Arc 1');
   await expect(preview.locator('circle.selected')).toHaveCount(1);
-  // The flat half span is drawn in both views: the view stays.
-  await field(page, HALF_SPAN).focus();
-  await expect(button(page, 'Front')).toHaveAttribute('aria-pressed', 'true');
   await field(page, 'Second correction start · x2 (cm)').focus();
-  await expect(button(page, 'Planform')).toHaveAttribute('aria-pressed', 'true');
+  await expect(button(page, 'Front')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByText('· Modified', { exact: true })).toHaveCount(0);
 });
 

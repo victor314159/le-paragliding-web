@@ -1411,11 +1411,13 @@ test('seam and mark previews follow dimensions, selected rows and print or laser
   const before = await svg.locator('path.allowance').first().getAttribute('d');
   await page.getByRole('textbox', { name: 'Upper panels · Sides (mm)', exact: true }).fill('15');
   await expect(svg.locator('path.allowance').first()).not.toHaveAttribute('d', before!);
+  // Focusing a field keeps the view: only its buttons change it.
   await page.getByRole('textbox', { name: 'Rib edges (mm)', exact: true }).fill('12');
-  await expect(page.getByRole('button', { name: 'Rib', exact: true })).toHaveAttribute(
+  await expect(page.getByRole('button', { name: 'Panels', exact: true })).toHaveAttribute(
     'aria-pressed',
     'true',
   );
+  await page.getByRole('button', { name: 'Rib', exact: true }).click();
   await expect(svg.locator('path.profile')).toHaveCount(1);
   await section(page, '7 · Sewing marks');
   await page.getByRole('textbox', { name: 'Sewing mark spacing (cm)', exact: true }).fill('10');
@@ -1425,13 +1427,14 @@ test('seam and mark previews follow dimensions, selected rows and print or laser
     .getByRole('table', { name: 'Print and laser marks', exact: true })
     .getByRole('row')
     .nth(5);
+  await page.getByRole('button', { name: 'Laser', exact: true }).click();
   await row.getByRole('textbox', { name: 'Laser form', exact: true }).fill('3');
   await expect(svg).toHaveAttribute('aria-label', 'Tab · Laser');
   await expect(svg.locator('path.detail')).toHaveCount(1);
   await row.getByRole('textbox', { name: 'Laser size (mm)', exact: true }).fill('4');
   await expect(svg.locator('path.detail')).toHaveAttribute('d', /-4/);
   await row.getByRole('textbox', { name: 'Print form', exact: true }).focus();
-  await expect(svg).toHaveAttribute('aria-label', 'Tab · Print');
+  await expect(svg).toHaveAttribute('aria-label', 'Tab · Laser');
 });
 
 test('connection, distribution and ramification previews track plans, paths and distances', async ({
@@ -1456,6 +1459,7 @@ test('connection, distribution and ramification previews track plans, paths and 
   await page.getByRole('button', { name: 'Connections', exact: true }).click();
   await expect(svg).toHaveAttribute('aria-label', 'Brake connections');
   await section(page, '11 · Ramification lengths');
+  await page.getByRole('combobox', { name: 'Preview view', exact: true }).selectOption('lines4');
   await page
     .getByRole('textbox', { name: 'Level 3 distance (cm)', exact: true })
     .first()

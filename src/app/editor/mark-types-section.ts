@@ -31,13 +31,7 @@ import { TableScroll } from './table-scroll';
             <tr [appRecordRow]="form" [index]="i">
               <th scope="row">{{ i + 1 }}</th>
               <td>
-                <app-number-field
-                  compact
-                  label="Print form"
-                  integer
-                  [field]="mark.print.type"
-                  (focusin)="editor.setPreviewView(20, 'print')"
-                />
+                <app-number-field compact label="Print form" integer [field]="mark.print.type" />
               </td>
               <td>
                 <app-number-field
@@ -45,7 +39,6 @@ import { TableScroll } from './table-scroll';
                   [label]="i === 7 ? 'Numeral position fraction' : 'Print size'"
                   [unit]="i === 7 ? '' : 'mm'"
                   [field]="mark.print.size"
-                  (focusin)="editor.setPreviewView(20, 'print')"
                 />
               </td>
               <td>
@@ -54,26 +47,13 @@ import { TableScroll } from './table-scroll';
                   [label]="i === 8 || i === 9 ? 'Number height' : 'Print offset'"
                   [unit]="i === 8 || i === 9 ? 'cm' : 'mm'"
                   [field]="mark.print.offset"
-                  (focusin)="editor.setPreviewView(20, 'print')"
                 />
               </td>
               <td>
-                <app-number-field
-                  compact
-                  label="Laser form"
-                  integer
-                  [field]="mark.laser.type"
-                  (focusin)="editor.setPreviewView(20, 'laser')"
-                />
+                <app-number-field compact label="Laser form" integer [field]="mark.laser.type" />
               </td>
               <td>
-                <app-number-field
-                  compact
-                  label="Laser size"
-                  unit="mm"
-                  [field]="mark.laser.size"
-                  (focusin)="editor.setPreviewView(20, 'laser')"
-                />
+                <app-number-field compact label="Laser size" unit="mm" [field]="mark.laser.size" />
               </td>
               <td>
                 <app-number-field
@@ -81,7 +61,6 @@ import { TableScroll } from './table-scroll';
                   label="Laser offset"
                   unit="mm"
                   [field]="mark.laser.offset"
-                  (focusin)="editor.setPreviewView(20, 'laser')"
                 />
               </td>
               <td class="row-actions">

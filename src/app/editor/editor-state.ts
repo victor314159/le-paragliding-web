@@ -53,15 +53,6 @@ export type PreprocessorFocus =
 /** Whether the rib table of section 1 is the one valid parameters of pre-data.txt generate. */
 export type PreprocessorStatus = 'invalid' | 'synced' | 'differs';
 
-/** The preprocessor's preview views that draw each part, the first shown on focus. */
-const FOCUS_VIEWS: Readonly<Record<PreprocessorFocus['part'], readonly string[]>> = {
-  span: ['planform', 'front'],
-  cells: ['planform', 'cells'],
-  leadingEdge: ['planform'],
-  trailingEdge: ['planform'],
-  vault: ['front'],
-};
-
 /** The keys of a model path such as `dxf3d.surfaces[0].color`. */
 const pathKeys = (path: string) => path.split(/[.[\]]+/).filter(Boolean);
 
@@ -200,12 +191,9 @@ export class EditorState {
     this.draft.value.update((value) => applyGeneratedGeometry(value, generated));
   }
 
-  /** Highlights a parameter group, showing a preview view that draws it. */
+  /** Highlights a parameter group in the preview, without changing its view. */
   focusPreprocessor(focus: PreprocessorFocus | undefined): void {
     this.preprocessorFocus.set(focus);
-    const views = focus && FOCUS_VIEWS[focus.part];
-    const view = this.previewViews()[PRE_DATA_FILE] ?? 'planform';
-    if (views && !views.includes(view)) this.setPreviewView(PRE_DATA_FILE, views[0]);
   }
 
   setPreviewView(section: Selection, view: string): void {
