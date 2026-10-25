@@ -34,10 +34,11 @@ const STATUS: Readonly<Record<PreprocessorStatus, string>> = {
     @if (!editor.preprocessor.loaded()) {
       <p>
         This project has no pre-data.txt. Its parameters generate the cells and rib positions of
-        section 1 from a few curves.
+        section 1 from a few curves. It starts in Auto, with the area, aspect ratio, taper, sweep,
+        vault angle and cells of section 1.
       </p>
-      <button matButton="outlined" type="button" (click)="editor.preprocessor.create()">
-        Create from the documented example
+      <button matButton="outlined" type="button" (click)="editor.createPreprocessor()">
+        Create from section 1
       </button>
     } @else {
       <div class="geometry-status">

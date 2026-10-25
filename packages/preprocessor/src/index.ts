@@ -7,10 +7,12 @@ export {
 } from './defaults.ts';
 export { generateGeometry } from './geometry.ts';
 export {
+  SHAPE_DEFAULTS,
   SHAPE_LIMITS,
   fromShape,
   shapeLosses,
   shapeOf,
+  shapeOfRibs,
   type ShapePart,
   type WingShape,
 } from './shape.ts';

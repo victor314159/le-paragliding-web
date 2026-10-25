@@ -8,9 +8,11 @@ import {
   PREPROCESSOR_EXAMPLE,
   PRE_DATA_FILE,
   cellCount,
+  fromShape,
   generateGeometry,
   shapeLosses,
   shapeOf,
+  shapeOfRibs,
   type CellDistribution,
   type GeometryResult,
   type PreprocessorInput,
@@ -150,9 +152,19 @@ export function generatesGeometry(
 export type PreprocessorFormTree = FieldTree<PreprocessorForm>;
 
 /**
+ * The parameters a created pre-data.txt starts from: an Auto shape with the
+ * area, aspect ratio, taper, sweep, vault angle and cells of section 1, and
+ * its wing name.
+ */
+export function createdPreprocessor(geometry: LepDesign['geometry']): PreprocessorInput {
+  const input = fromShape(shapeOfRibs(geometry.ribs, geometry.cells), PREPROCESSOR_EXAMPLE);
+  return { ...input, name: geometry.wingName.trim() || input.name };
+}
+
+/**
  * The parameters of pre-data.txt and the geometry they generate. A missing
- * file starts from the documented example once created, until discarded; an
- * unreadable one is never replaced; removing it is done in the file list.
+ * file is created from given parameters, until discarded; an unreadable one
+ * is never replaced; removing it is done in the file list.
  * Plain signals: EditorState binds their form.
  */
 export class PreprocessorDraft {
@@ -182,6 +194,7 @@ export class PreprocessorDraft {
     this.readingErrors = reading?.ok === false ? reading.errors : [];
     const read = reading?.ok ? reading.value : undefined;
     this.loaded = signal(!!read);
+    // Without a file, a placeholder until `create`.
     this.value = signal(toPreprocessorForm(read ?? PREPROCESSOR_EXAMPLE));
     this.input = computed(() => toPreprocessorInput(this.value()));
     this.result = computed(() => generateGeometry(this.input()));
@@ -206,15 +219,15 @@ export class PreprocessorDraft {
     });
   }
 
-  /** Starts from the documented example, without a file. */
-  create(): void {
-    if (!this.exists) this.loaded.set(true);
+  /** Starts from `input`, without a file. */
+  create(input: PreprocessorInput): void {
+    if (this.exists) return;
+    this.value.set(toPreprocessorForm(input));
+    this.loaded.set(true);
   }
 
-  /** Cancels `create`: nothing is written, and the example is ready again. */
+  /** Cancels `create`: nothing is written. */
   discard(): void {
-    if (this.exists) return;
-    this.loaded.set(false);
-    this.value.set(toPreprocessorForm(PREPROCESSOR_EXAMPLE));
+    if (!this.exists) this.loaded.set(false);
   }
 }

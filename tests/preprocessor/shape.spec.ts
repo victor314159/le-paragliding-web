@@ -1,11 +1,13 @@
 import { expect, test } from '@playwright/test';
 import {
   PREPROCESSOR_EXAMPLE,
+  SHAPE_DEFAULTS,
   SHAPE_LIMITS,
   fromShape,
   generateGeometry,
   shapeLosses,
   shapeOf,
+  shapeOfRibs,
   type WingShape,
 } from '../../packages/preprocessor/src/index.ts';
 import { ok } from './cases.ts';
@@ -53,4 +55,30 @@ test('the parameters of any shape within the limits are read back without losses
     const input = fromShape(shape, PREPROCESSOR_EXAMPLE);
     expect(shapeLosses(shapeOf(input, ok(generateGeometry(input))), input), `${i}`).toEqual([]);
   }
+});
+
+test('a rib table gives the settings it sets; the others, or all without a table, keep the defaults', () => {
+  const shape: WingShape = {
+    ...SHAPE_DEFAULTS,
+    area: 21,
+    aspectRatio: 6.1,
+    taper: 0.3,
+    sweep: 0.6,
+  };
+  const { ribs, cells } = ok(generateGeometry(fromShape(shape, PREPROCESSOR_EXAMPLE)));
+  // As section 1 has them: to 0.01 cm or degree.
+  const table = ribs.map((rib) => ({
+    x: Math.round(rib.x * 100) / 100,
+    yLE: Math.round(rib.yLE * 100) / 100,
+    yTE: Math.round(rib.yTE * 100) / 100,
+    beta: Math.round(rib.beta * 100) / 100,
+  }));
+  const back = shapeOfRibs(table, cells);
+  // The tip rib's angle is its last vault segment's, a little short of the total.
+  for (const key of Object.keys(shape) as (keyof WingShape)[])
+    expect(Math.abs(back[key] - shape[key]), key).toBeLessThan(key === 'tipAngle' ? 0.5 : 0.05);
+  expect(shapeOfRibs([], 40)).toEqual(SHAPE_DEFAULTS);
+  expect(shapeOfRibs([{ ...table[0], yTE: table[0].yLE }, ...table.slice(1)], cells)).toEqual(
+    SHAPE_DEFAULTS,
+  );
 });

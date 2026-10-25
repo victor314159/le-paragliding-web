@@ -174,6 +174,23 @@ function front(vault: readonly Segment[], x: number, tip: boolean) {
 }
 
 /** Generate a half wing without mutating the parameters or any existing design. */
+/**
+ * The area (m²) of the wing whose half has `ribs` (cm, from the center):
+ * flat with `x`, projected with `xp`. A central cell has the first rib's chord.
+ */
+export function wingArea<K extends 'x' | 'xp'>(
+  ribs: readonly (Readonly<Record<K, number>> & Pick<GeneratedRib, 'yLE' | 'yTE'>)[],
+  key: K,
+): number {
+  let sum = ribs[0][key] * (ribs[0].yTE - ribs[0].yLE);
+  for (let i = 1; i < ribs.length; i++) {
+    const a = ribs[i - 1];
+    const b = ribs[i];
+    sum += (b[key] - a[key]) * 0.5 * (a.yTE - a.yLE + b.yTE - b.yLE);
+  }
+  return (2 * sum) / 10000;
+}
+
 export function generateGeometry(input: PreprocessorInput): Result<GeometryResult> {
   const errors = validatePreprocessor(input);
   if (errors.length) return { ok: false, errors };
@@ -190,20 +207,11 @@ export function generateGeometry(input: PreprocessorInput): Result<GeometryResul
     rotationPoint: 33.33,
     washin: 0,
   }));
-  const area = (key: 'x' | 'xp') => {
-    let sum = ribs[0][key] * (ribs[0].yTE - ribs[0].yLE);
-    for (let i = 1; i < ribs.length; i++) {
-      const a = ribs[i - 1];
-      const b = ribs[i];
-      sum += (b[key] - a[key]) * 0.5 * (a.yTE - a.yLE + b.yTE - b.yLE);
-    }
-    return (2 * sum) / 10000;
-  };
   const flatSpan = (input.halfSpan * 2) / 100;
   const projectedSpan = (ribs.at(-1)!.xp * 2) / 100;
   const vaultPoints = points(vault);
-  const flatArea = area('x');
-  const projectedArea = area('xp');
+  const flatArea = wingArea(ribs, 'x');
+  const projectedArea = wingArea(ribs, 'xp');
   const value: GeometryResult = {
     cells,
     ribs,

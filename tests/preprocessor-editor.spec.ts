@@ -15,6 +15,7 @@ import { toDesign, toForm } from '../src/app/editor/editor-draft.ts';
 import {
   GENERATED_COLUMNS,
   applyGeneratedGeometry,
+  createdPreprocessor,
   generatesGeometry,
   toExplicitWidths,
   toPreprocessorForm,
@@ -180,34 +181,40 @@ async function exportZip(page: Page): Promise<JSZip> {
   return JSZip.loadAsync(await readFile(await (await zipping).path()));
 }
 
-test('without pre-data.txt, it is created from the example without changing the table', async ({
+test('without pre-data.txt, it is created in Auto from section 1 without changing the table', async ({
   page,
 }) => {
   await page.goto('/');
   const original = await download(page, 'leparagliding.txt');
+  const created = createdPreprocessor(ok(parseLep(original)).geometry);
   await open(page);
   await expect(note(page, 'Not created')).toBeVisible();
-  await expect(field(page, HALF_SPAN)).toHaveCount(0);
+  await expect(mode(page, 'Auto')).toHaveCount(0);
   await expect(page.getByRole('img', { name: 'Generated geometry' })).toHaveCount(0);
-  await button(page, 'Create from the documented example').click();
-  await expect(field(page, HALF_SPAN)).toHaveValue('575.5');
+  await button(page, 'Create from section 1').click();
+  await expect(mode(page, 'Auto')).toBeChecked();
+  await expect(page.getByText('it replaces')).toHaveCount(0);
   await expect(page.getByRole('img', { name: 'Generated geometry' })).toBeVisible();
   await expect(note(page, 'Out of sync · Created')).toBeVisible();
+  await mode(page, 'Manual').click();
+  await expect(field(page, HALF_SPAN)).toHaveValue(String(created.halfSpan));
   await field(page, HALF_SPAN).fill('550');
   await button(page, 'Discard pre-data.txt').click();
   await expect(note(page, 'Not created')).toBeVisible();
   await expect(page.getByText('· Modified')).toHaveCount(0);
-  await button(page, 'Create from the documented example').click();
-  await expect(field(page, HALF_SPAN)).toHaveValue('575.5');
+  await button(page, 'Create from section 1').click();
+  await expect(mode(page, 'Auto')).toBeChecked();
+  await mode(page, 'Manual').click();
+  await expect(field(page, HALF_SPAN)).toHaveValue(String(created.halfSpan));
   await button(page, 'Cancel').click();
   await button(page, 'Discard changes').click();
   await expect(button(page, 'Actions for pre-data.txt')).toHaveCount(0);
 
   await open(page);
-  await button(page, 'Create from the documented example').click();
+  await button(page, 'Create from section 1').click();
   await button(page, 'Save').click();
   expect(await download(page, 'leparagliding.txt')).toBe(original);
-  expect(ok(parsePreData(await download(page, 'pre-data.txt')))).toEqual(PREPROCESSOR_EXAMPLE);
+  expect(ok(parsePreData(await download(page, 'pre-data.txt')))).toEqual(created);
   // Created by the editor: removed from the list, not restored.
   const files = page.getByRole('list', { name: 'Input files' });
   await expect(files.getByText('Created', { exact: true })).toBeVisible();
@@ -330,7 +337,7 @@ test('an unreadable pre-data.txt is edited as text and never replaced', async ({
   await expect(
     page.getByText('pre-data.txt could not be read: correct it as text, or import it again.'),
   ).toBeVisible();
-  await expect(button(page, 'Create from the documented example')).toHaveCount(0);
+  await expect(button(page, 'Create from section 1')).toHaveCount(0);
   await button(page, 'Save').click();
   expect(await download(page, 'pre-data.txt')).toBe('broken parameters');
   await open(page);
@@ -534,8 +541,8 @@ test('Auto lists what its shape replaces before tuning, and keeps the inactive m
   page,
 }) => {
   await page.goto('/');
+  await importPreData(page, PREPROCESSOR_EXAMPLE);
   await open(page);
-  await button(page, 'Create from the documented example').click();
   await expect(mode(page, 'Manual')).toBeChecked();
   await choose(page, 'Vault shape', '1');
   await field(page, 'Vault horizontal radius · a1 (cm)').fill('450');

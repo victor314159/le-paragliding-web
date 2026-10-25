@@ -13,6 +13,7 @@ import { EditorDraft, type AirfoilsForm, type EditorForm } from './editor-draft'
 import {
   PreprocessorDraft,
   applyGeneratedGeometry,
+  createdPreprocessor,
   generatesGeometry,
   type PreprocessorFormTree,
 } from './preprocessor-draft';
@@ -186,6 +187,11 @@ export class EditorState {
   /** The parameter group of pre-data.txt last focused. */
   readonly preprocessorFocus = signal<PreprocessorFocus | undefined>(undefined);
   private readonly recordSelections = new WeakMap<object, WritableSignal<number>>();
+
+  /** Creates pre-data.txt, shaped like the rib table of section 1. */
+  createPreprocessor(): void {
+    this.preprocessor.create(createdPreprocessor(this.draft.project().design.geometry));
+  }
 
   /** Replaces the cells and rib positions of section 1 with those the parameters generate. */
   applyPreprocessor(): void {

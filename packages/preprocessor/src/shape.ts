@@ -1,6 +1,6 @@
 // An extension, without a native equivalent: a few settings that set every parameter.
-import { generateGeometry } from './geometry.ts';
-import type { GeometryResult, PreprocessorInput, Vault } from './model.ts';
+import { generateGeometry, wingArea } from './geometry.ts';
+import type { GeneratedRib, GeometryResult, PreprocessorInput, Vault } from './model.ts';
 import { cellCount } from './validate.ts';
 
 /**
@@ -38,6 +38,20 @@ export const SHAPE_LIMITS: Readonly<Record<keyof WingShape, readonly [number, nu
   tipCurl: [0.1, 0.7],
   cells: [10, 99],
   cellUniformity: [0, 1],
+};
+
+/** The settings of the documented 1.6 example, rounded. */
+export const SHAPE_DEFAULTS: WingShape = {
+  area: 25,
+  aspectRatio: 5.3,
+  taper: 0.24,
+  sweep: 0.72,
+  leadingEdgeRoundness: 0.81,
+  trailingEdgeRoundness: 0.64,
+  tipAngle: 90,
+  tipCurl: 0.39,
+  cells: 50,
+  cellUniformity: 0.7,
 };
 
 /** A part of the parameters that a shape can replace. */
@@ -78,6 +92,37 @@ export function shapeOf(input: PreprocessorInput, result: GeometryResult): WingS
       'cellUniformity',
       d.mode === 2 || d.mode === 3 ? d.coefficient : d.mode === 1 ? 1 : 0.7,
     ),
+  };
+}
+
+/**
+ * The shape of a rib table as section 1 of leparagliding.txt has it (half
+ * wing from the center, before Wing scale): its area, aspect ratio, taper,
+ * sweep, vault angle and cells, clamped to the limits. The other settings
+ * keep SHAPE_DEFAULTS, and so does a table without a positive chord.
+ */
+export function shapeOfRibs(
+  ribs: readonly Pick<GeneratedRib, 'x' | 'yLE' | 'yTE' | 'beta'>[],
+  cells: number,
+): WingShape {
+  const center = ribs[0];
+  const tip = ribs.at(-1);
+  const valid = ribs.every(
+    (rib) => [rib.x, rib.yLE, rib.yTE, rib.beta].every(Number.isFinite) && rib.yTE > rib.yLE,
+  );
+  const area = valid && ribs.length > 1 ? wingArea(ribs, 'x') : 0;
+  if (!center || !tip || !(area > 0) || !Number.isInteger(cells)) return SHAPE_DEFAULTS;
+  const chord = center.yTE - center.yLE;
+  const tipChord = tip.yTE - tip.yLE;
+  const loss = chord - tipChord;
+  return {
+    ...SHAPE_DEFAULTS,
+    area: clamp('area', area),
+    aspectRatio: clamp('aspectRatio', (tip.x / 50) ** 2 / area),
+    taper: clamp('taper', tipChord / chord),
+    sweep: loss > 0 ? clamp('sweep', (tip.yLE - center.yLE) / loss) : SHAPE_DEFAULTS.sweep,
+    tipAngle: tip.beta > 0 ? clamp('tipAngle', tip.beta) : SHAPE_DEFAULTS.tipAngle,
+    cells: clamp('cells', cells),
   };
 }
 
