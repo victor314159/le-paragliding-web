@@ -1,6 +1,16 @@
 --- a/pre-processor.f
 +++ b/pre-processor.f
-@@ -1508,6 +1508,26 @@
+@@ -16,6 +16,9 @@
+ c***************************************************************
+ 
+        program preprocessor
++c      PATCH preprocessor 006: floating-point exceptions, read at the end.
++       use, intrinsic :: ieee_exceptions
++       logical fpeinv,fpezer,fpeovf
+ 
+ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+ c      1. VARIABLE NAMES
+@@ -1508,6 +1511,26 @@
  c      9. END OF MAIN PROGRAM
  cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc   
  
@@ -27,3 +37,20 @@
         call dxfend(20)
  
         write (*,*) 
+@@ -1515,6 +1538,16 @@
+        write (*,*) "Open geometry.dxf file and geometry-out.txt files"
+        write (*,*) "Complete manually your leparagliding.txt data file"
+        write (*,*)
++
++c      PATCH preprocessor 006: fail on any invalid operation, division by
++c      zero or overflow (sticky flags: kept even where traps are not).
++       call ieee_get_flag(ieee_invalid,fpeinv)
++       call ieee_get_flag(ieee_divide_by_zero,fpezer)
++       call ieee_get_flag(ieee_overflow,fpeovf)
++       if (fpeinv.or.fpezer.or.fpeovf) then
++       write (0,*) 'IEEE invalid, zero, overflow:',fpeinv,fpezer,fpeovf
++       stop 1
++       end if
+ 
+ ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+ c      END MAIN PROGRAM

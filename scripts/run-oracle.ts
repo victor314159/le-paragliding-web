@@ -10,10 +10,10 @@
  *   oracle/designs/<id>/ holds exactly these inputs (scripts/build-designs.ts).
  *
  * Compiled source: the unmodified official archive (CRLF -> LF only), in
- * build/native-engine/official-toolchain/official/. No web/WASM patch is
- * applied. The oracle container reproduces the author's Ubuntu 23.04 /
- * gfortran 12.3 x86-64 toolchain; oracle/toolchain.json pins the environment
- * and compilation flags.
+ * build/native-engine/official/. No web/WASM patch is applied. The oracle
+ * container reproduces the author's Ubuntu 23.04 / gfortran 12.3 x86-64
+ * toolchain; oracle/toolchain.json pins the environment and compilation
+ * flags.
  *
  * The program also writes to ../stl and ../xflr5. Each design runs twice (a
  * and b), each run in its own tree build/oracle-runs/<design>-<a|b>/{run,stl,

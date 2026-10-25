@@ -23,8 +23,8 @@ Setup, build and test commands are in [README.md](README.md).
   goes into `src/read-design.ts`, `src/write-design.ts`, `src/model.ts` and
   `SPEC.md`. Its tests are `tests/format/` (`npm test -- format`); the engine
   equivalence test runs `build/engine/`, or `dist/engine/` without it;
-  `docker compose run --rm native node scripts/check-format-native.ts` runs
-  the same cases on the native build (gfortran).
+  `docker compose run --rm oracle node scripts/check-format-native.ts` runs
+  the same cases on the native build (the author's gfortran).
 
 ## Parameter editor
 
@@ -65,5 +65,5 @@ Setup, build and test commands are in [README.md](README.md).
 - `packages/preprocessor/` is the TypeScript port. Its native oracle uses
   the official source in `fortran/preprocessor/original/` and the documented
   patches in `fortran/preprocessor/patches/`: never edit the official source.
-  Run `docker compose run --rm native node scripts/check-preprocessor-native.ts`
+  Run `docker compose run --rm oracle node scripts/check-preprocessor-native.ts`
   and `docker compose run --rm web npm test -- preprocessor` after changing it.

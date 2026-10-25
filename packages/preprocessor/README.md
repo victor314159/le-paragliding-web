@@ -73,12 +73,12 @@ rounding, vault arcs being compared by length and angle.
 ## Native oracle
 
 ```sh
-docker compose run --rm native node scripts/check-preprocessor-native.ts
+docker compose run --rm oracle node scripts/check-preprocessor-native.ts
 ```
 
-Compiles the checked upstream source with gfortran, applies the documented
-[patches](../../fortran/preprocessor/patches/README.md), and compares the live
-native results with TypeScript. Both vaults and all distributions are crossed
+Applies the documented [patches](../../fortran/preprocessor/patches/README.md)
+to the checked upstream source, compiles it with the engine's gfortran (the
+`oracle` image), and compares the live native results with TypeScript. Both vaults and all distributions are crossed
 with odd/even counts; cases also cover coefficient endpoints, cell limits,
 correction signs, narrow central cells and deterministic parameter variants.
 Inputs, native outputs and logs stay in `build/preprocessor-native/`.

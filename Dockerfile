@@ -12,8 +12,7 @@
 #
 # Development images (docker-compose.yml), the repository bind-mounted at /work:
 #   flang  : Fortran -> WASM toolchain
-#   oracle : the author's toolchain (amd64): official references, patched native
-#   native : Debian's gfortran: preprocessor oracle, input-format check
+#   oracle : the author's toolchain (amd64): every native Fortran check
 #   web    : Angular dev + Playwright/Chromium
 
 # --- flang: flang 21.1.8 + emscripten 5.0.7 + libFortranRuntime -------------
@@ -44,7 +43,8 @@ WORKDIR /work
 CMD ["bash"]
 
 # --- oracle: the author's Ubuntu 23.04 / gfortran 12.3, always x86-64 -----
-# Produces and checks oracle/reference/ (run-oracle.ts, check-patched-native.ts).
+# Every native Fortran build: the engine (run-oracle.ts, check-patched-native.ts,
+# check-format-native.ts) and the preprocessor (check-preprocessor-native.ts).
 # Node only drives the scripts; keep the numerical libraries from Ubuntu.
 FROM --platform=linux/amd64 node:24.20.0-trixie-slim@sha256:50c3b2f6988dfc307b86e5301d69611af31f4789bdf232863b07d3b02fe55ae0 AS oracle-node
 
@@ -61,17 +61,6 @@ RUN packages="$(node -e "console.log(Object.entries(require('/opt/lepara-toolcha
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /work
 CMD ["bash"]
-
-# --- native: Debian's gfortran, natively (arm64 on Apple Silicon) ----------
-# The geometry preprocessor's native oracle and the input-format check: any
-# gfortran, without emulation (the preprocessor relies on -ffpe-trap).
-FROM base AS native
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-      gfortran \
-      patch \
-      unzip \
-    && rm -rf /var/lib/apt/lists/*
 
 # --- web: Angular + Playwright ----------------------------------------------
 # Angular is a devDependency of the project (package.json, npm ci), not a

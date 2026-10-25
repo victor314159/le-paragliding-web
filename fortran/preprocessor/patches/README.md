@@ -174,13 +174,21 @@ tip ribs change completely. Example: the official example with a type 1 vault
 
 ## Testing only
 
-### [006](006-oracle-output.patch): oracle output
+### [006](006-oracle-output.patch): oracle output and floating-point check
 
 Adds `oracle.txt` with the counts, the nine-column rib matrix, the sampled
 contours, the vault and ten geometric metrics in `ES24.16E3` (all
 double-precision digits). Vault coordinates omit CAD offsets and start at
 the top of the wing. The official geometry matrix prints only two decimals,
-too few for a comparison. It changes no computation.
+too few for a comparison.
+
+At the end of the run, it reads the IEEE flags for invalid operations,
+division by zero and overflow, and exits with status 1 if one is set. These
+flags are sticky: they survive x86-64 emulation on Apple Silicon, where
+`-ffpe-trap` traps are lost. Unlike a trap, the check does not locate the
+operation: rerun with `-ffpe-trap` on a machine that does not emulate x86-64
+(such as CI), or under gdb.
+It changes no computation.
 
 ## Upstream issues not fixed by the patches
 
@@ -209,9 +217,11 @@ The official source is kept unmodified in `fortran/preprocessor/original/`
 patches in order to `build/preprocessor-native/pre-processor.f` and compiles
 it. Never edit that generated file: edit or add a patch.
 
-The native oracle compiles with double-precision default REAL (matching
-JavaScript numbers), bounds checking, signaling-NaN initialization of local
-REAL variables, and traps for invalid operations, division by zero and
-overflow. It runs each case in its own directory with a timeout.
+The native oracle compiles in the `oracle` image, with the engine's
+toolchain (`oracle/toolchain.json`), in double-precision default REAL
+(matching JavaScript numbers), with bounds checking and signaling-NaN
+initialization of local REAL variables. Each case runs in its own directory
+with a timeout, and fails on any invalid operation, division by zero or
+overflow (006).
 
 Each patch adds a `PATCH preprocessor NNN` comment to the source.

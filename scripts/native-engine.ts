@@ -1,7 +1,7 @@
 // native-engine.ts — The engine built natively, and runs of it. Shared by
-// run-oracle.ts and check-patched-native.ts (the author's toolchain: the
-// oracle image, pinned by oracle/toolchain.json) and check-format-native.ts
-// (any gfortran: the native image).
+// run-oracle.ts, check-patched-native.ts and check-format-native.ts. Every
+// native Fortran build, the preprocessor's included, uses the author's
+// toolchain: the oracle image, pinned by oracle/toolchain.json.
 import { execFileSync, spawnSync, type SpawnSyncReturns } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -21,30 +21,26 @@ function checkCpu(): void {
     throw new Error(`The references need an ${toolchain.cpuLevel} CPU: see oracle/README.md`);
 }
 
-// The official source (patched: false) or the one the WASM build compiles
-// (patched: true), compiled with the author's toolchain (official: true, the
-// default, in the oracle image) or with the image's gfortran (official: false),
-// into build/native-engine/<official-toolchain|gfortran>/<source>/a.out.
-export function buildNativeEngine({
-  patched,
-  official = true,
-}: {
-  patched: boolean;
-  official?: boolean;
-}): string {
-  if (official) {
-    const image = '/opt/lepara-toolchain.json';
-    if (
-      !existsSync(image) ||
-      sha256(readFileSync(image)) !== sha256(readFileSync(join(ROOT, 'oracle/toolchain.json')))
-    )
-      throw new Error('Run in an up-to-date oracle image: docker compose build oracle');
-    checkCpu();
-  }
+// The compiler of oracle/toolchain.json, after checking that this is an
+// up-to-date oracle image on a suitable CPU.
+export function oracleCompiler(): string {
+  const image = '/opt/lepara-toolchain.json';
+  if (
+    !existsSync(image) ||
+    sha256(readFileSync(image)) !== sha256(readFileSync(join(ROOT, 'oracle/toolchain.json')))
+  )
+    throw new Error('Run in an up-to-date oracle image: docker compose build oracle');
+  checkCpu();
+  return toolchain.compiler;
+}
 
-  const compiler = official ? toolchain.compiler : 'gfortran';
+// The official source (patched: false) or the one the WASM build compiles
+// (patched: true), compiled with the author's toolchain into
+// build/native-engine/<official|patched>/a.out.
+export function buildNativeEngine({ patched }: { patched: boolean }): string {
+  const compiler = oracleCompiler();
   const kind = patched ? 'patched' : 'official';
-  const out = join(ROOT, 'build/native-engine', official ? 'official-toolchain' : compiler, kind);
+  const out = join(ROOT, 'build/native-engine', kind);
   const binary = join(out, 'a.out');
   rmSync(out, { recursive: true, force: true });
   mkdirSync(out, { recursive: true });
@@ -55,8 +51,9 @@ export function buildNativeEngine({
     source = join(out, 'leparagliding.f');
     execFileSync(join(ROOT, 'scripts/extract-engine.sh'), [source], { stdio: 'inherit' });
   }
-  const flags = official ? toolchain.flags : [];
-  const compile = spawnSync(compiler, [...flags, '-o', binary, source], { encoding: 'utf8' });
+  const compile = spawnSync(compiler, [...toolchain.flags, '-o', binary, source], {
+    encoding: 'utf8',
+  });
   writeFileSync(join(out, 'compile.log'), compile.stderr ?? '');
   if (compile.status !== 0) throw new Error(`Native build failed: ${out}/compile.log`);
   console.log(`native build: ${compiler}, ${kind} source`);

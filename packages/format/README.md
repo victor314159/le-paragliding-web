@@ -167,7 +167,7 @@ modules and `.d.ts` declarations), in the `web` container:
 ```sh
 docker compose run --rm web scripts/assemble-format.sh
 docker compose run --rm web npm test -- format
-docker compose run --rm native node scripts/check-format-native.ts   # gfortran
+docker compose run --rm oracle node scripts/check-format-native.ts   # gfortran
 ```
 
 ## License

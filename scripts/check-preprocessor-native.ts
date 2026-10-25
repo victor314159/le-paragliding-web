@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Native Fortran 1.6 versus the TypeScript port, including unrounded curves and metrics.
-// Usage: docker compose run --rm native node scripts/check-preprocessor-native.ts
+// Usage: docker compose run --rm oracle node scripts/check-preprocessor-native.ts
 import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -11,6 +11,7 @@ import {
 } from '../packages/preprocessor/src/index.ts';
 import { ok, preprocessorCases } from '../tests/preprocessor/cases.ts';
 import { ROOT, sha256 } from './oracle-lib.ts';
+import { oracleCompiler } from './native-engine.ts';
 
 const OUT = join(ROOT, 'build/preprocessor-native');
 const SOURCE = join(ROOT, 'fortran/preprocessor/original/pre-processor.f');
@@ -30,15 +31,16 @@ for (const patch of readdirSync(PATCHES)
 }
 const bin = join(OUT, 'preprocessor');
 execFileSync(
-  'gfortran',
+  oracleCompiler(),
   [
     '-std=legacy',
     // Match JavaScript numbers; verify the algorithm without float32 cancellation artifacts.
     '-fdefault-real-8',
     '-fdefault-double-8',
     '-fcheck=all',
+    // Uninitialized REALs are signaling NaNs: using one raises the invalid
+    // flag, which patch 006 checks at the end (traps are lost under emulation).
     '-finit-real=snan',
-    '-ffpe-trap=invalid,zero,overflow',
     generated,
     '-o',
     bin,
