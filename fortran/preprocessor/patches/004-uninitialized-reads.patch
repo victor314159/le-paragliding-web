@@ -1,0 +1,38 @@
+--- a/pre-processor.f
++++ b/pre-processor.f
+@@ -137,6 +137,8 @@
+ 
+ c      real pi
+ 
++c      PATCH preprocessor 004: explicit zeros (first vault segment).
++       rib=0.
+        pi=4.*atan(1.)
+ 
+ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+@@ -972,7 +974,7 @@
+ c      Normalize to total span
+        coefg=xm/rib(nribss,2)
+        do i=1,nribss
+-       rib(i,2)=rib(i,2)*coeffg
++       rib(i,2)=rib(i,2)*coefg
+        rib(i,22)=rib(i,22)*coefg
+        end do
+ 
+@@ -1023,7 +1025,7 @@
+ c      rib(i,3) Y Leading edge
+ 
+        do i=1,nribss
+-       do k=1,kmax1+1
++       do k=1,kmax1
+ 
+        if (xq1(k).lt.rib(i,2).and.xp1(k).ge.rib(i,2)) then
+ 
+@@ -1112,7 +1114,7 @@
+ c      rib(i,3) Y Leading edge
+ 
+        do i=2,nribss
+-       do k=1,kmax1+1
++       do k=1,kmax1
+ 
+        if (xq1(k).le.rib(i,2).and.xp1(k).ge.rib(i,2)) then
+ 

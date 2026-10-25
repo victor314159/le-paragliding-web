@@ -108,7 +108,7 @@ function interpolate(segments: readonly Segment[], x: number): number {
   return value;
 }
 
-/** Rib positions from cell widths, clamped and with the tip pinned to the half span (patch 001). */
+/** Rib positions from cell widths, clamped and with the tip pinned to the half span (patch 002). */
 function positions(widths: readonly number[], halfSpan: number): number[] {
   let x = widths[0] / 2;
   const xs = widths.map((width, i) => Math.min(i === 0 ? x : (x += width), halfSpan));

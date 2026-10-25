@@ -1,0 +1,22 @@
+--- a/pre-processor.f
++++ b/pre-processor.f
+@@ -509,7 +509,8 @@
+        sepy=-400.
+ 
+ c      Main vault in 300 points max
+-       do i=0,299
++c      PATCH preprocessor 005: reach any correction start below a1.
++       do i=0,300
+ 
+        theta1=(2.*atan(1.))*float(i)/300.
+ 
+@@ -540,7 +541,8 @@
+ 
+ c      Modification zone
+ 
+-       if (xq.ge.x1.and.jcontrol.eq.0) then
++c      PATCH preprocessor 005: none at x1=a1 (y1=0), as before.
++       if (xq.ge.x1.and.x1.lt.a1.and.jcontrol.eq.0) then
+  
+        y1=b1*sqrt(1.-(x1*x1/(a1*a1)))
+ 
