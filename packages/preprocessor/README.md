@@ -73,7 +73,7 @@ rounding, vault arcs being compared by length and angle.
 ## Native oracle
 
 ```sh
-docker compose run --rm oracle node scripts/check-preprocessor-native.ts
+docker compose run --rm native node scripts/check-preprocessor-native.ts
 ```
 
 Compiles the checked upstream source with gfortran, applies the documented

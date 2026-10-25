@@ -1,0 +1,3 @@
+Compiled in xubuntu 23.04:
+
+gfortran -static-libgfortran leparagliding.f 

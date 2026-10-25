@@ -24,7 +24,7 @@
  *     3.29 would read them as section 33 (BHL7-22 keeps a second, unused set
  *     of section 32 parameters there).
  *
- * Usage: docker compose run --rm oracle node scripts/build-designs.ts
+ * Usage: docker compose run --rm web node scripts/build-designs.ts
  */
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';

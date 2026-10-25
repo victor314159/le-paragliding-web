@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Native Fortran 1.6 versus the TypeScript port, including unrounded curves and metrics.
-// Usage: docker compose run --rm oracle node scripts/check-preprocessor-native.ts
+// Usage: docker compose run --rm native node scripts/check-preprocessor-native.ts
 import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';

@@ -38,7 +38,7 @@ Finesse GR    7.00
 Glide angle   8.13 deg
 AoA           7.47 deg
 Assiette      0.66 deg
-Total height hcp (inc risers)   679. cm
+Total height hcp (inc risers)    -0. cm
 Risers    47. cm
 calage, pilot centering   42.00 % 110.31 cm
 plumb point (estimation)  45.00 % 118.19 cm

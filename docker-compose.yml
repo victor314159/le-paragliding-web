@@ -3,7 +3,8 @@ name: lepara-web
 # Development: `docker compose up` builds the WASM engine (`wasm`), then serves
 # the app with live reload on http://localhost:4200 (`dev`).
 # One-off commands: `docker compose run --rm web <cmd>` (npm test, npm run
-# check) and `docker compose run --rm oracle <script>`.
+# check, check-wasm-oracle.ts), `docker compose run --rm oracle <script>`
+# (official references) and `docker compose run --rm native <script>`.
 # Release build: `docker build --output dist .` (Dockerfile).
 #
 # Generated files live in the `build` volume (WASM, Angular cache, test and
@@ -58,7 +59,17 @@ services:
     build:
       context: .
       target: oracle
-    image: lepara-web/oracle:0.4.0
+    image: lepara-web/oracle:0.5.0
+    platform: linux/amd64
+    profiles: [tools]
+    command: bash
+
+  native:
+    <<: *work
+    build:
+      context: .
+      target: native
+    image: lepara-web/native:0.5.0
     profiles: [tools]
     command: bash
 

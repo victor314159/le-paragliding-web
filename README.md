@@ -45,12 +45,20 @@ Docker (the [r-wasm/flang-wasm](https://github.com/r-wasm/flang-wasm)
 toolchain). The page then downloads `lepara.wasm` (about 1.2 MB) and runs it in
 a Web Worker, on any OS with a recent browser.
 
-gfortran is still the reference: the same source is also compiled natively
-with it, and the WASM outputs must match the native ones byte for byte, on
-every example design (a few STL/SCAD files differ only by `-0.000` vs `0.000`,
-listed in `oracle/wasm-known-diffs.tsv`). Getting there took a few small fixes
-to the source, mostly out-of-bounds array accesses that each compiler resolved
-differently: see [fortran/engine/patches](fortran/engine/patches/README.md).
+The reference is the **unpatched official source**, compiled with the author's
+toolchain (Ubuntu 23.04, gfortran 12.3, x86-64, pinned in
+[oracle/toolchain.json](oracle/toolchain.json)): on Swoop2 it reproduces the
+outputs published with the official binary. Two checks follow, byte for byte:
+
+- the patched source on that same toolchain differs from the reference only
+  by the effects of the patches (001: height lost to an array overflow; 005:
+  stable Roman numeral placement; 007: line colors), pinned in
+  `oracle/patch-effects.tsv`;
+- the WASM build differs from the patched native one only by a few `-0.000`
+  vs `0.000` (libm), pinned in `oracle/wasm-known-diffs.tsv`.
+
+See [the patches](fortran/engine/patches/README.md) and
+[the oracle](oracle/README.md).
 
 ## Requirements
 
@@ -72,7 +80,8 @@ it changes), installs the dependencies and serves the app with live reload.
 docker build --output dist .                # release build -> dist/
 docker compose run --rm web npm test        # browser tests against dist/
 docker compose run --rm web npm run check   # lint + types + format
-docker compose run --rm oracle node scripts/check-preprocessor-native.ts  # geometry preprocessor vs gfortran
+docker compose run --rm oracle node scripts/check-patched-native.ts  # patched engine vs official references
+docker compose run --rm native node scripts/check-preprocessor-native.ts  # geometry preprocessor vs gfortran
 docker build --target engine-pkg --output pkg .   # npm package -> pkg/
 docker compose run --rm web scripts/assemble-format.sh   # @lepara/format -> build/format/
 ```
@@ -82,6 +91,18 @@ lints before building. CI runs the same two first commands; releases (below)
 deploy `dist/` to GitHub Pages or publish the engine to npm.
 
 Generated files live in a Docker volume (`docker compose down -v` deletes it).
+
+To deliberately regenerate the official references after changing the upstream
+source, toolchain or example corpus:
+
+```sh
+docker compose build oracle
+docker compose run --rm oracle node scripts/run-oracle.ts
+```
+
+This compiles the official source without our patches, checks that every design
+is deterministic, and only replaces the references after all checks pass.
+Review changed outputs and pinned differences before committing them.
 
 ## Release
 

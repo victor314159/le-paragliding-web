@@ -36,12 +36,15 @@ jobs:
           cache-to: type=gha,mode=max
       - name: Browser tests
         run: docker compose run --rm web sh -c 'npm ci && npm test'
+      # The patched source on the official toolchain: only the pinned patch effects.
+      - name: Patched engine, native
+        run: docker compose run --rm oracle node scripts/check-patched-native.ts
       # @lepara/format against the native engine (gfortran); the browser
       # tests check it against the WASM one.
       - name: Input format, native engine
-        run: docker compose run --rm oracle node scripts/check-format-native.ts
+        run: docker compose run --rm native node scripts/check-format-native.ts
       - name: Geometry preprocessor, native oracle
-        run: docker compose run --rm oracle node scripts/check-preprocessor-native.ts
+        run: docker compose run --rm native node scripts/check-preprocessor-native.ts
       - uses: actions/upload-pages-artifact@v5
         with:
           path: dist

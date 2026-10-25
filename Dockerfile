@@ -4,7 +4,7 @@
 # Release build (what CI deploys):
 #   docker build --output dist .
 #   wasm -> oracle-check -> site -> dist/ (the static site). Any failing step
-#   (WASM build, WASM vs native oracle, lint, Angular build) stops the build.
+#   (WASM build, WASM vs official references, lint, Angular build) stops the build.
 #
 # npm package (what CI publishes on engine-v* tags):
 #   docker build --target engine-pkg --output pkg .
@@ -12,7 +12,8 @@
 #
 # Development images (docker-compose.yml), the repository bind-mounted at /work:
 #   flang  : Fortran -> WASM toolchain
-#   oracle : native gfortran oracle + WASM-in-Node check
+#   oracle : the author's toolchain (amd64): official references, patched native
+#   native : Debian's gfortran: preprocessor oracle, input-format check
 #   web    : Angular dev + Playwright/Chromium
 
 # --- flang: flang 21.1.8 + emscripten 5.0.7 + libFortranRuntime -------------
@@ -42,10 +43,29 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /work
 CMD ["bash"]
 
-# --- oracle: gfortran 14.2.0 + scripts/make-patched.sh tools ----------------
-# Produces oracle/reference/ (run-oracle.ts). Must not change when the
-# front-end does.
-FROM base AS oracle
+# --- oracle: the author's Ubuntu 23.04 / gfortran 12.3, always x86-64 -----
+# Produces and checks oracle/reference/ (run-oracle.ts, check-patched-native.ts).
+# Node only drives the scripts; keep the numerical libraries from Ubuntu.
+FROM --platform=linux/amd64 node:24.20.0-trixie-slim@sha256:50c3b2f6988dfc307b86e5301d69611af31f4789bdf232863b07d3b02fe55ae0 AS oracle-node
+
+FROM --platform=linux/amd64 ubuntu:23.04@sha256:5a828e28de105c3d7821c4442f0f5d1c52dc16acf4999d5f31a3bc0f03f06edd AS oracle
+ARG DEBIAN_FRONTEND=noninteractive
+COPY --from=oracle-node /usr/local/bin/node /usr/local/bin/node
+COPY oracle/toolchain.json /opt/lepara-toolchain.json
+# The package list is computed first: a failing node must fail the build.
+RUN packages="$(node -e "console.log(Object.entries(require('/opt/lepara-toolchain.json').packages).map(([name, version]) => name + '=' + version).join(' '))")" \
+    && test -n "$packages" \
+    && sed -i 's|http://archive.ubuntu.com/ubuntu|http://old-releases.ubuntu.com/ubuntu|g; s|http://security.ubuntu.com/ubuntu|http://old-releases.ubuntu.com/ubuntu|g' /etc/apt/sources.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends $packages \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /work
+CMD ["bash"]
+
+# --- native: Debian's gfortran, natively (arm64 on Apple Silicon) ----------
+# The geometry preprocessor's native oracle and the input-format check: any
+# gfortran, without emulation (the preprocessor relies on -ffpe-trap).
+FROM base AS native
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
       gfortran \
@@ -75,7 +95,7 @@ RUN npm install -g "playwright@${PLAYWRIGHT_VERSION}" \
 # --- release: wasm -> oracle-check -> site -> dist ---------------------------
 FROM flang AS wasm
 COPY fortran/engine fortran/engine
-COPY scripts/make-patched.sh scripts/build-flang-wasm.sh scripts/closure-externs.js scripts/
+COPY scripts/extract-engine.sh scripts/make-patched.sh scripts/build-flang-wasm.sh scripts/closure-externs.js scripts/
 RUN scripts/build-flang-wasm.sh
 
 # The project's dependencies: tsc for the engine package, then the site.
@@ -83,8 +103,8 @@ FROM base AS deps
 COPY package.json package-lock.json .npmrc ./
 RUN npm ci
 
-# Every WASM output byte-identical to the committed native references, run
-# through the npm package (build/engine/).
+# Every WASM output byte-identical to the committed official references, up to
+# the pinned differences, run through the npm package (build/engine/).
 FROM deps AS oracle-check
 COPY oracle oracle
 COPY scripts scripts

@@ -1,9 +1,8 @@
-# Accepted WASM-vs-native differences: design<TAB>file<TAB>reason.
-# check-wasm-oracle.ts and the browser tests accept another sha256 for these
-# files only; every other output must stay byte-identical. Cause, for all of
-# them: glibc (native) and emscripten's libm (WASM) differ by 1 ulp on a few %
-# of sin/cos/tan/atan/atan2/asin/acos/pow calls. Remove an entry as soon as
-# the file becomes identical (the check reports it).
-swoop	stl/Upper-surface.stl	6 vertex lines: y = 0.000 native, -0.000 WASM (y is +8e-17 vs -3e-17 after datan/sin in panels3d)
-swoop	stl/lep-3d-surfaces.stl	same 6 vertex lines as stl/Upper-surface.stl
-swoop	stl/lep-3d-surfaces.scad	same point (Point 92): 0.000 native, -0.000 WASM
+# Flang/libm differences, from the patched native build to the WASM one:
+# design<TAB>file<TAB>patched-native-sha256<TAB>wasm-sha256<TAB>reason. Cause:
+# glibc (native) and emscripten's libm (WASM) differ by 1 ulp on a few % of
+# sin/cos/tan/atan/atan2/asin/acos/pow results. Remove an entry as soon as the
+# file becomes identical.
+swoop	stl/Upper-surface.stl	8569abac606165c182a2c729dbe125b6927fd54d551c28111752fabae7c2e865	b17d15427a5e7ede5be254906eb31d02b85ccb5dbdd25d8b77c167209344ee2b	libm: 6 vertex y fields print -0.000 instead of 0.000
+swoop	stl/lep-3d-surfaces.scad	792408b511edf283607e4a7679b5455f44ecc47902f4bed5f7881ecaf91eeb66	8a4505c028c5234ccac2716e222d12d186bd1941e5bbf297a7587a9f3eac3436	libm: Point 92 y prints -0.000 instead of 0.000
+swoop	stl/lep-3d-surfaces.stl	fac58440c627d7d4db153baab1931412f6fa3a753c79027f269b0d7456aa51d0	711618edb177b02c42b1aa71b146527329a4a668f99de5eefa17d950199ca4d7	libm: the same 6 vertex y fields as Upper-surface.stl print -0.000

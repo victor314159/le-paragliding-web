@@ -23,7 +23,7 @@ Setup, build and test commands are in [README.md](README.md).
   goes into `src/read-design.ts`, `src/write-design.ts`, `src/model.ts` and
   `SPEC.md`. Its tests are `tests/format/` (`npm test -- format`); the engine
   equivalence test runs `build/engine/`, or `dist/engine/` without it;
-  `docker compose run --rm oracle node scripts/check-format-native.ts` runs
+  `docker compose run --rm native node scripts/check-format-native.ts` runs
   the same cases on the native build (gfortran).
 
 ## Parameter editor
@@ -47,18 +47,23 @@ Setup, build and test commands are in [README.md](README.md).
 - `build/fortran/leparagliding.f` is generated from the official zip plus
   `fortran/engine/patches/*.patch`: edit the patches, never the generated file, and
   document them in `fortran/engine/patches/README.md`.
-- After an engine change, rebuild the WASM (`docker compose run --rm wasm`) and
-  compare it with native gfortran, byte for byte:
-  `docker compose run --rm oracle node scripts/check-wasm-oracle.ts`. Accepted
-  differences are listed in `oracle/wasm-known-diffs.tsv`.
-- `oracle/reference/` (native outputs) and `oracle/designs/` are committed.
-  Regenerate them only on purpose, with `node scripts/run-oracle.ts` and
-  `node scripts/build-designs.ts` in the `oracle` service.
+- After an engine change, check the patched source on the official toolchain
+  (`docker compose run --rm oracle node scripts/check-patched-native.ts`), then
+  rebuild the WASM (`docker compose run --rm wasm`) and check it
+  (`docker compose run --rm web node scripts/check-wasm-oracle.ts`). Both
+  compare byte for byte with `oracle/reference/`, through the pinned
+  differences of `oracle/patch-effects.tsv` (patches) and
+  `oracle/wasm-known-diffs.tsv` (flang/libm). See `oracle/README.md`.
+- `oracle/reference/` (outputs of the unpatched official source) and
+  `oracle/designs/` are committed. Regenerate them only on purpose, with
+  `node scripts/build-designs.ts` (`web` service) and
+  `node scripts/run-oracle.ts` (`oracle` service, whose toolchain
+  `oracle/toolchain.json` pins).
 
 ## Geometry preprocessor
 
 - `packages/preprocessor/` is the TypeScript port. Its native oracle uses
   the official source in `fortran/preprocessor/original/` and the documented
   patches in `fortran/preprocessor/patches/`: never edit the official source.
-  Run `docker compose run --rm oracle node scripts/check-preprocessor-native.ts`
+  Run `docker compose run --rm native node scripts/check-preprocessor-native.ts`
   and `docker compose run --rm web npm test -- preprocessor` after changing it.

@@ -1,0 +1,15 @@
+# Effects of the patches, on the official toolchain: design<TAB>file<TAB>official-sha256<TAB>patched-sha256<TAB>reason.
+# Checked by scripts/check-patched-native.ts. Inspect each difference before
+# recording it (oracle/README.md); any other content fails.
+swoop2	leparagliding.dxf	22e63b8020912b2933ad59ae00108ca9c0a73dd22865eea4352a8b989f510fd6	accf4e734aa8aafdd6b1990d0e55cd7faa559ca19843b9efc360c50e3f21d9f4	patch 007: exactly 4 LINE color values change from 3 to 5
+gnuC2-27	leparagliding.dxf	bdd144ee51076d19cb66096dd32cba0d5810d5d85b681b7cfdf3ecb9d7a4bb29	79d00742f64481dc938d7fe160653fd5c5cfda52da0dcc72b5f37f73756af2aa	patch 005: deterministic arc-fraction selection; only x/y coordinates of 194 Roman numeral mcircle points differ
+swoop	leparagliding.dxf	2607bbaf86df333a9812da76f5bcfd374f47e6af0a51287fc14ff69cb4084322	c5d68c5c3fc77585519c12299d50dc122cc46f01d02f043553e459d6f8f77ca4	patch 007: exactly 4 LINE color values change from 3 to 5
+A8	lep-out.txt	e5cdd80764186bdec4d92291981e809c53f094768814ad937fe03e160f366321	f0eaf97156806984647963d62824a5d6567919e755df32614bc98d979e963813	patch 001: Total height hcp restored from 0 to 697 cm
+A8	leparagliding.dxf	6e1f79ee0072af1f1177793e35a442a381316e978112da3bf6e4060d8abeb3d7	467e11c0b09db859a589f9ac41e309036ef04c0ae91a1034ea2b1e1437fa594c	patch 001: 192 x-coordinate values change after removal of hdist/hangle index-0 corruption
+gnuA7-26	lep-out.txt	c943a5de3f570ab3d7093cf87c2f3bc4f4198445a1acf6006ad0869ed51c4a0e	b1bb005d2c8c1d27504edc8083cdf82a7269b5dce3fab4dd358af7f68cd2e6e5	patch 001: Total height hcp restored from 0 to 684 cm
+gnuA7-26	leparagliding.dxf	180ac5d423ada08f1d730d8305a27d0526a9c7b4d4c0c7e0051c809926cdb795	8077f63997cfa0d5232a1039c37909af0ac9e847c10add3aafe5c06896b46c0c	patch 001: 192 x-coordinate values change after removal of hdist/hangle index-0 corruption
+gnuC-27	leparagliding.dxf	64019cc8d07aa3fcb24f96bef6d62c3691e7d4d1262d9b4e483722c6c2162c10	3d28badfe1cddde5ba4ed6cd9e377bb87c20c51f9df933d95695bfc01c95fbf1	patch 005: deterministic arc-fraction selection; only x/y coordinates of 162 Roman numeral mcircle points differ
+gnu-test-3.19	lep-out.txt	1308f65ac7fd0ba54d6ca2bb5c7d6d7ee29148217a79964cfa6610380ac331d0	6db753878e48ae1b805d298e710fc0903c737b70bc80f6d01de1a8521c8a66e7	patch 001: Total height hcp restored from 0 to 714 cm
+gnu-test-3.19	leparagliding.dxf	d933b0a5f8b317ddd515e99cc99510d2bb6ca198ad76f1d22f45939f6c132f0d	e0418d028c21bafd10a257b91606d1d54ec93bcbe57ce4357ae46642136dbe82	patch 001: 192 x-coordinate values; patch 005: deterministic arc-fraction selection changes x/y of 138 other Roman numeral mcircle points
+BHL7-22	lep-out.txt	6b7becf619ab145be0f655410fa99eb373431d0e5989b935210ddbb8c97ee77f	f3cabd43ff4b9b3581b5ed85e4fdeda98d8afbc7d25efddb6afaee8fc4242c4b	patch 001: Total height hcp restored from -0 to 679 cm
+BHL7-22	leparagliding.dxf	6e0da541c11c905bb6f8467691c37b138e791c7489d5cc0c1e36d765dcc91f84	b68db7feac0805df7d2f1a945c9bdf9246edbbf696d74942e282782d7cc0ebf9	patch 001: 48 x-coordinate values change after removal of hdist/hangle index-0 corruption

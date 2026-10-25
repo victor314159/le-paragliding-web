@@ -1,0 +1,10 @@
+Compilation.txt, extracted unmodified from:
+  https://www.laboratoridenvol.com/leparagliding/archives3/lep-3.29-lin64.zip
+  sha256 276ebe36be669c2321b46cd9a3113ccc3cf139aa5afb351e9779b88917ca2c95
+  lep-3.29-lin64/lep/Compilation.txt
+
+The official executable of the same archive (not versioned):
+  lep-3.29-lin64/lep/lep-3.29-lin64.out
+  sha256 37ea35ea9a96c6555e6b1e38aae41078449cd29bb45e654cf6035d9538c0b396
+  ELF 64-bit x86-64; `strings -a` gives its compiler:
+  GCC: (Ubuntu 12.3.0-1ubuntu1~23.04) 12.3.0

@@ -1,0 +1,18 @@
+{
+  "compiler": "gfortran-12",
+  "flags": ["-static-libgfortran"],
+  "cpuLevel": "x86-64-v3",
+  "packages": {
+    "gfortran-12": "12.3.0-1ubuntu1~23.04",
+    "libgfortran-12-dev": "12.3.0-1ubuntu1~23.04",
+    "libgfortran5": "13.1.0-2ubuntu2~23.04",
+    "libc6": "2.37-0ubuntu2.2",
+    "libc6-dev": "2.37-0ubuntu2.2",
+    "libgcc-s1": "13.1.0-2ubuntu2~23.04",
+    "libquadmath0": "13.1.0-2ubuntu2~23.04",
+    "libstdc++6": "13.1.0-2ubuntu2~23.04",
+    "patch": "2.7.6-7build2",
+    "unzip": "6.0-27ubuntu1",
+    "ca-certificates": "20230311ubuntu0.23.04.1"
+  }
+}

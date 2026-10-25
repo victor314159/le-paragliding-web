@@ -1,10 +1,15 @@
-import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { acknowledge, expectReady } from './helpers';
 import designIndex from '../oracle/designs/index.json' with { type: 'json' };
-import { knownDiffs, parseManifest, sha256 } from '../scripts/oracle-lib.ts';
+import {
+  compareOutputs,
+  PATCH_EFFECTS,
+  pinnedDiffs,
+  referenceManifest,
+  sha256,
+  WASM_DIFFS,
+} from '../scripts/oracle-lib.ts';
 
 // scripts/check-wasm-oracle.ts checks every design in Node with the same
 // lepara.wasm; here one design covers the browser path (worker, UI, links,
@@ -12,15 +17,7 @@ import { knownDiffs, parseManifest, sha256 } from '../scripts/oracle-lib.ts';
 const designs =
   process.env['ORACLE_ALL'] === '1' ? designIndex.map((design) => design.id) : ['gnuA7-26'];
 
-// Native oracle: sha256 of every output, stl/ and xflr5/ included (the large
-// reference files are not versioned).
-const manifest = (design: string) =>
-  parseManifest(readFileSync(resolve('oracle/reference', design, 'MANIFEST.sha256'), 'utf8'));
-
-// Accepted WASM differences (libm, 1 ulp): "<design>/<file>".
-const knownDiffSet = new Set(
-  knownDiffs('oracle/wasm-known-diffs.tsv', 3).map(([design, file]) => `${design}/${file}`),
-);
+const tables = [pinnedDiffs(PATCH_EFFECTS), pinnedDiffs(WASM_DIFFS)];
 
 // sha256 of the Blob behind every result link, computed in the page: no
 // bytes cross to Node (nor into the trace). crypto.subtle needs a secure
@@ -58,7 +55,7 @@ async function pickDesign(page: Page, id: string): Promise<void> {
   await page.getByRole('option', { name: line, exact: true }).click();
 }
 
-test('Chromium Worker matches all native outputs', async ({ page }) => {
+test('Chromium Worker matches the references up to pinned differences', async ({ page }) => {
   test.setTimeout(designs.length * 150_000);
   const pageErrors: string[] = [];
   page.on('pageerror', (error) => pageErrors.push(error.message));
@@ -90,20 +87,20 @@ test('Chromium Worker matches all native outputs', async ({ page }) => {
       await expect(page.getByRole('alert')).toHaveCount(0);
       // Every native output except the input airfoils, and nothing else.
       const airfoils = designIndex.find((entry) => entry.id === design)?.airfoils ?? [];
-      const expected = manifest(design);
-      for (const airfoil of airfoils) expected.delete(airfoil);
+      const reference = referenceManifest(design);
+      for (const airfoil of airfoils) reference.delete(airfoil);
       const links = await page
         .getByTestId('result-files')
         .getByRole('link')
         .evaluateAll((anchors) =>
           anchors.map((anchor) => anchor.getAttribute('aria-label')?.replace(/^Download /, '')),
         );
-      expect(links.sort(), `${design} output files`).toEqual([...expected.keys()].sort());
+      expect(links.sort(), `${design} output files`).toEqual([...reference.keys()].sort());
       // One real download per design (a subdirectory file when there is one).
       // Downloading every file stalls: in headless Chromium the ~11th download
       // of a page never starts (cause not established). The Blob hashes below
       // check every file; this download checks the download path itself.
-      const sample = [...expected.keys()].find((name) => name.includes('/')) ?? 'lep-out.txt';
+      const sample = [...reference.keys()].find((name) => name.includes('/')) ?? 'lep-out.txt';
       const downloadPromise = page.waitForEvent('download');
       await page.getByRole('link', { name: `Download ${sample}`, exact: true }).click();
       const download = await downloadPromise;
@@ -116,17 +113,10 @@ test('Chromium Worker matches all native outputs', async ({ page }) => {
       // Every file: the exact bytes behind its download link (Blob URL).
       const hashes = await linkHashes(page);
       expect(downloadedHash, `${design}/${sample} download`).toBe(hashes.get(sample));
-      let known = 0;
-      for (const [name, hash] of expected) {
-        const actual = hashes.get(name);
-        if (knownDiffSet.has(`${design}/${name}`) && actual !== hash) {
-          known++;
-          continue;
-        }
-        expect(actual, `${design}/${name} SHA-256`).toBe(hash);
-      }
+      const { problems, pinned } = compareOutputs(design, reference, hashes, tables);
+      expect(problems, `${design} outputs`).toEqual([]);
       console.log(
-        `[${design}] ${expected.size - known} outputs identical, ${known} known differences; ` +
+        `[${design}] ${reference.size} outputs checked, ${pinned.length} pinned differences; ` +
           (await page.getByTestId('result-meta').innerText()),
       );
     });
