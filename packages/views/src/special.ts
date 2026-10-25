@@ -1,10 +1,10 @@
-import type { DesignForm } from './editor-draft';
-import { finite, type Point } from './preview-geometry';
-import { contourPoint, ribProfile } from './preview-model';
-import { profileSegment } from './preview-profiles';
-import { arcPoints, ellipsePoints, PreviewDrawing, type PreviewContext } from './preview-scene';
+import type { HvrHoleRow, LepDesign } from '@lepara/format';
+import { finite, type Point } from './geometry.ts';
+import { contourPoint, ribProfile, type ProfileSections } from './profile.ts';
+import { profileSegment } from './rods.ts';
+import { arcPoints, ellipsePoints, PreviewDrawing, type PreviewContext } from './scene.ts';
 
-export function ventBoundary(type: number, parameters: readonly (number | null)[]): Point[][] {
+export function ventBoundary(type: number, parameters: readonly number[]): Point[][] {
   const top: Point[] = [
       [0, 0],
       [100, 0],
@@ -42,15 +42,16 @@ export function ventBoundary(type: number, parameters: readonly (number | null)[
     if (Math.abs(type) === 5 && !finite(depth)) return [];
     return [
       type > 0 ? bottom : top,
-      Math.abs(type) === 5 ? arcPoints(a, b, (type > 0 ? -1 : 1) * depth!) : [a, b],
+      Math.abs(type) === 5 ? arcPoints(a, b, (type > 0 ? -1 : 1) * depth) : [a, b],
     ];
   }
   return [];
 }
 
-export function ventsScene({ design, selected }: PreviewContext) {
-  const row = design.glueVents.ribs[selected];
-  const type = design.glueVents.mode === 0 ? 0 : row?.type;
+export function ventsScene({ design, selected }: PreviewContext<'glueVents'>) {
+  const vents = design.glueVents;
+  const row = vents.mode === 0 ? undefined : vents.ribs[selected];
+  const type = vents.mode === 0 ? 0 : row?.type;
   const d = new PreviewDrawing(
     `Air inlet · rib ${selected + 1} · type ${type ?? '—'}`,
     'Normalized cell inlet: width and height 100% · Dashed frame: full inlet · Solid lines: vent boundaries.',
@@ -74,13 +75,12 @@ export function ventsScene({ design, selected }: PreviewContext) {
   d.label([-4, 50], 'L', 'end');
   d.label([104, 50], 'R', 'start');
   const scene = d.finish();
-  if (design.glueVents.mode === 0)
-    scene.note += ' Special glue vents are disabled; classic inlet shown.';
+  if (vents.mode === 0) scene.note += ' Special glue vents are disabled; classic inlet shown.';
   return scene;
 }
 
 /** The same final-cell edge-angle and parabola formulas as the 3.29 planform drawing. */
-export function wingTipOutline(design: DesignForm): {
+export function wingTipOutline(design: Pick<LepDesign, 'geometry' | 'wingTip'>): {
   original: Point[];
   modified: Point[];
   note: string;
@@ -96,28 +96,28 @@ export function wingTipOutline(design: DesignForm): {
   )
     return { original: [], modified: [], note: 'Two complete ribs are required.' };
   const original: Point[] = [
-    [previous.x!, previous.yLE!],
-    [tip.x!, tip.yLE!],
-    [tip.x!, tip.yTE!],
-    [previous.x!, previous.yTE!],
+    [previous.x, previous.yLE],
+    [tip.x, tip.yLE],
+    [tip.x, tip.yTE],
+    [previous.x, previous.yTE],
   ];
   if (mode.mode === 1 && finite(mode.angleLE) && finite(mode.angleTE)) {
-    const span = tip.x! - previous.x!;
+    const span = tip.x - previous.x;
     return {
       original,
       modified: [
-        [previous.x!, previous.yLE!],
-        [tip.x!, previous.yLE! + span * Math.tan((mode.angleLE * Math.PI) / 180)],
-        [tip.x!, previous.yTE! + span * Math.tan((mode.angleTE * Math.PI) / 180)],
-        [previous.x!, previous.yTE!],
+        [previous.x, previous.yLE],
+        [tip.x, previous.yLE + span * Math.tan((mode.angleLE * Math.PI) / 180)],
+        [tip.x, previous.yTE + span * Math.tan((mode.angleTE * Math.PI) / 180)],
+        [previous.x, previous.yTE],
       ],
       note: 'Last-cell edge angles applied to the input planform.',
     };
   }
   if (mode.mode === 2 && finite(mode.distance) && finite(mode.angle)) {
-    const dist = ((tip.yTE! - tip.yLE!) * mode.distance) / 100;
-    const x1 = dist + tip.yLE! - previous.yLE!,
-      y1 = tip.x! - previous.x!;
+    const dist = ((tip.yTE - tip.yLE) * mode.distance) / 100;
+    const x1 = dist + tip.yLE - previous.yLE,
+      y1 = tip.x - previous.x;
     // The source converts this angle on reading and converts it a second time here.
     const exponent =
       mode.angle === 0 ? x1 / (x1 - dist) : (x1 * Math.tan(mode.angle * (Math.PI / 180) ** 2)) / y1;
@@ -125,11 +125,11 @@ export function wingTipOutline(design: DesignForm): {
       return { original, modified: [], note: 'Parabola parameters do not define a finite curve.' };
     const points = Array.from({ length: 61 }, (_, i): Point => {
       const t = i / 60;
-      return [tip.x! - y1 * t ** exponent, tip.yLE! + dist - x1 * t];
+      return [tip.x - y1 * t ** exponent, tip.yLE + dist - x1 * t];
     }).reverse();
     return {
       original,
-      modified: [...points, [tip.x!, tip.yTE!], [previous.x!, previous.yTE!]],
+      modified: [...points, [tip.x, tip.yTE], [previous.x, previous.yTE]],
       note: 'Type 2 changes only the planform drawing. Distance is % of the last rib chord; angle follows the engine’s double conversion.',
     };
   }
@@ -140,22 +140,24 @@ export function wingTipOutline(design: DesignForm): {
   };
 }
 
-export function wingTipScene(context: PreviewContext) {
+export function wingTipScene(context: PreviewContext<ProfileSections | 'wingTip'>) {
   const { design } = context;
-  if (design.wingTip.mode === 4) {
+  const wingTip = design.wingTip;
+  if (wingTip.mode === 4) {
     const index = design.airfoils.length - 1;
     const profile = ribProfile(design, context.airfoils, index);
     const d = new PreviewDrawing(
       'Last rib · requested displacement and rotation',
       'Engine 3.29 reads these parameters but does not apply them. Dashed: original input; solid: requested transform for illustration.',
     );
-    const { displacement, rotation } = design.wingTip;
+    const { displacement, rotation } = wingTip;
     d.path(profile.points, 'baseline');
-    if (finite(displacement) && finite(rotation) && profile.chord) {
+    const chord = profile.chord;
+    if (finite(displacement) && finite(rotation) && chord) {
       const angle = (rotation * Math.PI) / 180;
       const transformed = profile.points.map(([x, y]): Point => [
         x * Math.cos(angle) - y * Math.sin(angle),
-        x * Math.sin(angle) + y * Math.cos(angle) - displacement / profile.chord!,
+        x * Math.sin(angle) + y * Math.cos(angle) - displacement / chord,
       ]);
       d.path(transformed, 'detail', true);
     }
@@ -176,45 +178,42 @@ export function wingTipScene(context: PreviewContext) {
 }
 
 /** Section 38 type 9 follows the source's width=a/b, center=displacement, offset=angle. */
-export function miniribEllipses(
-  row: DesignForm['hvrHoles']['rows'][number],
-  length: number,
-  height: number,
-) {
+export function miniribEllipses(row: HvrHoleRow, length: number, height: number) {
   if (
     ![row.holes, row.height, row.width, row.center, row.offset].every(finite) ||
     !Number.isInteger(row.holes) ||
-    row.holes! < 0 ||
-    row.holes! > 200
+    row.holes < 0 ||
+    row.holes > 200
   )
     return [];
-  return Array.from({ length: row.holes! }, (_, i) => {
-    const factor = (row.holes! + 1 - i) / (row.holes! + 2);
-    const b = (factor * height * row.height!) / 200;
+  return Array.from({ length: row.holes }, (_, i) => {
+    const factor = (row.holes + 1 - i) / (row.holes + 2);
+    const b = (factor * height * row.height) / 200;
     return {
-      center: [1 - (factor + 0.05) * length, -factor * height * row.center!] as Point,
-      a: row.width! * b,
+      center: [1 - (factor + 0.05) * length, -factor * height * row.center] as Point,
+      a: row.width * b,
       b,
-      angle: (-row.offset! * Math.PI) / 180,
+      angle: (-row.offset * Math.PI) / 180,
     };
   });
 }
 
-export function hvrHolesScene(context: PreviewContext) {
+export function hvrHolesScene(context: PreviewContext<ProfileSections | 'hvrHoles'>) {
   const { design, selected, rib } = context;
-  const row = design.hvrHoles.rows[selected];
+  const holes = design.hvrHoles;
+  const row = holes.mode === 0 ? undefined : holes.rows[selected];
   const d = new PreviewDrawing(
     `Reinforcement holes · type ${row?.type ?? '—'}`,
     'Input hole parameters on a representative support. Final panel development and minirib ovalization require the engine.',
   );
-  if (design.hvrHoles.mode === 0 || !row || row.drawn !== 1) {
+  if (holes.mode === 0 || !row || row.drawn !== 1) {
     d.frame([
       [0, 0],
       [100, 60],
     ]);
     d.label(
       [50, 30],
-      design.hvrHoles.mode === 0
+      holes.mode === 0
         ? 'HVR holes are disabled'
         : row
           ? 'Hole output is disabled for this row'
@@ -268,9 +267,9 @@ export function hvrHolesScene(context: PreviewContext) {
     const general = row.type === 6 || row.type === 16;
     for (let i = 0; i < count; i++) {
       const x = ((i + 1) * 100) / (count + 1),
-        y = row.center! * 60;
-      const a = (60 * row.height!) / 200;
-      const b = general ? (100 * row.center!) / (2 * Math.max(1, count)) : (60 * row.width!) / 200;
+        y = row.center * 60;
+      const a = (60 * row.height) / 200;
+      const b = general ? (100 * row.center) / (2 * Math.max(1, count)) : (60 * row.width) / 200;
       d.path(ellipsePoints([x, y], b, a), 'hole', true, `Hole ${i + 1}`, true);
     }
   }

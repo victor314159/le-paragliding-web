@@ -1,25 +1,23 @@
-import type { DesignForm } from './editor-draft';
-import { finite, pointPath, type Point } from './preview-geometry';
+import type { Colors, Geometry, RibGeometry, SkinTensionPoint } from '@lepara/format';
+import { finite, pointPath, type Point } from './geometry.ts';
 
-type Colors = DesignForm['extradosColors'];
-type Rib = DesignForm['geometry']['ribs'][number];
-const validRib = (rib: Rib | undefined): rib is Rib & { x: number; yLE: number; yTE: number } =>
+const validRib = (rib: RibGeometry | undefined): rib is RibGeometry =>
   !!rib && finite(rib.x) && finite(rib.yLE) && finite(rib.yTE);
 const percent = (value: unknown): value is number => finite(value) && value >= 0 && value <= 100;
 
 /** Color positions are measured from TE. Panel 1 runs from the symmetry axis to rib 1. */
-export function colorPlanform(geometry: DesignForm['geometry'], colors: Colors) {
+export function colorPlanform(geometry: Geometry, colors: Colors) {
   const ribs = geometry.ribs;
-  const point = (rib: Rib, distance: number): Point => [
-    rib.x!,
-    rib.yTE! + (distance / 100) * (rib.yLE! - rib.yTE!),
+  const point = (rib: RibGeometry, distance: number): Point => [
+    rib.x,
+    rib.yTE + (distance / 100) * (rib.yLE - rib.yTE),
   ];
+  const rows = colors.mode === 'panels' ? colors.panels : [];
   const panels = ribs.flatMap((right, index) => {
     const left = index ? ribs[index - 1] : right && { ...right, x: 0 };
     if (!validRib(left) || !validRib(right) || right.x <= left.x) return [];
-    const record =
-      colors.mode === 'panels' ? colors.panels.findIndex((p) => p.panel === index + 1) : -1;
-    const source = record >= 0 ? colors.panels[record].cuts : [];
+    const record = rows.findIndex((p) => p.panel === index + 1);
+    const source = record >= 0 ? rows[record].cuts : [];
     const cuts = source.flatMap((cut, i) =>
       percent(cut.left) && percent(cut.right)
         ? [
@@ -110,12 +108,7 @@ export type TensionSurface = 'extrados' | 'intrados';
 export type TensionView = 'both' | TensionSurface;
 
 /** Put both surfaces on an LE-to-TE axis; retain input order and gaps in incomplete rows. */
-export function tensionCurve(
-  points:
-    | DesignForm['skinTension']['points']
-    | DesignForm['skinTensionGroups']['groups'][number]['points'],
-  surface: TensionSurface,
-) {
+export function tensionCurve(points: readonly SkinTensionPoint[], surface: TensionSurface) {
   return points.flatMap((point, index) => {
     const position = point[`${surface}Position`];
     const value = point[`${surface}Overwidth`];

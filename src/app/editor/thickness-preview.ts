@@ -1,7 +1,6 @@
 import { Component, computed, inject } from '@angular/core';
+import { finite, pointPath, previewBounds, ribProfile } from '@lepara/views';
 import { EditorState } from './editor-state';
-import { finite, pointPath, previewBounds } from './preview-geometry';
-import { ribProfile } from './preview-model';
 import { PreviewViewport } from './preview-viewport';
 
 @Component({
@@ -73,14 +72,9 @@ export class ThicknessPreview {
     this.editor.selectRecord(this.editor.form.thickness.ribs, index);
   }
   protected readonly data = computed(() => {
-    const design = this.editor.draft.value();
-    const airfoils = this.editor.draft.project().airfoils;
+    const { design, airfoils } = this.editor.draft.project();
     const profile = ribProfile(design, airfoils, this.row());
-    const original = ribProfile(
-      { ...design, thickness: { ...design.thickness, mode: 0 } },
-      airfoils,
-      this.row(),
-    );
+    const original = ribProfile({ ...design, thickness: { mode: 0 } }, airfoils, this.row());
     const coefficient = design.thickness.mode === 0 ? 1 : design.thickness.ribs[this.row()];
     return {
       name: profile.name,

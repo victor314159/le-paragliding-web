@@ -1,8 +1,8 @@
 import { DecimalPipe } from '@angular/common';
 import { Component, computed, inject, input } from '@angular/core';
 import type { GeometryResult, PreprocessorInput } from '@lepara/preprocessor';
+import { pointPath, previewBounds, type Point } from '@lepara/views';
 import { EditorState, type PreprocessorFocus } from './editor-state';
-import { pointPath, previewBounds, type Point } from './preview-geometry';
 import { PreviewViewport } from './preview-viewport';
 
 const mirror = (points: readonly Point[]): Point[] => [

@@ -1,9 +1,9 @@
-import type { DesignForm } from './editor-draft';
-import { finite, type Point } from './preview-geometry';
-import { ANCHOR_NAMES } from './preview-model';
-import { PreviewDrawing, valueLabel, type PreviewContext } from './preview-scene';
+import type { BrakePath, LinePath } from '@lepara/format';
+import { finite, type Point } from './geometry.ts';
+import { ANCHOR_NAMES } from './profile.ts';
+import { PreviewDrawing, valueLabel, type PreviewContext } from './scene.ts';
 
-type Path = DesignForm['lines']['plans'][number]['paths'][number];
+type Path = LinePath | BrakePath;
 
 /** Merge branch prefixes, keeping distinct parents distinct in an invalid input tree. */
 export function lineTree(paths: readonly Path[]) {
@@ -13,7 +13,7 @@ export function lineTree(paths: readonly Path[]) {
   >();
   const edges = new Map<
     string,
-    { from: string; to: string; paths: number[]; type: number | null | undefined }
+    { from: string; to: string; paths: number[]; type: number | undefined }
   >();
   const leaves: { key: string; index: number; rib: number; row: number }[] = [];
   let omitted = 0;
@@ -59,7 +59,7 @@ export function lineTree(paths: readonly Path[]) {
       node.leaves.push(position);
       node.paths.push(index);
       if (!edges.has(key))
-        edges.set(key, { from: parent, to: key, paths: [], type: p.lineTypes[j] });
+        edges.set(key, { from: parent, to: key, paths: [], type: p.lineTypes?.[j] });
       edges.get(key)!.paths.push(index);
       parent = key;
     });
@@ -93,7 +93,7 @@ export function lineTree(paths: readonly Path[]) {
   };
 }
 
-export function networkScene(context: PreviewContext, brake: boolean) {
+export function networkScene(context: PreviewContext<'lines' | 'brakes'>, brake: boolean) {
   const { design, selected, active } = context;
   const paths = brake ? design.brakes.paths : (design.lines.plans[selected]?.paths ?? []);
   const tree = lineTree(paths);
@@ -132,7 +132,7 @@ export function networkScene(context: PreviewContext, brake: boolean) {
   return d.finish();
 }
 
-export function brakeDistributionScene({ design }: PreviewContext) {
+export function brakeDistributionScene({ design }: PreviewContext<'brakes'>) {
   const d = new PreviewDrawing(
     'Brake distribution',
     'Input increments (cm) versus span along the vault (%) · Piecewise linear interpolation.',
@@ -176,7 +176,7 @@ export function brakeDistributionScene({ design }: PreviewContext) {
   return d.finish();
 }
 
-export function ramificationScene({ design, view }: PreviewContext) {
+export function ramificationScene({ design, view }: PreviewContext<'ramifications'>) {
   const four = view.endsWith('4'),
     brake = view.startsWith('brakes');
   const settings = four

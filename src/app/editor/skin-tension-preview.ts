@@ -8,10 +8,9 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { tensionCurve, tensionScale } from '@lepara/views';
 import { EditorState } from './editor-state';
-import { tensionCurve, tensionScale } from './preview-patterns';
 import { PreviewViewport } from './preview-viewport';
-import type { DesignForm } from './editor-draft';
 
 @Component({
   selector: 'app-skin-tension-preview',
@@ -127,9 +126,10 @@ export class SkinTensionPreview {
   private readonly groupIndex = computed(() =>
     this.editor.selectedRecord(this.editor.form.skinTensionGroups.groups),
   );
-  protected readonly group = computed<
-    DesignForm['skinTensionGroups']['groups'][number] | undefined
-  >(() => this.editor.draft.value().skinTensionGroups.groups[this.groupIndex()]);
+  protected readonly group = computed(() => {
+    const groups = this.editor.draft.project().design.skinTensionGroups;
+    return groups.mode === 1 ? groups.groups[this.groupIndex()] : undefined;
+  });
   protected readonly active = computed(() => {
     const field = this.grouped()
       ? this.editor.form.skinTensionGroups.groups[this.groupIndex()]?.points
@@ -141,7 +141,7 @@ export class SkinTensionPreview {
   protected readonly data = computed(() => {
     const input = this.grouped()
       ? (this.group()?.points ?? [])
-      : this.editor.draft.value().skinTension.points;
+      : this.editor.draft.project().design.skinTension.points;
     const curves = (['extrados', 'intrados'] as const).map((surface) => ({
       surface,
       points: tensionCurve(input, surface),

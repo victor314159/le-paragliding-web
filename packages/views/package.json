@@ -1,0 +1,30 @@
+{
+  "name": "@lepara/views",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Drawings of LEparagliding 3.29 designs, as scenes and SVG: the input schematics of the parameter editor.",
+  "license": "GPL-3.0-only",
+  "author": "victor314159",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/victor314159/le-paragliding-web.git",
+    "directory": "packages/views"
+  },
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "types": "./index.d.ts",
+  "files": [
+    "*.js",
+    "*.d.ts"
+  ],
+  "sideEffects": false,
+  "dependencies": {
+    "@lepara/format": "0.1.0"
+  }
+}

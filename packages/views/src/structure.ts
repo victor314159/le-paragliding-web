@@ -1,7 +1,7 @@
-import type { DesignForm } from './editor-draft';
-import { centroid, finite, ribNumbers, type Point } from './preview-geometry';
-import { contourPoint, frontPoint, ribProfile } from './preview-model';
-import { PreviewDrawing, type PreviewContext } from './preview-scene';
+import type { LepDesign } from '@lepara/format';
+import { centroid, finite, ribNumbers, type Point } from './geometry.ts';
+import { contourPoint, frontPoint, ribProfile, type ProfileSections } from './profile.ts';
+import { PreviewDrawing, type PreviewContext } from './scene.ts';
 
 interface Attachment {
   rib: number;
@@ -17,15 +17,17 @@ export interface Reinforcement {
 }
 
 /** Input attachment footprints. Rib zero is the virtual rib at the symmetry axis. */
-export function reinforcementAttachments(design: DesignForm): Reinforcement[] {
+export function reinforcementAttachments(
+  design: Pick<LepDesign, 'geometry' | 'anchors' | 'hvRibs'>,
+): Reinforcement[] {
   const result: Reinforcement[] = [];
   const chord = (rib: number) => {
     const r = design.geometry.ribs[Math.max(0, rib - 1)];
     return r && finite(r.yLE) && finite(r.yTE) ? r.yTE - r.yLE : 0;
   };
   design.hvRibs.ribs.forEach((hvr, row) => {
-    const type = (hvr.type ?? 0) > 10 ? hvr.type! - 10 : hvr.type;
-    const percent = (hvr.type ?? 0) > 10;
+    const percent = hvr.type > 10;
+    const type = percent ? hvr.type - 10 : hvr.type;
     const p = hvr.parameters;
     const anchor = (rib: number, line: number) =>
       design.anchors[Math.max(0, rib - 1)]?.positions[line - 1];
@@ -49,25 +51,25 @@ export function reinforcementAttachments(design: DesignForm): Reinforcement[] {
         )
       )
         return;
-      result.push({ row, type: type!, attachments: [a, b] });
+      result.push({ row, type, attachments: [a, b] });
     };
     if (!finite(type) || !finite(p[0]) || !finite(p[1])) return;
     const i = p[0],
       line = p[1];
     if (type === 6) {
       if (!p.slice(0, 10).every(finite)) return;
-      const j = p[5]!;
+      const j = p[5];
       add(
-        attachment(i, p[1] / 100, p[2]! / 100, length(p[3]!, i), length(p[4]!, i)),
-        attachment(j, p[6]! / 100, p[7]! / 100, length(p[8]!, j), length(p[9]!, j)),
+        attachment(i, p[1] / 100, p[2] / 100, length(p[3], i), length(p[4], i)),
+        attachment(j, p[6] / 100, p[7] / 100, length(p[8], j), length(p[9], j)),
       );
     } else if (type === 1) {
       if (!p.slice(0, 5).every(finite)) return;
-      const j = p[2]!,
+      const j = p[2],
         a = anchor(i, line),
-        b = anchor(j, p[3]!);
+        b = anchor(j, p[3]);
       if (!finite(a) || !finite(b)) return;
-      add(attachment(i, a / 100, 0, length(p[4]!, i)), attachment(j, b / 100, 0, length(p[4]!, j)));
+      add(attachment(i, a / 100, 0, length(p[4], i)), attachment(j, b / 100, 0, length(p[4], j)));
     } else if ([2, 3, 4, 5].includes(type)) {
       if (!p.slice(0, 8).every(finite)) return;
       const connect = (
@@ -86,9 +88,9 @@ export function reinforcementAttachments(design: DesignForm): Reinforcement[] {
           attachment(to, b / 100, toHeight, length(bWidth, to)),
         );
       };
-      const centralWidth = type === 5 ? p[7]! : p[4]!;
-      const outerWidth = type === 5 ? p[7]! : p[5]!;
-      const height = type === 2 || type === 4 ? p[6]! / 100 : 1;
+      const centralWidth = type === 5 ? p[7] : p[4];
+      const outerWidth = type === 5 ? p[7] : p[5];
+      const height = type === 2 || type === 4 ? p[6] / 100 : 1;
       if (type === 4) {
         connect(i, i + 1, 0, 0, centralWidth, centralWidth);
         if (p[2] === 1) connect(i, i - 1, 0, height, centralWidth, outerWidth);
@@ -102,7 +104,7 @@ export function reinforcementAttachments(design: DesignForm): Reinforcement[] {
   return result;
 }
 
-export function reinforcementScene(context: PreviewContext) {
+export function reinforcementScene(context: PreviewContext<ProfileSections | 'hvRibs'>) {
   const { design, airfoils, selected, view } = context;
   const d = new PreviewDrawing(
     `H, V and VH reinforcements · ${view === 'front' ? 'front projection' : 'planform'}`,

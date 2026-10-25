@@ -1,16 +1,20 @@
-import type { LepAirfoil } from '@lepara/format';
-import type { DesignForm } from './editor-draft';
-import { finite, pointPath, previewBounds, type Point } from './preview-geometry';
+import type { LepAirfoil, LepDesign } from '@lepara/format';
+import { finite, pointPath, previewBounds, type Point } from './geometry.ts';
 
-export interface PreviewContext {
-  design: DesignForm;
-  airfoils: ReadonlyMap<string, LepAirfoil>;
-  view: string;
-  rib: number;
-  selected: number;
-  active: number;
-  secondary: number;
-  surface: 'upper' | 'lower';
+/**
+ * What a scene draws: the sections `K` of a design, its airfoils by file
+ * name, and the chosen view, rib (from 0) and records. Numbers may be
+ * missing (null) or invalid while a design is edited: scenes skip them.
+ */
+export interface PreviewContext<K extends keyof LepDesign = keyof LepDesign> {
+  readonly design: Pick<LepDesign, K>;
+  readonly airfoils: ReadonlyMap<string, LepAirfoil>;
+  readonly view: string;
+  readonly rib: number;
+  readonly selected: number;
+  readonly active: number;
+  readonly secondary: number;
+  readonly surface: 'upper' | 'lower';
 }
 export interface PreviewScene {
   title: string;
@@ -28,10 +32,12 @@ export class PreviewDrawing {
   private paths: PreviewScene['paths'] = [];
   private dots: PreviewScene['dots'] = [];
   private labels: PreviewScene['labels'] = [];
-  constructor(
-    private title: string,
-    private note: string,
-  ) {}
+  private readonly title: string;
+  private readonly note: string;
+  constructor(title: string, note: string) {
+    this.title = title;
+    this.note = note;
+  }
   path(
     points: readonly Point[],
     kind = 'detail',

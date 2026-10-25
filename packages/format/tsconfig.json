@@ -1,5 +1,5 @@
 {
-  // Compiled by scripts/assemble-format.sh into build/format/, the package.
+  // Compiled by scripts/assemble-package.sh into build/format/, the package.
   // No runtime dependency and no platform types: plain ES2022, usable in
   // browsers, Workers and Node.
   "compilerOptions": {

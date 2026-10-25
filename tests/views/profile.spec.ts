@@ -1,8 +1,16 @@
 import { expect, test } from '@playwright/test';
-import { holeOutline } from '../src/app/editor/preview-geometry.ts';
+import { parseLep, type LepAirfoil, type LepDesign } from '../../packages/format/src/index.ts';
+import {
+  contourPoint,
+  frontPoint,
+  holeOutline,
+  offsetProfile,
+  ribProfile,
+} from '../../packages/views/src/index.ts';
+import { lep, ok } from '../format/helpers';
 
 test('ellipses use engine semi-axes, chord percentages and radians', () => {
-  const ellipse = holeOutline({ type: 1, parameters: [30, 2, 8, 3, Math.PI / 2, null, null] });
+  const ellipse = holeOutline({ type: 1, parameters: [30, 2, 8, 3, Math.PI / 2, 0, 0] });
   expect(ellipse).toBeDefined();
   const points = ellipse!.points;
   expect(points[0][0]).toBeCloseTo(0.3);
@@ -50,7 +58,7 @@ test('rounded triangles and rectangles keep circular corners in both directions'
 test('unsupported holes and incomplete or impossible dimensions are not drawn', () => {
   for (const hole of [
     { type: 2, parameters: [40, 0, 12, 6, 0, 0, 0] },
-    { type: 1, parameters: [null, 0, 12, 6, 0, 0, 0] },
+    { type: 1, parameters: [Number.NaN, 0, 12, 6, 0, 0, 0] },
     { type: 1, parameters: [40, 0, 0, 6, 0, 0, 0] },
     { type: 3, parameters: [40, 0, 12, 6, 0, 20, 0] },
     { type: 4, parameters: [40, 0, 12, 6, 0, -1, 0] },
@@ -59,24 +67,14 @@ test('unsupported holes and incomplete or impossible dimensions are not drawn', 
 });
 
 // Numerical fixtures keep drawing coordinates independent of the browser's SVG rendering.
-import {
-  contourPoint,
-  offsetProfile,
-  ribProfile,
-  frontPoint,
-} from '../src/app/editor/preview-model.ts';
-import { toForm, type DesignForm } from '../src/app/editor/editor-draft.ts';
-import { parseLep, type LepAirfoil } from '../packages/format/src/index.ts';
-import { lep, ok } from './format/helpers';
-
-function previewDesign(): DesignForm {
-  const initial = toForm(ok(parseLep(lep())));
+function previewDesign(): LepDesign {
+  const initial = ok(parseLep(lep()));
   return {
     ...initial,
     geometry: {
       ...initial.geometry,
       wingScale: 2,
-      washin: { mode: 0, maxAngle: 0, centerAngle: 0 },
+      washin: { mode: 0, maxAngle: 0 },
       ribs: [
         {
           ...initial.geometry.ribs[0],
@@ -165,7 +163,7 @@ test('seam offsets stay outside the contour in either winding and handle repeate
 test('front projections respect rib inclination, twist and vertical-axis rotation', () => {
   const design = previewDesign();
   expect(frontPoint(design, 0, [0.5, 0.1])).toEqual([25, 20]);
-  const change = (values: Partial<DesignForm['geometry']['ribs'][number]>) => ({
+  const change = (values: Partial<LepDesign['geometry']['ribs'][number]>) => ({
     ...design,
     geometry: { ...design.geometry, ribs: [{ ...design.geometry.ribs[0], ...values }] },
   });
@@ -176,5 +174,5 @@ test('front projections respect rib inclination, twist and vertical-axis rotatio
   expect(rotated[0]).toBeCloseTo(0);
   expect(rotated[1]).toBeCloseTo(20);
   expect(frontPoint(change({ washin: 90 }), 0, [0.5, 0.1])![1]).toBeCloseTo(35);
-  expect(frontPoint(change({ beta: null }), 0, [0.5, 0.1])).toBeUndefined();
+  expect(frontPoint(change({ beta: Number.NaN }), 0, [0.5, 0.1])).toBeUndefined();
 });

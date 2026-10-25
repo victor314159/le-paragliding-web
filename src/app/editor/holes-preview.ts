@@ -1,8 +1,14 @@
 import { Component, computed, inject, input } from '@angular/core';
+import {
+  finite,
+  holeOutline,
+  offsetProfile,
+  pointPath,
+  previewBounds,
+  ribProfile,
+} from '@lepara/views';
 import { EditorState } from './editor-state';
-import { ribProfile, offsetProfile } from './preview-model';
 import { PreviewViewport } from './preview-viewport';
-import { finite, holeOutline, pointPath, previewBounds } from './preview-geometry';
 
 @Component({
   selector: 'app-holes-preview',
@@ -107,7 +113,9 @@ export class HolesPreview {
   readonly group = input.required<number>();
   readonly active = input(0);
   protected readonly editor = inject(EditorState);
-  private readonly configuration = computed(() => this.editor.draft.value().holes[this.group()]);
+  private readonly configuration = computed(
+    () => this.editor.draft.project().design.holes[this.group()],
+  );
   protected readonly ribs = computed(() => {
     const group = this.configuration();
     return this.editor.draft
@@ -128,13 +136,10 @@ export class HolesPreview {
       -1,
   );
   protected readonly data = computed(() => {
-    const profile = ribProfile(
-      this.editor.draft.value(),
-      this.editor.draft.project().airfoils,
-      this.rib(),
-    );
+    const { design, airfoils } = this.editor.draft.project();
+    const profile = ribProfile(design, airfoils, this.rib());
     const points = profile.points;
-    const seam = this.editor.draft.value().sewingAllowances.ribs;
+    const seam = design.sewingAllowances.ribs;
     const allowance =
       profile.chord && finite(seam) ? offsetProfile(points, seam / 10 / profile.chord) : [];
     const bottom = Math.max(0.08, ...points.map((p) => p[1]), ...allowance.map((p) => p[1]));

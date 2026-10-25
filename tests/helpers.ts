@@ -1,4 +1,17 @@
+import { execFileSync } from 'node:child_process';
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { expect, type Page } from '@playwright/test';
+
+/** Assembles packages/<name>/ and its dependencies into build/ (scripts/assemble-package.sh). */
+export function assemblePackage(name: string): void {
+  execFileSync('scripts/assemble-package.sh', [name], { stdio: 'inherit' });
+}
+
+/** The assembled build/<name>/, as Node imports it. */
+export async function importAssembled<T>(name: string): Promise<T> {
+  return (await import(pathToFileURL(resolve('build', name, 'index.js')).href)) as T;
+}
 
 export async function expectReady(page: Page): Promise<void> {
   await expect(page.getByRole('button', { name: 'Compute design' })).toBeEnabled();

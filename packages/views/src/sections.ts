@@ -1,19 +1,21 @@
-import { brakeDistributionScene, networkScene, ramificationScene } from './preview-lines';
-import { additionalPointsScene, rodsScene, shapingScene } from './preview-profiles';
-import { markTypeScene, sewingMarksScene, sewingScene } from './preview-sewing';
-import { hvrHolesScene, ventsScene, wingTipScene } from './preview-special';
-import { reinforcementScene } from './preview-structure';
-import type { PreviewContext, PreviewScene } from './preview-scene';
+import { brakeDistributionScene, networkScene, ramificationScene } from './lines.ts';
+import { additionalPointsScene, rodsScene, shapingScene } from './rods.ts';
+import type { PreviewContext, PreviewScene } from './scene.ts';
+import { markTypeScene, sewingMarksScene, sewingScene } from './sewing.ts';
+import { hvrHolesScene, ventsScene, wingTipScene } from './special.ts';
+import { reinforcementScene } from './structure.ts';
 
 /** The views of a preview: value and label. */
 export type PreviewViews = readonly (readonly [value: string, label: string])[];
 
-interface DetailPreviewDefinition {
-  views: PreviewViews;
-  ribs?: boolean;
+/** A section's scene: its views, whether it draws the chosen rib, and the drawing. */
+export interface SectionScene {
+  readonly views: PreviewViews;
+  readonly ribs?: boolean;
   draw(context: PreviewContext): PreviewScene;
 }
-export const DETAIL_PREVIEWS: ReadonlyMap<number, DetailPreviewDefinition> = new Map([
+/** The scenes of the sections of leparagliding.txt, by section number. */
+export const SECTION_SCENES: ReadonlyMap<number, SectionScene> = new Map([
   [
     6,
     {

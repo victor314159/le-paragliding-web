@@ -65,8 +65,8 @@ function roundedPolygon(points: readonly Point[], radius: number): string | unde
 
 /** Normalized SVG coordinates, matching section 6.12.5 of the 3.29 engine. */
 export function holeOutline(hole: {
-  readonly type: number | null;
-  readonly parameters: readonly (number | null)[];
+  readonly type: number;
+  readonly parameters: readonly number[];
 }): { path: string; points: readonly Point[] } | undefined {
   const [px, py, width, height, rotation, corner] = hole.parameters;
   if (

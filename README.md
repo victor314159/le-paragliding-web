@@ -86,7 +86,7 @@ docker compose run --rm web npm run check   # lint + types + format
 docker compose run --rm oracle node scripts/check-patched-native.ts  # patched engine vs official references
 docker compose run --rm oracle node scripts/check-preprocessor-native.ts  # geometry preprocessor vs gfortran
 docker build --target engine-pkg --output pkg .   # npm package -> pkg/
-docker compose run --rm web scripts/assemble-format.sh   # @lepara/format -> build/format/
+docker compose run --rm web scripts/assemble-package.sh format   # @lepara/format -> build/format/
 ```
 
 The release build checks the WASM engine against the official references and
@@ -130,11 +130,12 @@ Both bump the patch version: add `-- minor` or `-- major` for the others.
 | `packages/engine/`       | The engine as an npm package ([details](packages/engine/README.md))                                |
 | `packages/format/`       | Input files as typed objects ([details](packages/format/README.md))                                |
 | `packages/preprocessor/` | Geometry preprocessor in TypeScript ([details](packages/preprocessor/README.md))                   |
+| `packages/views/`        | Drawings of a design, as scenes and SVG ([details](packages/views/README.md))                      |
 | `oracle/`                | Example designs and the official outputs the WASM build must match                                 |
 | `scripts/`               | Engine build and oracle scripts                                                                    |
 
-The app bundles `@lepara/format`, `@lepara/preprocessor` and `@lepara/design`
-from their source (TypeScript path aliases);
+The app bundles `@lepara/format`, `@lepara/preprocessor`, `@lepara/design` and
+`@lepara/views` from their source (TypeScript path aliases);
 the parameter editor (`src/app/editor/`) is loaded on demand.
 
 ## Example designs

@@ -1,9 +1,7 @@
 import { Component, computed, inject, input } from '@angular/core';
-import { DETAIL_PREVIEWS } from './detail-previews';
+import { SECTION_SCENES, finite, type PreviewContext } from '@lepara/views';
 import { EditorState } from './editor-state';
-import { finite } from './preview-geometry';
 import { PreviewViewport } from './preview-viewport';
-import type { PreviewContext } from './preview-scene';
 
 /** Shared rendering and navigation for dimensioned input drawings and schematics. */
 @Component({
@@ -66,7 +64,7 @@ export class DetailPreview {
   readonly view = input.required<string>();
   private readonly editor = inject(EditorState);
   protected readonly section = computed(() => Number(this.editor.selection()));
-  protected readonly definition = computed(() => DETAIL_PREVIEWS.get(this.section()));
+  protected readonly definition = computed(() => SECTION_SCENES.get(this.section()));
   private readonly selection = computed(() => {
     const f = this.editor.form,
       e = this.editor;
@@ -139,7 +137,7 @@ export class DetailPreview {
     const requested = this.editor.previewRibs()[this.section()];
     const rib = this.ribs().includes(requested) ? requested : (this.ribs()[0] ?? 0);
     return {
-      design: this.editor.draft.value(),
+      design: this.editor.draft.project().design,
       airfoils: this.editor.draft.project().airfoils,
       ...this.selection(),
       rib,

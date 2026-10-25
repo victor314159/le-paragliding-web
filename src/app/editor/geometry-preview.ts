@@ -1,13 +1,6 @@
 import { Component, computed, inject, input } from '@angular/core';
+import { centroid, finite, pointPath, previewBounds, ribNumbers, type Point } from '@lepara/views';
 import { EditorState } from './editor-state';
-import {
-  centroid,
-  finite,
-  pointPath,
-  previewBounds,
-  ribNumbers,
-  type Point,
-} from './preview-geometry';
 import { PreviewViewport } from './preview-viewport';
 
 @Component({

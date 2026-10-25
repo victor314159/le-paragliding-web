@@ -80,3 +80,7 @@ Setup, build and test commands are in [README.md](README.md).
   (`format`, `preprocessor`, `engine`), which hold only what their oracles
   check. The editor's form adapters stay in `src/app/editor/`.
   Run `docker compose run --rm web npm test -- design` after changing it.
+- `packages/views/` draws a design: each scene is a function of a
+  `PreviewContext` (the `LepDesign` sections it reads) returning a
+  `PreviewScene`, which the editor renders and `toSvg` writes. Drawing code
+  goes there, not in components. Run `npm test -- views` after changing it.

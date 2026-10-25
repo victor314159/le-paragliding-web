@@ -57,7 +57,7 @@ section 1.
 ## Build and test
 
 ```sh
-docker compose run --rm web scripts/assemble-design.sh   # -> build/design/
+docker compose run --rm web scripts/assemble-package.sh design   # -> build/design/
 docker compose run --rm web npm test -- design
 ```
 

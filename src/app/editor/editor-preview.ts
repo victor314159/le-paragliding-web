@@ -11,10 +11,10 @@ import { MatButton, MatIconButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 import { MatTooltip } from '@angular/material/tooltip';
 import { PRE_DATA_FILE } from '@lepara/preprocessor';
+import { SECTION_SCENES, type PreviewViews } from '@lepara/views';
 import { AirfoilPreview } from './airfoil-preview';
 import { ColorsPreview } from './colors-preview';
 import { DetailPreview } from './detail-preview';
-import { DETAIL_PREVIEWS, type PreviewViews } from './detail-previews';
 import { EditorState, type Selection } from './editor-state';
 import { GeometryPreview } from './geometry-preview';
 import { HolesPreview } from './holes-preview';
@@ -48,7 +48,7 @@ export const PREVIEW_VIEWS: ReadonlyMap<Selection, PreviewViews> = new Map<Selec
     [30, []],
     [31, TENSION_VIEWS],
     [PRE_DATA_FILE, [...WING_VIEWS, ['cells', 'Cells']]],
-    ...[...DETAIL_PREVIEWS].map(([section, { views }]) => [section, views] as const),
+    ...[...SECTION_SCENES].map(([section, { views }]) => [section, views] as const),
   ],
 );
 

@@ -1,8 +1,9 @@
-import type { LepAirfoil } from '@lepara/format';
-import type { DesignForm } from './editor-draft';
-import { finite, pointPath, type Point } from './preview-geometry';
+import type { LepAirfoil, LepDesign } from '@lepara/format';
+import { finite, pointPath, type Point } from './geometry.ts';
 
-export type PreviewView = 'planform' | 'front' | 'profile';
+/** The sections a rib profile reads. */
+export type ProfileSections = 'geometry' | 'airfoils' | 'thickness' | 'anchors';
+
 export const ANCHOR_COLORS = ['#d04b47', '#b38900', '#13899d', '#6270c9', '#a55aba', '#4d913a'];
 export const ANCHOR_NAMES = ['A', 'B', 'C', 'D', 'E', 'F'];
 
@@ -19,7 +20,7 @@ export function contourPoint(points: readonly Point[], x: number): Point | undef
 }
 
 export function ribProfile(
-  design: DesignForm,
+  design: Pick<LepDesign, ProfileSections>,
   airfoils: ReadonlyMap<string, LepAirfoil>,
   index: number,
 ) {
@@ -120,10 +121,14 @@ export function offsetProfile(input: readonly Point[], distance: number): Point[
 }
 
 /** Rib-local (chord, height) to front projection, using the engine's input rotations. */
-export function frontPoint(design: DesignForm, index: number, point: Point): Point | undefined {
+export function frontPoint(
+  design: Pick<LepDesign, 'geometry' | 'airfoils'>,
+  index: number,
+  point: Point,
+): Point | undefined {
   const r = design.geometry.ribs[index];
   if (!r || ![r.yLE, r.yTE, r.xp, r.z, r.beta, r.rotationPoint].every(finite)) return undefined;
-  const chord = r.yTE! - r.yLE!;
+  const chord = r.yTE - r.yLE;
   const ribs = design.geometry.ribs;
   const center = ribs[0];
   const tip = ribs[ribs.length - 1];
@@ -136,21 +141,21 @@ export function frontPoint(design: DesignForm, index: number, point: Point): Poi
     mode.mode === 0
       ? r.washin
       : mode.mode === 2
-        ? (mode.centerAngle ?? 0) + ((mode.maxAngle ?? 0) - (mode.centerAngle ?? 0)) * fraction
-        : (mode.maxAngle ?? 0) * fraction;
+        ? mode.centerAngle + (mode.maxAngle - mode.centerAngle) * fraction
+        : mode.maxAngle * fraction;
   if (!finite(angle)) return undefined;
   const theta = (angle * Math.PI) / 180;
-  const beta = (r.beta! * Math.PI) / 180;
+  const beta = (r.beta * Math.PI) / 180;
   const rotation = ((design.geometry.ribColumns === 11 ? (r.rotZ ?? 0) : 0) * Math.PI) / 180;
-  const pivot = (r.rotationPoint! * chord) / 100;
+  const pivot = (r.rotationPoint * chord) / 100;
   const u = point[0] * chord;
   const v = -point[1] * chord - (design.airfoils[index]?.displacement ?? 0);
   const along = (u - pivot) * Math.cos(theta) + v * Math.sin(theta) + pivot;
   const height = (-u + pivot) * Math.sin(theta) + v * Math.cos(theta);
   const transverse = (((r.rotZPosition ?? 0) * chord) / 100 - along) * Math.sin(rotation);
   const result: Point = [
-    r.xp! + transverse * Math.cos(beta) + height * Math.sin(beta),
-    r.z! + transverse * Math.sin(beta) - height * Math.cos(beta),
+    r.xp + transverse * Math.cos(beta) + height * Math.sin(beta),
+    r.z + transverse * Math.sin(beta) - height * Math.cos(beta),
   ];
   return result.every(finite) ? result : undefined;
 }

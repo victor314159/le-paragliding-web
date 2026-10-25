@@ -1,5 +1,5 @@
 {
-  // Type-checked against the sources of its dependencies. scripts/assemble-design.sh
+  // Type-checked against the sources of its dependencies. scripts/assemble-package.sh
   // compiles it with tsconfig.build.json, against their assembled declarations.
   "extends": "../format/tsconfig.json",
   "compilerOptions": {

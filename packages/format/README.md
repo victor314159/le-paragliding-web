@@ -161,11 +161,11 @@ if (written.ok) console.log(written.value); // the new leparagliding.txt
 
 ## Build
 
-`scripts/assemble-format.sh` compiles `src/` into `build/format/` (ES2022
+`scripts/assemble-package.sh format` compiles `src/` into `build/format/` (ES2022
 modules and `.d.ts` declarations), in the `web` container:
 
 ```sh
-docker compose run --rm web scripts/assemble-format.sh
+docker compose run --rm web scripts/assemble-package.sh format
 docker compose run --rm web npm test -- format
 docker compose run --rm oracle node scripts/check-format-native.ts   # gfortran
 ```

@@ -1,22 +1,33 @@
 import { expect, test } from '@playwright/test';
-import { parseLep, type LepAirfoil } from '../packages/format/src/index.ts';
-import { toForm } from '../src/app/editor/editor-draft.ts';
-import { DETAIL_PREVIEWS } from '../src/app/editor/detail-previews.ts';
-import { lineTree } from '../src/app/editor/preview-lines.ts';
-import { deflectedRod, rodOutlines } from '../src/app/editor/preview-profiles.ts';
-import { ribProfile } from '../src/app/editor/preview-model.ts';
-import { arcPoints, type PreviewContext } from '../src/app/editor/preview-scene.ts';
-import { reinforcementAttachments } from '../src/app/editor/preview-structure.ts';
+import { parseLep, type LepAirfoil, type RodCurve } from '../../packages/format/src/index.ts';
 import {
+  SECTION_SCENES,
+  arcPoints,
+  deflectedRod,
+  lineTree,
   miniribEllipses,
+  reinforcementAttachments,
+  ribProfile,
+  rodOutlines,
+  toSvg,
   ventBoundary,
   wingTipOutline,
-} from '../src/app/editor/preview-special.ts';
-import { rodGroup } from '../src/app/editor/editor-draft.ts';
-import { lep, ok } from './format/helpers';
+  type PreviewContext,
+  type Rod,
+} from '../../packages/views/src/index.ts';
+import { lep, ok } from '../format/helpers';
+
+const ribs = { group: 1, firstRib: 1, lastRib: 2 };
+const pocket = { offset: 0, outerWidth: 0, rodWidth: 0, innerWidth: 0 };
+const curve = (from: number, to: number, deflection: number, exponent: number): RodCurve => ({
+  from,
+  to,
+  deflection,
+  exponent,
+});
 
 function context(): PreviewContext {
-  const design = toForm(ok(parseLep(lep())));
+  const design = ok(parseLep(lep()));
   const foil: LepAirfoil = {
     format: 'dat',
     points: [
@@ -70,7 +81,7 @@ function context(): PreviewContext {
         count: 2,
         positions: [25, 75, 0, 0, 0, 95] as const,
       })),
-      thickness: { mode: 0, ribs: [1, 1] },
+      thickness: { mode: 0 },
     },
     airfoils: new Map([['test.dat', foil]]),
     view: '',
@@ -100,7 +111,7 @@ test('line trees merge common branch prefixes and retain fractional brake anchor
   expect(data.nodes.filter((n) => n.level === 2)).toHaveLength(1);
   expect(data.leaves.map((p) => p.rib)).toEqual([2.4, 4]);
   expect(data.edges.find((edge) => edge.to.endsWith('2.1'))?.paths).toEqual([0, 1]);
-  expect(lineTree([{ ...path, levels: null }]).omitted).toBe(1);
+  expect(lineTree([{ ...path, levels: Number.NaN }]).omitted).toBe(1);
 });
 
 test('HVR attachments convert centimetres versus chord percentages and keep asymmetric radii', () => {
@@ -124,12 +135,14 @@ test('HVR attachments convert centimetres versus chord percentages and keep asym
 test('rod curves apply power-law deflection and keep valid zero-thickness and straight rods', () => {
   const c = context();
   const profile = ribProfile(c.design, c.airfoils, 0);
-  const curve = { from: 0, to: 50, deflection: 2, exponent: 2 };
-  const rod = deflectedRod(profile.upper, curve, 1);
+  const rod = deflectedRod(profile.upper, curve(0, 50, 2, 2), 1);
   expect(rod[0]).toEqual([0, 0]);
   expect(rod.at(-1)?.[1]).toBeCloseTo(-0.08);
-  const group = { ...rodGroup(1), x1: 10, y1: 2, x2: 70, y2: 2, deflection: 0 };
-  expect(rodOutlines(group, 2, profile)[0]).toEqual([
+  const straight: Rod = {
+    type: 2,
+    group: { ...ribs, x1: 10, y1: 2, x2: 70, y2: 2, deflection: 0, pocket },
+  };
+  expect(rodOutlines(straight, profile)[0]).toEqual([
     [0.1, -0.02],
     [0.7, -0.02],
   ]);
@@ -160,30 +173,40 @@ test('normalized inlet boundaries implement diagonals, signed arches and ellipse
 test('long and shark-nose rods retain both transitions and valid contour coordinates', () => {
   const c = context();
   const profile = ribProfile(c.design, c.airfoils, 0);
-  const group = {
-    ...rodGroup(1),
-    extrados: { from: 5, to: 40, deflection: 1, exponent: 2 },
-    intrados: { from: 10, to: 30, deflection: 1, exponent: 2 },
-    initial: { from: 5, to: 15, deflection: 2, exponent: 2 },
-    final: { from: 50, to: 80, deflection: 1, exponent: 2 },
-    upperRod: { from: 20, to: 5, deflection: 2, exponent: 1 },
-    lowerRod: { from: 10, to: 5, deflection: 2, exponent: 1 },
-  };
-  for (const type of [1, 3, 4, 5]) {
-    const rods = rodOutlines(group, type, profile);
-    expect(rods).toHaveLength(type === 3 ? 2 : 1);
+  const extrados = curve(5, 40, 1, 2);
+  const intrados = curve(10, 30, 1, 2);
+  const long = { ...ribs, initial: curve(5, 15, 2, 2), final: curve(50, 80, 1, 2), pocket };
+  const rods: Rod[] = [
+    { type: 1, group: { ...ribs, extrados, intrados, pocket } },
+    {
+      type: 3,
+      group: {
+        ...ribs,
+        extrados,
+        upperRod: curve(20, 5, 2, 1),
+        lowerRod: curve(10, 5, 2, 1),
+        intrados,
+        pocket,
+      },
+    },
+    { type: 4, group: long },
+    { type: 5, group: long },
+  ];
+  for (const rod of rods) {
+    const outlines = rodOutlines(rod, profile);
+    expect(outlines).toHaveLength(rod.type === 3 ? 2 : 1);
     expect(
-      rods.every((rod) => rod.length > 2 && rod.every((point) => point.every(Number.isFinite))),
+      outlines.every((o) => o.length > 2 && o.every((point) => point.every(Number.isFinite))),
     ).toBe(true);
   }
   // The initial part of a long rod deflects maximally at its nose end,
   // then joins the original contour before the final part starts.
-  expect(rodOutlines(group, 4, profile)[0][0][1]).toBeCloseTo(0.01);
+  expect(rodOutlines(rods[2], profile)[0][0][1]).toBeCloseTo(0.01);
 });
 
 test('four-level ramification drawings place the main junction at l3 and upper junctions at l2', () => {
   const c = context();
-  const scene = DETAIL_PREVIEWS.get(11)!.draw({
+  const scene = SECTION_SCENES.get(11)!.draw({
     ...c,
     view: 'lines4',
     design: {
@@ -200,7 +223,7 @@ test('wingtip angles and type 9 hole fields follow the engine geometry and colum
   const c = context();
   const tip = wingTipOutline({
     ...c.design,
-    wingTip: { ...c.design.wingTip, mode: 1, angleLE: 45, angleTE: 0 },
+    wingTip: { mode: 1, angleLE: 45, angleTE: 0 },
   });
   expect(tip.modified[1][1]).toBeCloseTo(40);
   expect(tip.modified[2][1]).toBe(100);
@@ -224,7 +247,7 @@ test('wingtip angles and type 9 hole fields follow the engine geometry and colum
 
 test('every detail preview and view handles empty collections and disabled sections without nonfinite SVG data', () => {
   const c = context();
-  for (const [section, definition] of DETAIL_PREVIEWS) {
+  for (const [section, definition] of SECTION_SCENES) {
     for (const [view] of definition.views.length ? definition.views : [['', '']]) {
       const scene = definition.draw({ ...c, view });
       expect(scene.title, `section ${section}`).not.toBe('');
@@ -232,4 +255,14 @@ test('every detail preview and view handles empty collections and disabled secti
       expect(scene.paths.every((p) => !/NaN|Infinity/.test(p.d))).toBe(true);
     }
   }
+});
+
+test('a scene is a standalone SVG document, its texts escaped', () => {
+  const scene = SECTION_SCENES.get(11)!.draw({ ...context(), view: 'lines4' });
+  const svg = toSvg({ ...scene, title: 'A & <B>' });
+  expect(svg).toMatch(/^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" viewBox="[^"]+"/);
+  expect(svg).toContain('<title>A &#38; &#60;B&#62;</title>');
+  expect(svg.match(/<path /g)).toHaveLength(scene.paths.length);
+  expect(svg.match(/<text /g)).toHaveLength(scene.labels.length);
+  expect(svg.trimEnd().endsWith('</svg>')).toBe(true);
 });

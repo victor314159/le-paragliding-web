@@ -1,7 +1,6 @@
 import { Component, computed, inject } from '@angular/core';
+import { colorPlanform, finite, previewBounds, ribNumbers } from '@lepara/views';
 import { EditorState } from './editor-state';
-import { colorPlanform } from './preview-patterns';
-import { finite, previewBounds, ribNumbers } from './preview-geometry';
 import { PreviewViewport } from './preview-viewport';
 
 @Component({
@@ -131,8 +130,8 @@ export class ColorsPreview {
   );
   protected readonly layout = computed(() =>
     this.upper()
-      ? this.editor.draft.value().extradosColors
-      : this.editor.draft.value().intradosColors,
+      ? this.editor.draft.project().design.extradosColors
+      : this.editor.draft.project().design.intradosColors,
   );
   protected readonly selected = computed(() =>
     this.layout().mode === 'panels'
@@ -148,7 +147,7 @@ export class ColorsPreview {
     return rows ? this.editor.selectedRecord(rows) : 0;
   });
   protected readonly data = computed(() => {
-    const geometry = this.editor.draft.value().geometry;
+    const geometry = this.editor.draft.project().design.geometry;
     const layout = colorPlanform(geometry, this.layout());
     const bounds = previewBounds(
       layout.panels.flatMap((p) =>

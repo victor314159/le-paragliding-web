@@ -1,6 +1,6 @@
 import { booleanAttribute, Component, computed, inject, input } from '@angular/core';
+import { ribProfile } from '@lepara/views';
 import { EditorState } from './editor-state';
-import { ribProfile } from './preview-model';
 import { PreviewViewport } from './preview-viewport';
 
 /** A view of the input coordinates, independent of computing or preprocessing a wing. */
@@ -112,7 +112,7 @@ export class RibPreview {
   private readonly editor = inject(EditorState);
   protected readonly data = computed(() => {
     const project = this.editor.draft.project();
-    const profile = ribProfile(this.editor.draft.value(), project.airfoils, this.row());
+    const profile = ribProfile(project.design, project.airfoils, this.row());
     const row = project.design.airfoils[this.row()];
     const points = profile.points;
     const top = Math.min(-0.08, ...points.map((p) => p[1]));

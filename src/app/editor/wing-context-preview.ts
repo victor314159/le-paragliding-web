@@ -1,14 +1,17 @@
 import { Component, computed, inject, input } from '@angular/core';
-import { EditorState } from './editor-state';
 import {
+  ANCHOR_COLORS,
+  ANCHOR_NAMES,
   centroid,
   finite,
+  frontPoint,
   pointPath,
   previewBounds,
   ribNumbers,
+  ribProfile,
   type Point,
-} from './preview-geometry';
-import { ANCHOR_COLORS, ANCHOR_NAMES, frontPoint, ribProfile } from './preview-model';
+} from '@lepara/views';
+import { EditorState } from './editor-state';
 import { PreviewViewport } from './preview-viewport';
 
 @Component({
@@ -107,8 +110,7 @@ export class WingContextPreview {
   protected readonly colors = ANCHOR_COLORS;
   private readonly editor = inject(EditorState);
   protected readonly data = computed(() => {
-    const design = this.editor.draft.value();
-    const airfoils = this.editor.draft.project().airfoils;
+    const { design, airfoils } = this.editor.draft.project();
     const groupIndex = this.group();
     const group = groupIndex === undefined ? undefined : design.holes[groupIndex];
     const project = (index: number, point: Point): Point | undefined => {

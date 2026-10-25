@@ -97,7 +97,7 @@ this comparison.
 ## Build and test
 
 ```sh
-docker compose run --rm web scripts/assemble-preprocessor.sh   # -> build/preprocessor/
+docker compose run --rm web scripts/assemble-package.sh preprocessor   # -> build/preprocessor/
 docker compose run --rm web npm test -- preprocessor
 ```
 

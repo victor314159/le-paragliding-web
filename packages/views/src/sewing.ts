@@ -1,8 +1,8 @@
-import { finite, type Point } from './preview-geometry';
-import { offsetProfile, ribProfile } from './preview-model';
-import { ellipsePoints, PreviewDrawing, valueLabel, type PreviewContext } from './preview-scene';
+import { finite, type Point } from './geometry.ts';
+import { offsetProfile, ribProfile, type ProfileSections } from './profile.ts';
+import { ellipsePoints, PreviewDrawing, valueLabel, type PreviewContext } from './scene.ts';
 
-export function sewingScene(context: PreviewContext) {
+export function sewingScene(context: PreviewContext<ProfileSections | 'sewingAllowances'>) {
   const { design, view, rib } = context;
   const allowances = design.sewingAllowances;
   const d = new PreviewDrawing(
@@ -46,10 +46,10 @@ export function sewingScene(context: PreviewContext) {
       if ([a.sides, a.leadingEdge, a.trailingEdge].every(finite)) {
         d.path(
           [
-            [x - a.sides!, -a.leadingEdge!],
-            [x + 120 + a.sides!, -a.leadingEdge!],
-            [x + 120 + a.sides!, 65 + a.trailingEdge!],
-            [x - a.sides!, 65 + a.trailingEdge!],
+            [x - a.sides, -a.leadingEdge],
+            [x + 120 + a.sides, -a.leadingEdge],
+            [x + 120 + a.sides, 65 + a.trailingEdge],
+            [x - a.sides, 65 + a.trailingEdge],
           ],
           'allowance',
           true,
@@ -68,7 +68,7 @@ export function sewingScene(context: PreviewContext) {
   return d.finish();
 }
 
-export function sewingMarksScene({ design }: PreviewContext) {
+export function sewingMarksScene({ design }: PreviewContext<'marks'>) {
   const { spacing, pointRadius, pointOffset } = design.marks;
   const d = new PreviewDrawing(
     'Sewing marks',
@@ -117,7 +117,7 @@ const MARK_NAMES = [
   'Rib numerals',
   'HVR numerals',
 ];
-export function markTypeScene({ design, selected, view }: PreviewContext) {
+export function markTypeScene({ design, selected, view }: PreviewContext<'markTypes'>) {
   const row = design.markTypes[selected];
   const mark = view === 'laser' ? row?.laser : row?.print;
   const kind = mark?.type,

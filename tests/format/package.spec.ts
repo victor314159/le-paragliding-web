@@ -1,17 +1,17 @@
-// Criterion 4: scripts/assemble-format.sh builds build/format/ (ES modules
+// Criterion 4: scripts/assemble-package.sh builds build/format/ (ES modules
 // and declarations), which imports in Node and in Chromium.
-import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { extname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { expect, test } from '@playwright/test';
 import type * as Format from '../../packages/format/src/index.ts';
+import { assemblePackage } from '../helpers';
 
 const OUT = resolve('build/format');
 const design = readFileSync('oracle/designs/gnuA7-26/leparagliding.txt', 'utf8');
 
 test.beforeAll(() => {
-  execFileSync('scripts/assemble-format.sh', { stdio: 'inherit' });
+  assemblePackage('format');
 });
 
 test('the package holds ES modules, declarations and its documents', () => {

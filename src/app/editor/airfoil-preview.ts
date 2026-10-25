@@ -1,9 +1,8 @@
 import { Component, computed, inject, input } from '@angular/core';
+import { finite, pointPath, previewBounds, valueLabel, type Point } from '@lepara/views';
 import { airfoilPart } from './airfoil-section';
 import { EditorState } from './editor-state';
-import { finite, pointPath, previewBounds, type Point } from './preview-geometry';
 import { PreviewViewport } from './preview-viewport';
-import { valueLabel } from './preview-scene';
 
 /** The points of an airfoil as typed, y up, with the selected row's point highlighted. */
 @Component({

@@ -1,16 +1,15 @@
-import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { expect, test } from '@playwright/test';
 import type * as Preprocessor from '../../packages/preprocessor/src/index.ts';
+import { assemblePackage, importAssembled } from '../helpers';
 import { EXAMPLE } from './cases.ts';
 
 const OUT = resolve('build/preprocessor');
-test.beforeAll(() => execFileSync('scripts/assemble-preprocessor.sh', { stdio: 'inherit' }));
+test.beforeAll(() => assemblePackage('preprocessor'));
 
 test('compiled package imports and computes in Node', async () => {
-  const module = (await import(pathToFileURL(`${OUT}/index.js`).href)) as typeof Preprocessor;
+  const module = await importAssembled<typeof Preprocessor>('preprocessor');
   expect(module.generateGeometry(EXAMPLE).ok).toBe(true);
   expect(readFileSync(`${OUT}/index.d.ts`, 'utf8')).toContain('generateGeometry');
 });
