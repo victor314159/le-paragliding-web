@@ -45,24 +45,26 @@ const STATUS: Readonly<Record<PreprocessorStatus, string>> = {
         <p role="status" [class.mat-text-error]="status() === 'invalid'">
           {{ statusText() }}
         </p>
-        @if (status() !== 'synced') {
-          <button
-            matButton="filled"
-            type="button"
-            [disabled]="status() === 'invalid'"
-            (click)="editor.applyPreprocessor()"
-          >
-            Replace the rib table of section 1
-          </button>
-        }
+        <!-- Always shown: the controls below keep their place while settings change. -->
+        <button
+          matButton="filled"
+          type="button"
+          [disabled]="status() !== 'differs'"
+          (click)="editor.applyPreprocessor()"
+        >
+          Replace the rib table of section 1
+        </button>
       </div>
-      @if (newCellCount(); as cells) {
-        <p class="mat-text-on-surface-variant">
+      <!-- Always one line, the cell count changed or not: the controls below stay in place. -->
+      <p class="mat-text-on-surface-variant">
+        @if (newCellCount(); as cells) {
           Replacing the rib table changes the cell count from
           {{ editor.draft.value().geometry.cells }} to {{ cells }}; other sections may need
           corrections.
-        </p>
-      }
+        } @else {
+          Replacing the rib table keeps the cell count of section 1.
+        }
+      </p>
       <p class="mat-text-on-surface-variant">
         Lengths are before Wing scale. Applying keeps the other rib columns.
         @if (!editor.preprocessor.exists) {
