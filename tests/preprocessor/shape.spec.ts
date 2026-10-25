@@ -57,7 +57,7 @@ test('the parameters of any shape within the limits are read back without losses
   }
 });
 
-test('a rib table gives the settings it sets; the others, or all without a table, keep the defaults', () => {
+test('a rib table gives the settings it sets, and none without a table', () => {
   const shape: WingShape = {
     ...SHAPE_DEFAULTS,
     area: 21,
@@ -74,13 +74,16 @@ test('a rib table gives the settings it sets; the others, or all without a table
     beta: Math.round(rib.beta * 100) / 100,
   }));
   const back = shapeOfRibs(table, cells);
-  // The tip rib's angle is its last vault segment's, a little short of the total.
-  for (const key of Object.keys(shape) as (keyof WingShape)[])
-    expect(Math.abs(back[key] - shape[key]), key).toBeLessThan(key === 'tipAngle' ? 0.5 : 0.05);
-  expect(shapeOfRibs([], 40)).toEqual(SHAPE_DEFAULTS);
-  expect(shapeOfRibs([{ ...table[0], yTE: table[0].yLE }, ...table.slice(1)], cells)).toEqual(
-    SHAPE_DEFAULTS,
+  expect(Object.keys(back).sort()).toEqual(
+    ['area', 'aspectRatio', 'cells', 'sweep', 'taper', 'tipAngle'].sort(),
   );
+  // The tip rib's angle is its last vault segment's, a little short of the total.
+  for (const [key, value] of Object.entries(back) as [keyof WingShape, number][])
+    expect(Math.abs(value - shape[key]), key).toBeLessThan(key === 'tipAngle' ? 0.5 : 0.05);
+  expect(shapeOfRibs([], 40)).toEqual({});
+  expect(shapeOfRibs([{ ...table[0], yTE: table[0].yLE }, ...table.slice(1)], cells)).toEqual({});
+  const flat = table.map((rib) => ({ ...rib, beta: 0 }));
+  expect(shapeOfRibs(flat, cells)).not.toHaveProperty('tipAngle');
 });
 
 test('chained setting changes, as when dragging sliders, are read back without losses', () => {

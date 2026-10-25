@@ -1,13 +1,15 @@
 import { Component, computed, inject } from '@angular/core';
 import { MatButton } from '@angular/material/button';
+import { MatDialog } from '@angular/material/dialog';
 import { MatSlider, MatSliderThumb } from '@angular/material/slider';
 import {
   SHAPE_LIMITS,
-  fromShape,
   type PreprocessorInput,
   type ShapePart,
   type WingShape,
 } from '@lepara/preprocessor';
+import { of, type Observable } from 'rxjs';
+import { confirm } from '../shared/confirm-dialog';
 import { EditorState } from './editor-state';
 
 const percent = (value: number) => `${Math.round(value * 100)}%`;
@@ -28,6 +30,27 @@ const LOSSES: Readonly<Record<ShapePart, (input: PreprocessorInput) => string>> 
         : 'the cell distribution',
 };
 
+/** What Auto replaces in `input`, as a sentence fragment. */
+export const lossText = (losses: readonly ShapePart[], input: PreprocessorInput) =>
+  new Intl.ListFormat('en').format(losses.map((part) => LOSSES[part](input)));
+
+/** Emits once: true if an Auto shape loses nothing of `input`, or if `action` is confirmed. */
+export function confirmShape(
+  dialogs: MatDialog,
+  losses: readonly ShapePart[],
+  input: PreprocessorInput,
+  action: string,
+): Observable<boolean> {
+  return losses.length
+    ? confirm(dialogs, {
+        title: 'Replace the parameters?',
+        message: `Auto sets fewer parameters than this wing has: it replaces ${lossText(losses, input)}.`,
+        cancel: 'Keep the parameters',
+        confirm: action,
+      })
+    : of(true);
+}
+
 /** The few settings of Auto, which set every parameter of pre-data.txt. */
 @Component({
   selector: 'app-shape-fields',
@@ -36,7 +59,7 @@ const LOSSES: Readonly<Record<ShapePart, (input: PreprocessorInput) => string>> 
     @if (shape(); as shape) {
       @if (losses().length) {
         <p>Auto sets fewer parameters than this wing has: it replaces {{ lossText() }}.</p>
-        <button matButton="outlined" type="button" (click)="applyShape(shape)">
+        <button matButton="outlined" type="button" (click)="replace(shape)">
           Replace with the Auto shape
         </button>
       } @else {
@@ -107,15 +130,15 @@ const LOSSES: Readonly<Record<ShapePart, (input: PreprocessorInput) => string>> 
 })
 export class ShapeFields {
   protected readonly editor = inject(EditorState);
+  private readonly dialogs = inject(MatDialog);
 
   protected readonly limits = SHAPE_LIMITS;
   protected readonly shape = this.editor.preprocessor.shape;
   /** What the shape replaces: until then, its settings are disabled. */
   protected readonly losses = this.editor.preprocessor.shapeLosses;
-  protected readonly lossText = computed(() => {
-    const input = this.editor.preprocessor.input();
-    return new Intl.ListFormat('en').format(this.losses().map((part) => LOSSES[part](input)));
-  });
+  protected readonly lossText = computed(() =>
+    lossText(this.losses(), this.editor.preprocessor.input()),
+  );
   protected readonly groups = [
     {
       label: 'Wing',
@@ -213,20 +236,23 @@ export class ShapeFields {
     },
   ] as const;
 
+  protected replace(shape: WingShape): void {
+    confirmShape(
+      this.dialogs,
+      this.losses(),
+      this.editor.preprocessor.input(),
+      'Replace with the Auto shape',
+    ).subscribe((confirmed) => {
+      if (confirmed) this.editor.preprocessor.applyShape(shape);
+    });
+  }
+
   protected setShape(key: keyof WingShape, event: Event): void {
     const shape = this.shape();
     if (shape)
-      this.applyShape({ ...shape, [key]: (event.target as HTMLInputElement).valueAsNumber });
-  }
-
-  /** The modes Auto does not use keep their values, as when switching modes in Manual. */
-  protected applyShape(shape: WingShape): void {
-    const input = fromShape(shape, this.editor.preprocessor.input());
-    this.editor.preprocessor.value.update((form) => ({
-      ...form,
-      ...input,
-      vault: { ...form.vault, ...input.vault },
-      distribution: { ...form.distribution, ...input.distribution },
-    }));
+      this.editor.preprocessor.applyShape({
+        ...shape,
+        [key]: (event.target as HTMLInputElement).valueAsNumber,
+      });
   }
 }

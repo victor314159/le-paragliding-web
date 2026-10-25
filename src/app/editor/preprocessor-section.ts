@@ -1,12 +1,13 @@
 import { Component, computed, inject, linkedSignal, untracked } from '@angular/core';
 import { MatButton } from '@angular/material/button';
 import { MatButtonToggle, MatButtonToggleGroup } from '@angular/material/button-toggle';
+import { MatDialog } from '@angular/material/dialog';
 import { EditorState, type PreprocessorStatus } from './editor-state';
 import { NumberField } from './number-field';
 import { toExplicitWidths } from './preprocessor-draft';
 import { AddRow, RecordRow, RemoveRow } from './record-editor';
 import { SelectField } from './select-field';
-import { ShapeFields } from './shape-fields';
+import { ShapeFields, confirmShape } from './shape-fields';
 import { TextField } from './text-field';
 
 const STATUS: Readonly<Record<PreprocessorStatus, string>> = {
@@ -34,11 +35,10 @@ const STATUS: Readonly<Record<PreprocessorStatus, string>> = {
     @if (!editor.preprocessor.loaded()) {
       <p>
         This project has no pre-data.txt. Its parameters generate the cells and rib positions of
-        section 1 from a few curves. It starts in Auto, with the area, aspect ratio, taper, sweep,
-        vault angle and cells of section 1.
+        section 1 from a few curves. It starts in Auto, with a default shape to tune.
       </p>
       <button matButton="outlined" type="button" (click)="editor.createPreprocessor()">
-        Create from section 1
+        Create pre-data.txt
       </button>
     } @else {
       <div class="geometry-status">
@@ -46,27 +46,41 @@ const STATUS: Readonly<Record<PreprocessorStatus, string>> = {
           {{ statusText() }}
         </p>
         <!-- Always shown: the controls below keep their place while settings change. -->
-        <button
-          matButton="filled"
-          type="button"
-          [disabled]="status() !== 'differs'"
-          (click)="editor.applyPreprocessor()"
-        >
-          Replace the rib table of section 1
-        </button>
+        <div class="geometry-actions">
+          <button
+            matButton="filled"
+            type="button"
+            [disabled]="status() !== 'differs'"
+            (click)="editor.applyPreprocessor()"
+          >
+            Apply to section 1
+          </button>
+          <button
+            matButton="outlined"
+            type="button"
+            [disabled]="status() !== 'differs'"
+            (click)="fit()"
+          >
+            Fit to section 1
+          </button>
+        </div>
       </div>
+      <p class="mat-text-on-surface-variant">
+        Apply replaces the cells and rib positions of section 1 with those the parameters generate,
+        and keeps its other rib columns. Fit sets the area, aspect ratio, taper, sweep, tip angle
+        and cells of Auto to those of section 1, and keeps its other settings.
+      </p>
       <!-- Always one line, the cell count changed or not: the controls below stay in place. -->
       <p class="mat-text-on-surface-variant">
         @if (newCellCount(); as cells) {
-          Replacing the rib table changes the cell count from
-          {{ editor.draft.value().geometry.cells }} to {{ cells }}; other sections may need
-          corrections.
+          Applying changes the cell count from {{ editor.draft.value().geometry.cells }} to
+          {{ cells }}; other sections may need corrections.
         } @else {
-          Replacing the rib table keeps the cell count of section 1.
+          Applying keeps the cell count of section 1.
         }
       </p>
       <p class="mat-text-on-surface-variant">
-        Lengths are before Wing scale. Applying keeps the other rib columns.
+        Lengths are before Wing scale.
         @if (!editor.preprocessor.exists) {
           Saving creates pre-data.txt.
           <button matButton type="button" (click)="editor.preprocessor.discard()">
@@ -273,6 +287,11 @@ const STATUS: Readonly<Record<PreprocessorStatus, string>> = {
       gap: 8px 16px;
       margin-block: 16px 8px;
     }
+    .geometry-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
     .geometry-status p {
       margin: 0;
       font: var(--mat-sys-title-small);
@@ -301,11 +320,12 @@ const STATUS: Readonly<Record<PreprocessorStatus, string>> = {
 })
 export class PreprocessorSection {
   protected readonly editor = inject(EditorState);
+  private readonly dialogs = inject(MatDialog);
   protected readonly form = this.editor.preprocessorForm;
 
   protected readonly status = this.editor.preprocessorStatus;
   protected readonly statusText = computed(() => STATUS[this.status()]);
-  /** The cell count that replacing the rib table sets, if it changes. */
+  /** The cell count that applying sets, if it changes. */
   protected readonly newCellCount = computed(() => {
     const cells = this.editor.generated()?.cells;
     return cells !== this.editor.draft.value().geometry.cells ? cells : undefined;
@@ -389,6 +409,21 @@ export class PreprocessorSection {
       ],
     },
   ] as const;
+
+  /** Fit sets Auto parameters: in Manual, it switches to Auto. */
+  protected fit(): void {
+    const { preprocessor } = this.editor;
+    confirmShape(
+      this.dialogs,
+      preprocessor.shapeLosses(),
+      preprocessor.input(),
+      'Fit to section 1',
+    ).subscribe((confirmed) => {
+      if (!confirmed) return;
+      this.editor.fitPreprocessor();
+      this.mode.set('auto');
+    });
+  }
 
   protected changeDistribution(mode: number | null): void {
     if (mode === 4) this.editor.preprocessor.value.update(toExplicitWidths);

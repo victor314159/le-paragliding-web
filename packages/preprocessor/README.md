@@ -68,7 +68,10 @@ corrections, four vault arcs and cells proportional to chord, rounded to
 of `base`. `shapeOf(input, result)` reads the shape of valid parameters,
 clamped to `SHAPE_LIMITS`. `shapeLosses(shape, input)` lists the parts of the
 parameters that the shape replaces: none when they are a shape's within
-rounding, vault arcs being compared by length and angle.
+rounding, vault arcs being compared by length and angle. `shapeOfRibs(ribs, cells)` gives
+the settings of a rib table as section 1 has them (area, aspect ratio, tip
+chord, sweep, tip angle and cells), none without a positive chord: spread
+over a shape, they fit it to an existing wing.
 
 ## Native oracle
 

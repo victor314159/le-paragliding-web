@@ -13,6 +13,7 @@ export {
   shapeLosses,
   shapeOf,
   shapeOfRibs,
+  type RibShape,
   type ShapePart,
   type WingShape,
 } from './shape.ts';

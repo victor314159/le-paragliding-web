@@ -16,9 +16,12 @@ zoom with the wheel, pan by dragging.
 **Preprocessor** edits `pre-data.txt`, the parameters of the [geometry
 preprocessor](https://www.laboratoridenvol.com/leparagliding/pre.en.html), like
 an airfoil: saving rewrites it when they change. Without the file, it can be
-created in Auto, shaped like the rib table of section 1. The editor shows
-whether that table is the one they generate, rounded as `geometry-out.txt`;
-replacing it keeps the other rib columns. Remove the file from the list of
+created in Auto, with a default shape to tune. The editor shows whether the
+rib table of section 1 is the one they generate, rounded as
+`geometry-out.txt`. **Apply to section 1** replaces that table and keeps the
+other rib columns; **Fit to section 1** sets the area, aspect ratio, taper,
+sweep, tip angle and cells of Auto to those of the table, as for an imported
+wing. Remove the file from the list of
 input files. Focus a parameter group to highlight its edge, correction or
 vault arc in the views that draw it; explicit cell widths highlight the same
 cell in the planform and cell-width views.

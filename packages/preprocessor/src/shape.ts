@@ -95,33 +95,38 @@ export function shapeOf(input: PreprocessorInput, result: GeometryResult): WingS
   };
 }
 
+/** The settings a rib table gives: the others are not in it. */
+export type RibShape = Partial<
+  Pick<WingShape, 'area' | 'aspectRatio' | 'taper' | 'sweep' | 'tipAngle' | 'cells'>
+>;
+
 /**
- * The shape of a rib table as section 1 of leparagliding.txt has it (half
+ * The settings of a rib table as section 1 of leparagliding.txt has it (half
  * wing from the center, before Wing scale): its area, aspect ratio, taper,
- * sweep, vault angle and cells, clamped to the limits. The other settings
- * keep SHAPE_DEFAULTS, and so does a table without a positive chord.
+ * sweep, vault angle and cells, clamped to the limits. A table without a
+ * positive chord gives none, and one without chord loss or vault angle no
+ * sweep or tip angle.
  */
 export function shapeOfRibs(
   ribs: readonly Pick<GeneratedRib, 'x' | 'yLE' | 'yTE' | 'beta'>[],
   cells: number,
-): WingShape {
+): RibShape {
   const center = ribs[0];
   const tip = ribs.at(-1);
   const valid = ribs.every(
     (rib) => [rib.x, rib.yLE, rib.yTE, rib.beta].every(Number.isFinite) && rib.yTE > rib.yLE,
   );
   const area = valid && ribs.length > 1 ? wingArea(ribs, 'x') : 0;
-  if (!center || !tip || !(area > 0) || !Number.isInteger(cells)) return SHAPE_DEFAULTS;
+  if (!center || !tip || !(area > 0) || !Number.isInteger(cells)) return {};
   const chord = center.yTE - center.yLE;
   const tipChord = tip.yTE - tip.yLE;
   const loss = chord - tipChord;
   return {
-    ...SHAPE_DEFAULTS,
     area: clamp('area', area),
     aspectRatio: clamp('aspectRatio', (tip.x / 50) ** 2 / area),
     taper: clamp('taper', tipChord / chord),
-    sweep: loss > 0 ? clamp('sweep', (tip.yLE - center.yLE) / loss) : SHAPE_DEFAULTS.sweep,
-    tipAngle: tip.beta > 0 ? clamp('tipAngle', tip.beta) : SHAPE_DEFAULTS.tipAngle,
+    ...(loss > 0 && { sweep: clamp('sweep', (tip.yLE - center.yLE) / loss) }),
+    ...(tip.beta > 0 && { tipAngle: clamp('tipAngle', tip.beta) }),
     cells: clamp('cells', cells),
   };
 }

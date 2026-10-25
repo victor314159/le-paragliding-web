@@ -7,12 +7,12 @@ import {
   ELLIPSE_VAULT_DEFAULTS,
   PREPROCESSOR_EXAMPLE,
   PRE_DATA_FILE,
+  SHAPE_DEFAULTS,
   cellCount,
   fromShape,
   generateGeometry,
   shapeLosses,
   shapeOf,
-  shapeOfRibs,
   type CellDistribution,
   type GeometryResult,
   type PreprocessorInput,
@@ -152,12 +152,11 @@ export function generatesGeometry(
 export type PreprocessorFormTree = FieldTree<PreprocessorForm>;
 
 /**
- * The parameters a created pre-data.txt starts from: an Auto shape with the
- * area, aspect ratio, taper, sweep, vault angle and cells of section 1, and
- * its wing name.
+ * The parameters a created pre-data.txt starts from: the default Auto shape,
+ * with the wing name of section 1.
  */
 export function createdPreprocessor(geometry: LepDesign['geometry']): PreprocessorInput {
-  const input = fromShape(shapeOfRibs(geometry.ribs, geometry.cells), PREPROCESSOR_EXAMPLE);
+  const input = fromShape(SHAPE_DEFAULTS, PREPROCESSOR_EXAMPLE);
   return { ...input, name: geometry.wingName.trim() || input.name };
 }
 
@@ -224,6 +223,17 @@ export class PreprocessorDraft {
     if (this.exists) return;
     this.value.set(toPreprocessorForm(input));
     this.loaded.set(true);
+  }
+
+  /** Sets the parameters of `shape`: the modes it does not use keep their values, as in Manual. */
+  applyShape(shape: WingShape): void {
+    const input = fromShape(shape, this.input());
+    this.value.update((form) => ({
+      ...form,
+      ...input,
+      vault: { ...form.vault, ...input.vault },
+      distribution: { ...form.distribution, ...input.distribution },
+    }));
   }
 
   /** Cancels `create`: nothing is written. */

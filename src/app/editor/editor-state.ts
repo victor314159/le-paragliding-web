@@ -8,7 +8,12 @@ import {
   type LepDesign,
   type LepProject,
 } from '@lepara/format';
-import { PRE_DATA_FILE, type PreprocessorInput, type Result } from '@lepara/preprocessor';
+import {
+  PRE_DATA_FILE,
+  shapeOfRibs,
+  type PreprocessorInput,
+  type Result,
+} from '@lepara/preprocessor';
 import { EditorDraft, type AirfoilsForm, type EditorForm } from './editor-draft';
 import {
   PreprocessorDraft,
@@ -179,7 +184,7 @@ export class EditorState {
   readonly preprocessorFocus = signal<PreprocessorFocus | undefined>(undefined);
   private readonly recordSelections = new WeakMap<object, WritableSignal<number>>();
 
-  /** Creates pre-data.txt, shaped like the rib table of section 1. */
+  /** Creates pre-data.txt, in Auto with the default shape. */
   createPreprocessor(): void {
     this.preprocessor.create(createdPreprocessor(this.draft.project().design.geometry));
   }
@@ -189,6 +194,17 @@ export class EditorState {
     const generated = this.generated();
     if (this.focusUnparsed() || !generated) return;
     this.draft.value.update((value) => applyGeneratedGeometry(value, generated));
+  }
+
+  /**
+   * Sets the Auto shape to the area, aspect ratio, taper, sweep, vault angle
+   * and cells of the rib table of section 1; the other settings stay.
+   */
+  fitPreprocessor(): void {
+    const shape = this.preprocessor.shape();
+    if (this.focusUnparsed() || !shape) return;
+    const { ribs, cells } = this.draft.project().design.geometry;
+    this.preprocessor.applyShape({ ...shape, ...shapeOfRibs(ribs, cells) });
   }
 
   /** Highlights a parameter group in the preview, without changing its view. */

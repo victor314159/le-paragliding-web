@@ -6,8 +6,11 @@ import {
   ARC_VAULT_DEFAULTS,
   ELLIPSE_VAULT_DEFAULTS,
   PREPROCESSOR_EXAMPLE,
+  SHAPE_DEFAULTS,
+  fromShape,
   generateGeometry,
   parsePreData,
+  shapeOfRibs,
   writePreData,
   type PreprocessorInput,
 } from '../packages/preprocessor/src/index.ts';
@@ -131,10 +134,13 @@ async function open(page: Page): Promise<void> {
 }
 
 const SYNCED = 'Geometry in sync with section 1';
+const DIFFERS = 'Geometry differs from section 1';
+/** The value shown for an Auto setting. */
+const setting = (page: Page, key: string) => page.locator(`#shape-${key} + output`);
 
-/** Replaces the rib table of section 1 with the one the parameters generate. */
+/** Applies the parameters to section 1: its rib table becomes the one they generate. */
 async function apply(page: Page): Promise<void> {
-  await button(page, 'Replace the rib table of section 1').click();
+  await button(page, 'Apply to section 1').click();
   await expect(page.getByText(SYNCED)).toBeVisible();
 }
 
@@ -181,17 +187,22 @@ async function exportZip(page: Page): Promise<JSZip> {
   return JSZip.loadAsync(await readFile(await (await zipping).path()));
 }
 
-test('without pre-data.txt, it is created in Auto from section 1 without changing the table', async ({
+test('without pre-data.txt, it is created in Auto with the default shape without changing the table', async ({
   page,
 }) => {
   await page.goto('/');
   const original = await download(page, 'leparagliding.txt');
-  const created = createdPreprocessor(ok(parseLep(original)).geometry);
+  const { geometry } = ok(parseLep(original));
+  const created = createdPreprocessor(geometry);
+  expect(created).toEqual({
+    ...fromShape(SHAPE_DEFAULTS, PREPROCESSOR_EXAMPLE),
+    name: geometry.wingName.trim() || PREPROCESSOR_EXAMPLE.name,
+  });
   await open(page);
   await expect(note(page, 'Not created')).toBeVisible();
   await expect(mode(page, 'Auto')).toHaveCount(0);
   await expect(page.getByRole('img', { name: 'Generated geometry' })).toHaveCount(0);
-  await button(page, 'Create from section 1').click();
+  await button(page, 'Create pre-data.txt').click();
   await expect(mode(page, 'Auto')).toBeChecked();
   await expect(page.getByText('it replaces')).toHaveCount(0);
   await expect(page.getByRole('img', { name: 'Generated geometry' })).toBeVisible();
@@ -202,7 +213,7 @@ test('without pre-data.txt, it is created in Auto from section 1 without changin
   await button(page, 'Discard pre-data.txt').click();
   await expect(note(page, 'Not created')).toBeVisible();
   await expect(page.getByText('· Modified')).toHaveCount(0);
-  await button(page, 'Create from section 1').click();
+  await button(page, 'Create pre-data.txt').click();
   await expect(mode(page, 'Auto')).toBeChecked();
   await mode(page, 'Manual').click();
   await expect(field(page, HALF_SPAN)).toHaveValue(String(created.halfSpan));
@@ -211,7 +222,7 @@ test('without pre-data.txt, it is created in Auto from section 1 without changin
   await expect(button(page, 'Actions for pre-data.txt')).toHaveCount(0);
 
   await open(page);
-  await button(page, 'Create from section 1').click();
+  await button(page, 'Create pre-data.txt').click();
   await button(page, 'Save').click();
   expect(await download(page, 'leparagliding.txt')).toBe(original);
   expect(ok(parsePreData(await download(page, 'pre-data.txt')))).toEqual(created);
@@ -302,7 +313,7 @@ test('applying keeps the other columns; invalid parameters cannot be applied and
   const generated = await values(page, 'Planform X (cm)');
   await navigate(page, /^pre-data\.txt/);
   await field(page, HALF_SPAN).fill('');
-  await expect(button(page, 'Replace the rib table of section 1')).toBeDisabled();
+  await expect(button(page, 'Apply to section 1')).toBeDisabled();
   await expect(button(page, 'Save')).toBeDisabled();
   await navigate(page, '1 · Geometry');
   expect(await values(page, 'Planform X (cm)')).toEqual(generated);
@@ -337,7 +348,7 @@ test('an unreadable pre-data.txt is edited as text and never replaced', async ({
   await expect(
     page.getByText('pre-data.txt could not be read: correct it as text, or import it again.'),
   ).toBeVisible();
-  await expect(button(page, 'Create from section 1')).toHaveCount(0);
+  await expect(button(page, 'Create pre-data.txt')).toHaveCount(0);
   await button(page, 'Save').click();
   expect(await download(page, 'pre-data.txt')).toBe('broken parameters');
   await open(page);
@@ -518,13 +529,13 @@ test('status separates invalid parameters from differences and warns only when a
   const source = ok(parseLep(await download(page, 'leparagliding.txt')));
   await importPreData(page, withCells(source.geometry.cells));
   await open(page);
-  const warning = page.getByText(/Replacing the rib table changes the cell count/);
+  const warning = page.getByText(/Applying changes the cell count/);
   await expect(warning).toHaveCount(0);
   await apply(page);
   await field(page, HALF_SPAN).fill('abc');
   await expect(page.getByRole('status').filter({ hasText: 'Invalid parameters' })).toBeVisible();
   await expect(note(page, 'Invalid parameters')).toBeVisible();
-  await expect(button(page, 'Replace the rib table of section 1')).toBeDisabled();
+  await expect(button(page, 'Apply to section 1')).toBeDisabled();
   await expect(page.getByRole('img', { name: 'Generated geometry' })).toHaveCount(0);
   await field(page, HALF_SPAN).fill('575.5');
   await expect(page.getByText(SYNCED, { exact: true })).toBeVisible();
@@ -532,7 +543,7 @@ test('status separates invalid parameters from differences and warns only when a
   await expect(warning).toContainText(
     `from ${source.geometry.cells} to ${source.geometry.cells + 2}`,
   );
-  await button(page, 'Replace the rib table of section 1').click();
+  await button(page, 'Apply to section 1').click();
   await expect(warning).toHaveCount(0);
   await expect(page.getByText(SYNCED, { exact: true })).toBeVisible();
 });
@@ -555,7 +566,13 @@ test('Auto lists what its shape replaces before tuning, and keeps the inactive m
   ).toBeVisible();
   const taper = page.getByRole('slider', { name: 'Tip chord' });
   await expect(taper).toBeDisabled();
+  const dialog = page.getByRole('dialog', { name: 'Replace the parameters?' });
   await button(page, 'Replace with the Auto shape').click();
+  await dialog.getByRole('button', { name: 'Keep the parameters' }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(taper).toBeDisabled();
+  await button(page, 'Replace with the Auto shape').click();
+  await dialog.getByRole('button', { name: 'Replace with the Auto shape' }).click();
   await expect(taper).toBeEnabled();
   await taper.press('ArrowRight');
   await expect(page.getByText('it replaces')).toHaveCount(0);
@@ -563,4 +580,45 @@ test('Auto lists what its shape replaces before tuning, and keeps the inactive m
   await expect(field(page, 'First tip correction · c01 (cm)')).toHaveValue('0');
   await choose(page, 'Vault shape', '1');
   await expect(field(page, 'Vault horizontal radius · a1 (cm)')).toHaveValue('450');
+});
+
+test('Fit sets the settings of section 1 and keeps the others, in Auto', async ({ page }) => {
+  await page.goto('/');
+  const { geometry } = ok(parseLep(await download(page, 'leparagliding.txt')));
+  const fitted = shapeOfRibs(geometry.ribs, geometry.cells);
+  await open(page);
+  await button(page, 'Create pre-data.txt').click();
+  await expect(page.getByText(DIFFERS, { exact: true })).toBeVisible();
+  await expect(button(page, 'Fit to section 1')).toBeEnabled();
+  await page.getByRole('slider', { name: 'Tip curl' }).press('ArrowRight');
+  await expect(setting(page, 'tipCurl')).toHaveText('40%');
+  const roundness = await setting(page, 'leadingEdgeRoundness').textContent();
+  await mode(page, 'Manual').click();
+  await button(page, 'Fit to section 1').click();
+  await expect(mode(page, 'Auto')).toBeChecked();
+  await expect(setting(page, 'cells')).toHaveText(String(fitted.cells));
+  await expect(setting(page, 'area')).toHaveText(`${fitted.area!.toFixed(1)} m²`);
+  await expect(setting(page, 'taper')).toHaveText(`${Math.round(fitted.taper! * 100)}%`);
+  await expect(setting(page, 'tipCurl')).toHaveText('40%');
+  await expect(setting(page, 'leadingEdgeRoundness')).toHaveText(roundness!);
+});
+
+test('Fit asks before replacing parameters Auto cannot set', async ({ page }) => {
+  await page.goto('/');
+  await importPreData(page, PREPROCESSOR_EXAMPLE);
+  await open(page);
+  await expect(mode(page, 'Manual')).toBeChecked();
+  await button(page, 'Fit to section 1').click();
+  const dialog = page.getByRole('dialog', { name: 'Replace the parameters?' });
+  await expect(dialog).toContainText('it replaces the leading edge corrections');
+  await dialog.getByRole('button', { name: 'Keep the parameters' }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(mode(page, 'Manual')).toBeChecked();
+  await expect(field(page, 'First tip correction · c01 (cm)')).not.toHaveValue('0');
+  await button(page, 'Fit to section 1').click();
+  await dialog.getByRole('button', { name: 'Fit to section 1' }).click();
+  await expect(mode(page, 'Auto')).toBeChecked();
+  await expect(page.getByText('it replaces')).toHaveCount(0);
+  await mode(page, 'Manual').click();
+  await expect(field(page, 'First tip correction · c01 (cm)')).toHaveValue('0');
 });
