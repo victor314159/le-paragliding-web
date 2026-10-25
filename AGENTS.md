@@ -1,5 +1,8 @@
 # AGENTS.md
 
+As simple, lean, clean as possible.
+Use best practices and factorize when possible.
+
 Setup, build and test commands are in [README.md](README.md).
 
 - Build, lint and test in containers (`docker compose`, `docker build`), never
@@ -67,3 +70,13 @@ Setup, build and test commands are in [README.md](README.md).
   patches in `fortran/preprocessor/patches/`: never edit the official source.
   Run `docker compose run --rm oracle node scripts/check-preprocessor-native.ts`
   and `docker compose run --rm web npm test -- preprocessor` after changing it.
+
+## Design helpers
+
+- `packages/design/` holds what acts on a design without a native
+  equivalent (Auto shape, applying pre-data.txt to section 1), on
+  `LepDesign` and the preprocessor's types. A new helper goes there, typed on
+  the sections it reads (`Pick<LepDesign, ...>`), never in the ports
+  (`format`, `preprocessor`, `engine`), which hold only what their oracles
+  check. The editor's form adapters stay in `src/app/editor/`.
+  Run `docker compose run --rm web npm test -- design` after changing it.

@@ -8,18 +8,12 @@ import {
   type LepDesign,
   type LepProject,
 } from '@lepara/format';
-import {
-  PRE_DATA_FILE,
-  shapeOfRibs,
-  type PreprocessorInput,
-  type Result,
-} from '@lepara/preprocessor';
+import { fitShape, isGeneratedGeometry, newPreData } from '@lepara/design';
+import { PRE_DATA_FILE, type PreprocessorInput, type Result } from '@lepara/preprocessor';
 import { EditorDraft, type AirfoilsForm, type EditorForm } from './editor-draft';
 import {
   PreprocessorDraft,
   applyGeneratedGeometry,
-  createdPreprocessor,
-  generatesGeometry,
   type PreprocessorFormTree,
 } from './preprocessor-draft';
 
@@ -140,9 +134,7 @@ export class EditorState {
   readonly preprocessorStatus = computed<PreprocessorStatus>(() => {
     const generated = this.generated();
     if (!generated) return 'invalid';
-    return generatesGeometry(this.draft.project().design.geometry, generated)
-      ? 'synced'
-      : 'differs';
+    return isGeneratedGeometry(this.draft.project().design, generated) ? 'synced' : 'differs';
   });
   /** Those of the draft, then those of pre-data.txt: unreadable, or of generating. */
   readonly diagnostics = computed(() => [
@@ -186,7 +178,7 @@ export class EditorState {
 
   /** Creates pre-data.txt, in Auto with the default shape. */
   createPreprocessor(): void {
-    this.preprocessor.create(createdPreprocessor(this.draft.project().design.geometry));
+    this.preprocessor.create(newPreData(this.draft.project().design));
   }
 
   /** Replaces the cells and rib positions of section 1 with those the parameters generate. */
@@ -203,8 +195,7 @@ export class EditorState {
   fitPreprocessor(): void {
     const shape = this.preprocessor.shape();
     if (this.focusUnparsed() || !shape) return;
-    const { ribs, cells } = this.draft.project().design.geometry;
-    this.preprocessor.applyShape({ ...shape, ...shapeOfRibs(ribs, cells) });
+    this.preprocessor.applyShape(fitShape(shape, this.draft.project().design));
   }
 
   /** Highlights a parameter group in the preview, without changing its view. */

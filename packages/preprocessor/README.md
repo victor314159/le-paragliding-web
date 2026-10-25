@@ -46,32 +46,20 @@ chord retain the upstream meaning (first/last rib).
 
 Ribs are structurally compatible with the nine-column `RibGeometry` in
 `@lepara/format`. The caller owns integration with a design, including its
-11-column rotations, washin, profiles and other rib references. This package
-supports the preprocessor's 199-cell limit; the current engine/format allows
-197 cells because it reserves an additional virtual rib. This package does
-not modify designs, create DXF files, or fit parameters to existing ribs.
+11-column rotations, washin, profiles and other rib references:
+[`@lepara/design`](../design/README.md) writes the result into section 1.
+`wingArea(ribs, 'x' | 'xp')` gives the flat or projected area of a half-wing
+rib table, as in the metrics. This package supports the preprocessor's
+199-cell limit; the current engine/format allows 197 cells because it
+reserves an additional virtual rib. It holds only what has a native
+equivalent, checked by the oracle below: no design changes, DXF files or
+fits to existing ribs.
 
 `pre-data.txt` uses the fixed records of 1.6. Headings and parameter labels
 are skipped as in Fortran; comma/space-separated numbers, `D` exponents,
 comments after values, CRLF and quoted names are accepted. Writing produces
 canonical records; comments/layout are not retained. Other list-directed
 syntax (repetition, null values, record continuation) is not supported.
-
-## Shape
-
-An optional extension, without a native equivalent nor an oracle: a
-`WingShape` of ten settings (flat area and aspect ratio, tip chord, sweep,
-edge roundness, vault tip angle and curl, cells and their uniformity) sets
-every parameter. `fromShape(shape, base)` gives elliptic edges without
-corrections, four vault arcs and cells proportional to chord, rounded to
-0.01, with the flat area of the shape; it keeps the name and correction starts
-of `base`. `shapeOf(input, result)` reads the shape of valid parameters,
-clamped to `SHAPE_LIMITS`. `shapeLosses(shape, input)` lists the parts of the
-parameters that the shape replaces: none when they are a shape's within
-rounding, vault arcs being compared by length and angle. `shapeOfRibs(ribs, cells)` gives
-the settings of a rib table as section 1 has them (area, aspect ratio, tip
-chord, sweep, tip angle and cells), none without a positive chord: spread
-over a shape, they fit it to an existing wing.
 
 ## Native oracle
 

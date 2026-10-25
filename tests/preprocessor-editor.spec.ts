@@ -1,36 +1,34 @@
 import { readFile } from 'node:fs/promises';
 import { expect, test, type Page } from '@playwright/test';
 import JSZip from 'jszip';
-import { parseLep, writeLep } from '../packages/format/src/index.ts';
+import {
+  GENERATED_COLUMNS,
+  SHAPE_DEFAULTS,
+  applyGeometry,
+  fromShape,
+  newPreData,
+  shapeOfRibs,
+} from '../packages/design/src/index.ts';
+import { parseLep, validateDesign, writeLep } from '../packages/format/src/index.ts';
 import {
   ARC_VAULT_DEFAULTS,
   ELLIPSE_VAULT_DEFAULTS,
   PREPROCESSOR_EXAMPLE,
-  SHAPE_DEFAULTS,
-  fromShape,
   generateGeometry,
   parsePreData,
-  shapeOfRibs,
   writePreData,
   type PreprocessorInput,
 } from '../packages/preprocessor/src/index.ts';
 import { toDesign, toForm } from '../src/app/editor/editor-draft.ts';
 import {
-  GENERATED_COLUMNS,
   applyGeneratedGeometry,
-  createdPreprocessor,
-  generatesGeometry,
   toExplicitWidths,
   toPreprocessorForm,
   toPreprocessorInput,
 } from '../src/app/editor/preprocessor-draft.ts';
 import { lep, ok } from './format/helpers';
 import { editText } from './helpers';
-
-const withCells = (cells: number): PreprocessorInput => ({
-  ...PREPROCESSOR_EXAMPLE,
-  distribution: { mode: 3, coefficient: 0.7, cells },
-});
+import { withCells } from './preprocessor/cases.ts';
 
 test('the form keeps the inactive modes and leaves out the zero of a central rib', () => {
   const form = toPreprocessorForm(PREPROCESSOR_EXAMPLE);
@@ -76,39 +74,30 @@ test('explicit widths start from the cell count of the previous mode', () => {
   expect(toExplicitWidths(unparsed)).toBe(unparsed);
 });
 
-test('generating replaces the generated columns only, and is recognized afterwards', () => {
+test('applying in the form keeps the other sections and the columns the table does not use', () => {
   const design = toForm(ok(parseLep(lep())));
   const original = structuredClone(design);
   const result = ok(generateGeometry(withCells(design.geometry.cells!)));
   const applied = applyGeneratedGeometry(design, result);
   expect(design).toEqual(original);
   expect(applied.lines).toBe(design.lines);
-  expect(applied.geometry.washin).toBe(design.geometry.washin);
-  for (const [i, rib] of applied.geometry.ribs.entries()) {
-    const { rotationPoint, washin, rotZ, rotZPosition } = design.geometry.ribs[i];
-    expect(rib).toMatchObject({ rotationPoint, washin, rotZ, rotZPosition });
-    // Rounded as geometry-out.txt (F7.2), which users copy into leparagliding.txt.
-    for (const key of GENERATED_COLUMNS) {
-      expect(rib[key]!).toBeCloseTo(result.ribs[i][key], 2);
-      expect(rib[key]).toBe(Number(rib[key]!.toFixed(2)));
-    }
-  }
-  expect(generatesGeometry(toDesign(applied).geometry, result)).toBe(true);
-  expect(generatesGeometry(toDesign(design).geometry, result)).toBe(false);
-  const shifted = toDesign(applied).geometry;
-  const [first, ...rest] = shifted.ribs;
-  expect(
-    generatesGeometry({ ...shifted, ribs: [{ ...first, x: first.x + 0.01 }, ...rest] }, result),
-  ).toBe(false);
-  const larger = applyGeneratedGeometry(design, ok(generateGeometry(withCells(52))));
-  expect(larger.geometry).toMatchObject({ cells: 52, ribCount: 53 });
-  expect(larger.geometry.ribs).toHaveLength(27);
-  expect(larger.geometry.ribs.at(-1)).toMatchObject({
-    rotationPoint: 33.33,
-    washin: 0,
-    rotZ: 0,
-    rotZPosition: 0,
-  });
+  expect(toDesign(applied).geometry).toEqual(applyGeometry(toDesign(design), result));
+  // A nine-column table keeps the rotations the form holds, and new rows get none.
+  const nine = {
+    ...design,
+    geometry: {
+      ...design.geometry,
+      ribColumns: 9,
+      ribs: design.geometry.ribs.map((rib) => ({ ...rib, rotZ: 5 })),
+    },
+  };
+  const larger = applyGeneratedGeometry(nine, ok(generateGeometry(withCells(52))));
+  expect(larger.geometry.ribs[0].rotZ).toBe(5);
+  expect(larger.geometry.ribs.at(-1)).toMatchObject({ rotZ: 0, rotZPosition: 0 });
+  const errors = validateDesign(toDesign(larger)).filter(
+    (d) => d.section === 1 && d.severity === 'error',
+  );
+  expect(errors).toEqual([]);
 });
 
 const button = (page: Page, name: string) => page.getByRole('button', { name, exact: true });
@@ -193,7 +182,7 @@ test('without pre-data.txt, it is created in Auto with the default shape without
   await page.goto('/');
   const original = await download(page, 'leparagliding.txt');
   const { geometry } = ok(parseLep(original));
-  const created = createdPreprocessor(geometry);
+  const created = newPreData({ geometry });
   expect(created).toEqual({
     ...fromShape(SHAPE_DEFAULTS, PREPROCESSOR_EXAMPLE),
     name: geometry.wingName.trim() || PREPROCESSOR_EXAMPLE.name,

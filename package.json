@@ -13,7 +13,7 @@
     "lint:fix": "npm run lint -- --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "typecheck": "tsc --noEmit -p tsconfig.tools.json && tsc --noEmit -p packages/format && tsc --noEmit -p packages/preprocessor && tsc --noEmit -p packages/engine && tsc --noEmit -p packages/engine/smoke",
+    "typecheck": "tsc --noEmit -p tsconfig.tools.json && tsc --noEmit -p packages/format && tsc --noEmit -p packages/preprocessor && tsc --noEmit -p packages/design && tsc --noEmit -p packages/engine && tsc --noEmit -p packages/engine/smoke",
     "check": "npm run lint && npm run typecheck && npm run format:check",
     "check:staged": "lint-staged",
     "prepare": "husky",

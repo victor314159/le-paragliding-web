@@ -1,7 +1,13 @@
-// An extension, without a native equivalent: a few settings that set every parameter.
-import { generateGeometry, wingArea } from './geometry.ts';
-import type { GeneratedRib, GeometryResult, PreprocessorInput, Vault } from './model.ts';
-import { cellCount } from './validate.ts';
+// Without a native equivalent: a few settings that set every parameter of pre-data.txt.
+import type { RibGeometry } from '@lepara/format';
+import {
+  cellCount,
+  generateGeometry,
+  wingArea,
+  type GeometryResult,
+  type PreprocessorInput,
+  type Vault,
+} from '@lepara/preprocessor';
 
 /**
  * A few settings that set every parameter of pre-data.txt: elliptic edges
@@ -108,7 +114,7 @@ export type RibShape = Partial<
  * sweep or tip angle.
  */
 export function shapeOfRibs(
-  ribs: readonly Pick<GeneratedRib, 'x' | 'yLE' | 'yTE' | 'beta'>[],
+  ribs: readonly Pick<RibGeometry, 'x' | 'yLE' | 'yTE' | 'beta'>[],
   cells: number,
 ): RibShape {
   const center = ribs[0];

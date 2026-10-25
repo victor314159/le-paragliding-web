@@ -126,14 +126,15 @@ Both bump the patch version: add `-- minor` or `-- major` for the others.
 | `tests/`                 | Playwright tests                                                                                   |
 | `fortran/engine/`        | Official engine source, docs, examples and [patches](fortran/engine/patches/README.md)             |
 | `fortran/preprocessor/`  | Official geometry preprocessor source and [oracle patches](fortran/preprocessor/patches/README.md) |
+| `packages/design/`       | Design helpers without a native equivalent ([details](packages/design/README.md))                  |
 | `packages/engine/`       | The engine as an npm package ([details](packages/engine/README.md))                                |
 | `packages/format/`       | Input files as typed objects ([details](packages/format/README.md))                                |
 | `packages/preprocessor/` | Geometry preprocessor in TypeScript ([details](packages/preprocessor/README.md))                   |
 | `oracle/`                | Example designs and the official outputs the WASM build must match                                 |
 | `scripts/`               | Engine build and oracle scripts                                                                    |
 
-The app bundles `@lepara/format` and `@lepara/preprocessor` from their source
-(TypeScript path aliases);
+The app bundles `@lepara/format`, `@lepara/preprocessor` and `@lepara/design`
+from their source (TypeScript path aliases);
 the parameter editor (`src/app/editor/`) is loaded on demand.
 
 ## Example designs

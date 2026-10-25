@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "../../build/design",
+    "noEmit": false,
+    "paths": {
+      "@lepara/format": ["../../build/format/index.d.ts"],
+      "@lepara/preprocessor": ["../../build/preprocessor/index.d.ts"]
+    }
+  }
+}

@@ -2,12 +2,8 @@ import { Component, computed, inject } from '@angular/core';
 import { MatButton } from '@angular/material/button';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSlider, MatSliderThumb } from '@angular/material/slider';
-import {
-  SHAPE_LIMITS,
-  type PreprocessorInput,
-  type ShapePart,
-  type WingShape,
-} from '@lepara/preprocessor';
+import { SHAPE_LIMITS, type ShapePart, type WingShape } from '@lepara/design';
+import type { PreprocessorInput } from '@lepara/preprocessor';
 import { of, type Observable } from 'rxjs';
 import { confirm } from '../shared/confirm-dialog';
 import { EditorState } from './editor-state';

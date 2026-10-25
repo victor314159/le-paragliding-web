@@ -1,28 +1,30 @@
 import { computed, signal, type Signal, type WritableSignal } from '@angular/core';
 import type { FieldTree } from '@angular/forms/signals';
-import type { Diagnostic, LepDesign } from '@lepara/format';
+import {
+  applyGeometry,
+  fromShape,
+  shapeLosses,
+  shapeOf,
+  type ShapePart,
+  type WingShape,
+} from '@lepara/design';
+import type { Diagnostic } from '@lepara/format';
 import {
   ARC_VAULT_DEFAULTS,
   DISTRIBUTION_DEFAULTS,
   ELLIPSE_VAULT_DEFAULTS,
   PREPROCESSOR_EXAMPLE,
   PRE_DATA_FILE,
-  SHAPE_DEFAULTS,
   cellCount,
-  fromShape,
   generateGeometry,
-  shapeLosses,
-  shapeOf,
   type CellDistribution,
   type GeometryResult,
   type PreprocessorInput,
   type Result,
-  type ShapePart,
   type Vault,
-  type WingShape,
 } from '@lepara/preprocessor';
 import { dequal } from 'dequal';
-import type { AllModes, DesignForm, Nullable } from './editor-draft';
+import { toDesign, type AllModes, type DesignForm, type Nullable } from './editor-draft';
 
 /**
  * Explicit widths start with the central cell, or with a zero for a central
@@ -103,62 +105,25 @@ function formField(field: string, value: PreprocessorForm): string {
   );
 }
 
-/** The rib columns the preprocessor generates; applying it keeps the others. */
-export const GENERATED_COLUMNS = ['number', 'x', 'yLE', 'yTE', 'xp', 'z', 'beta'] as const;
-
 /**
- * The native preprocessor writes the rib table with F7.2, which the user
- * copies into leparagliding.txt: generated values are rounded the same way.
+ * The rib table of `result` in the form. The rows keep the columns that the
+ * table does not use, as the form keeps them.
  */
-const f72 = (value: number) => (Math.sign(value) * Math.round(Math.abs(value) * 100)) / 100;
-/** Half the last digit of F7.2, with some room for floating-point error. */
-const TOLERANCE = 0.005 + 1e-9;
-const rounded = <T extends Record<string, number>>(rib: T): T =>
-  Object.fromEntries(Object.entries(rib).map(([key, value]) => [key, f72(value)])) as T;
-
-/** The rib table of `result`, keeping the other columns of the existing ribs by row. */
-export function applyGeneratedGeometry(design: DesignForm, result: GeometryResult): DesignForm {
-  const g = design.geometry;
+export function applyGeneratedGeometry(form: DesignForm, result: GeometryResult): DesignForm {
+  const { cells, ribCount, ribs } = applyGeometry(toDesign(form), result);
+  const kept = form.geometry.ribs;
   return {
-    ...design,
+    ...form,
     geometry: {
-      ...g,
-      cells: result.cells,
-      ribCount: result.cells + 1,
-      // New rows take the preprocessor's washin settings.
-      ribs: result.ribs.map(({ rotationPoint, washin, ...generated }, i) => ({
-        ...(g.ribs.at(i) ?? { rotationPoint, washin, rotZ: 0, rotZPosition: 0 }),
-        ...rounded(generated),
-      })),
+      ...form.geometry,
+      cells,
+      ribCount,
+      ribs: ribs.map((rib, i) => ({ ...(kept.at(i) ?? { rotZ: 0, rotZPosition: 0 }), ...rib })),
     },
   };
 }
 
-/** `geometry` is the output of `result`, as written by the native preprocessor or by the editor. */
-export function generatesGeometry(
-  geometry: LepDesign['geometry'],
-  result: GeometryResult,
-): boolean {
-  return (
-    geometry.cells === result.cells &&
-    geometry.ribCount === result.cells + 1 &&
-    geometry.ribs.length === result.ribs.length &&
-    geometry.ribs.every((rib, i) =>
-      GENERATED_COLUMNS.every((key) => Math.abs(rib[key] - result.ribs[i][key]) <= TOLERANCE),
-    )
-  );
-}
-
 export type PreprocessorFormTree = FieldTree<PreprocessorForm>;
-
-/**
- * The parameters a created pre-data.txt starts from: the default Auto shape,
- * with the wing name of section 1.
- */
-export function createdPreprocessor(geometry: LepDesign['geometry']): PreprocessorInput {
-  const input = fromShape(SHAPE_DEFAULTS, PREPROCESSOR_EXAMPLE);
-  return { ...input, name: geometry.wingName.trim() || input.name };
-}
 
 /**
  * The parameters of pre-data.txt and the geometry they generate. A missing

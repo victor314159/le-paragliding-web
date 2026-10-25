@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
+  PREPROCESSOR_EXAMPLE,
   parsePreData,
   type CircularArc,
   type PreprocessorInput,
@@ -14,6 +15,12 @@ export function ok<T>(result: Result<T>): T {
 
 export const OFFICIAL = readFileSync(join(import.meta.dirname, 'fixtures/pre-data.txt'), 'utf8');
 export const EXAMPLE = ok(parsePreData(OFFICIAL));
+
+/** The documented example with `cells` cells, proportional to chord. */
+export const withCells = (cells: number): PreprocessorInput => ({
+  ...PREPROCESSOR_EXAMPLE,
+  distribution: { mode: 3, coefficient: 0.7, cells },
+});
 
 /** Shared by the TypeScript tests and the live native oracle. No generated references. */
 export function preprocessorCases(): { name: string; input: PreprocessorInput }[] {

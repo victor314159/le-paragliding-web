@@ -1,16 +1,15 @@
 import { expect, test } from '@playwright/test';
 import {
-  PREPROCESSOR_EXAMPLE,
   SHAPE_DEFAULTS,
   SHAPE_LIMITS,
   fromShape,
-  generateGeometry,
   shapeLosses,
   shapeOf,
   shapeOfRibs,
   type WingShape,
-} from '../../packages/preprocessor/src/index.ts';
-import { ok } from './cases.ts';
+} from '../../packages/design/src/index.ts';
+import { PREPROCESSOR_EXAMPLE, generateGeometry } from '../../packages/preprocessor/src/index.ts';
+import { ok } from '../preprocessor/cases.ts';
 
 test('a shape sets parameters that give it back, with its flat area', () => {
   const shape: WingShape = {

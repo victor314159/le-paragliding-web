@@ -1,0 +1,31 @@
+{
+  "name": "@lepara/design",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Helpers for LEparagliding 3.29 designs without a native equivalent: Auto shape of pre-data.txt, and its rib table in leparagliding.txt.",
+  "license": "GPL-3.0-only",
+  "author": "victor314159",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/victor314159/le-paragliding-web.git",
+    "directory": "packages/design"
+  },
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "types": "./index.d.ts",
+  "files": [
+    "*.js",
+    "*.d.ts"
+  ],
+  "sideEffects": false,
+  "dependencies": {
+    "@lepara/format": "0.1.0",
+    "@lepara/preprocessor": "0.1.0"
+  }
+}
