@@ -6,6 +6,7 @@ import {
   SECTION_SCENES,
   arcPoints,
   deflectedRod,
+  geometryComparisonScene,
   lineTree,
   metricsNote,
   miniribEllipses,
@@ -270,6 +271,27 @@ test('the geometry scene notes the metrics of its rib table, while it has them',
   );
   const ribs = [{ ...c.design.geometry.ribs[0], x: null as unknown as number }];
   expect(note({ ...c.design, geometry: { ...c.design.geometry, ribs } })).not.toContain('Flat');
+});
+
+test('the comparison scene superposes section 1 before, dashed, and after, solid', () => {
+  const before = context().design;
+  const ribs = before.geometry.ribs.map((rib) => ({ ...rib, x: rib.x * 1.1 }));
+  const after = { geometry: { ...before.geometry, ribs } };
+  const kinds = (view: string) =>
+    geometryComparisonScene(before, after, view, 'applied').paths.map((p) => p.kind);
+  const planform = geometryComparisonScene(before, after, 'planform', 'applied');
+  expect(planform.title).toBe('Wing planform · section 1 and applied');
+  expect(planform.note).toContain('Dashed: section 1 · Solid: applied');
+  expect(kinds('planform')).toEqual([
+    'modified',
+    ...ribs.flatMap(() => ['rib', 'rib']),
+    'original',
+  ]);
+  expect(kinds('front')).toEqual(['arch', 'original']);
+  // The tip of the wider wing after frames the drawing.
+  const [left, , width] = planform.viewBox.split(' ').map(Number);
+  expect(left + width / 2).toBeCloseTo(0, 6);
+  expect(width).toBeGreaterThan(2 * ribs.at(-1)!.x);
 });
 
 test('a scene is a standalone SVG document, its texts escaped', () => {

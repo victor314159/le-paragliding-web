@@ -127,9 +127,21 @@ const DIFFERS = 'Geometry differs from section 1';
 /** The value shown for an Auto setting. */
 const setting = (page: Page, key: string) => page.locator(`#shape-${key} + output`);
 
+/** Clicks `action`, then `confirm` in the dialog comparing section 1 with what it becomes. */
+async function confirmed(
+  page: Page,
+  action: 'Apply to section 1' | 'Fit to section 1',
+  confirm: 'Apply' | 'Fit',
+) {
+  await button(page, action).click();
+  const dialog = page.getByRole('dialog', { name: `${action}?` });
+  await dialog.getByRole('button', { name: confirm, exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+}
+
 /** Applies the parameters to section 1: its rib table becomes the one they generate. */
 async function apply(page: Page): Promise<void> {
-  await button(page, 'Apply to section 1').click();
+  await confirmed(page, 'Apply to section 1', 'Apply');
   await expect(page.getByText(SYNCED)).toBeVisible();
 }
 
@@ -529,12 +541,22 @@ test('status separates invalid parameters from differences and warns only when a
   await field(page, HALF_SPAN).fill('575.5');
   await expect(page.getByText(SYNCED, { exact: true })).toBeVisible();
   await field(page, 'Cells').fill(String(source.geometry.cells + 2));
-  await expect(warning).toContainText(
-    `from ${source.geometry.cells} to ${source.geometry.cells + 2}`,
-  );
+  const change = `from ${source.geometry.cells} to ${source.geometry.cells + 2}`;
+  await expect(warning).toContainText(change);
   await button(page, 'Apply to section 1').click();
+  const dialog = page.getByRole('dialog', { name: 'Apply to section 1?' });
+  await expect(dialog).toContainText(`The cell count changes ${change}`);
+  await expect(
+    dialog.getByRole('img', { name: 'Wing planform · section 1 and applied' }),
+  ).toBeVisible();
+  await expect(dialog.getByRole('row', { name: /^Cells/ })).toHaveText(
+    `Cells${source.geometry.cells}${source.geometry.cells + 2}`,
+  );
+  await dialog.getByRole('button', { name: 'Cancel' }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(warning).toContainText(change);
+  await apply(page);
   await expect(warning).toHaveCount(0);
-  await expect(page.getByText(SYNCED, { exact: true })).toBeVisible();
 });
 
 test('Auto lists what its shape replaces before tuning, and keeps the inactive modes', async ({
@@ -583,7 +605,7 @@ test('Fit sets the settings of section 1 and keeps the others, in Auto', async (
   await expect(setting(page, 'tipCurl')).toHaveText('40%');
   const roundness = await setting(page, 'leadingEdgeRoundness').textContent();
   await mode(page, 'Manual').click();
-  await button(page, 'Fit to section 1').click();
+  await confirmed(page, 'Fit to section 1', 'Fit');
   await expect(mode(page, 'Auto')).toBeChecked();
   await expect(setting(page, 'cells')).toHaveText(String(fitted.cells));
   await expect(setting(page, 'area')).toHaveText(`${fitted.area!.toFixed(1)} m²`);
@@ -592,20 +614,25 @@ test('Fit sets the settings of section 1 and keeps the others, in Auto', async (
   await expect(setting(page, 'leadingEdgeRoundness')).toHaveText(roundness!);
 });
 
-test('Fit asks before replacing parameters Auto cannot set', async ({ page }) => {
+test('Fit compares section 1 with the fitted shape, and asks before replacing parameters', async ({
+  page,
+}) => {
   await page.goto('/');
   await importPreData(page, PREPROCESSOR_EXAMPLE);
   await open(page);
   await expect(mode(page, 'Manual')).toBeChecked();
   await button(page, 'Fit to section 1').click();
-  const dialog = page.getByRole('dialog', { name: 'Replace the parameters?' });
+  const dialog = page.getByRole('dialog', { name: 'Fit to section 1?' });
   await expect(dialog).toContainText('it replaces the leading edge corrections');
-  await dialog.getByRole('button', { name: 'Keep the parameters' }).click();
+  await dialog.getByRole('radio', { name: 'Front' }).click();
+  await expect(
+    dialog.getByRole('img', { name: 'Wing front view · section 1 and fitted' }),
+  ).toBeVisible();
+  await dialog.getByRole('button', { name: 'Cancel' }).click();
   await expect(dialog).toHaveCount(0);
   await expect(mode(page, 'Manual')).toBeChecked();
   await expect(field(page, 'First tip correction · c01 (cm)')).not.toHaveValue('0');
-  await button(page, 'Fit to section 1').click();
-  await dialog.getByRole('button', { name: 'Fit to section 1' }).click();
+  await confirmed(page, 'Fit to section 1', 'Fit');
   await expect(mode(page, 'Auto')).toBeChecked();
   await expect(page.getByText('it replaces')).toHaveCount(0);
   await mode(page, 'Manual').click();

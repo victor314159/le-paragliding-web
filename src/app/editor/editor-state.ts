@@ -8,8 +8,20 @@ import {
   type LepDesign,
   type LepProject,
 } from '@lepara/format';
-import { fitShape, isGeneratedGeometry, newPreData } from '@lepara/design';
-import { PRE_DATA_FILE, type PreprocessorInput, type Result } from '@lepara/preprocessor';
+import {
+  applyGeometry,
+  fitShape,
+  fromShape,
+  isGeneratedGeometry,
+  newPreData,
+  type WingShape,
+} from '@lepara/design';
+import {
+  PRE_DATA_FILE,
+  generateGeometry,
+  type PreprocessorInput,
+  type Result,
+} from '@lepara/preprocessor';
 import type { PreprocessorFocus } from '@lepara/views';
 import { EditorDraft, type AirfoilsForm, type EditorForm } from './editor-draft';
 import {
@@ -174,6 +186,28 @@ export class EditorState {
     this.preprocessor.create(newPreData(this.draft.project().design));
   }
 
+  /** Section 1 as applying would make it, if the parameters are valid. */
+  appliedGeometry(): Pick<LepDesign, 'geometry'> | undefined {
+    const generated = this.generated();
+    return generated && { geometry: applyGeometry(this.draft.project().design, generated) };
+  }
+
+  /**
+   * The Auto shape with the area, aspect ratio, taper, sweep, vault angle and
+   * cells of the rib table of section 1, the other settings kept; and section
+   * 1 as it generates it, if it does.
+   */
+  fitted(): { shape: WingShape; design: Pick<LepDesign, 'geometry'> } | undefined {
+    const current = this.preprocessor.shape();
+    if (!current) return undefined;
+    const { design } = this.draft.project();
+    const shape = fitShape(current, design);
+    const result = generateGeometry(fromShape(shape, this.preprocessor.input()));
+    return result.ok
+      ? { shape, design: { geometry: applyGeometry(design, result.value) } }
+      : undefined;
+  }
+
   /** Replaces the cells and rib positions of section 1 with those the parameters generate. */
   applyPreprocessor(): void {
     const generated = this.generated();
@@ -181,14 +215,9 @@ export class EditorState {
     this.draft.value.update((value) => applyGeneratedGeometry(value, generated));
   }
 
-  /**
-   * Sets the Auto shape to the area, aspect ratio, taper, sweep, vault angle
-   * and cells of the rib table of section 1; the other settings stay.
-   */
-  fitPreprocessor(): void {
-    const shape = this.preprocessor.shape();
-    if (this.focusUnparsed() || !shape) return;
-    this.preprocessor.applyShape(fitShape(shape, this.draft.project().design));
+  /** Sets the Auto shape that `fitted` gives. */
+  fitPreprocessor(shape: WingShape): void {
+    if (!this.focusUnparsed()) this.preprocessor.applyShape(shape);
   }
 
   /** Highlights a parameter group in the preview, without changing its view. */

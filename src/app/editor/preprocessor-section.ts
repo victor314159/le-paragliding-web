@@ -1,13 +1,14 @@
-import { Component, computed, inject, linkedSignal, untracked } from '@angular/core';
+import { Component, computed, inject, Injector, linkedSignal, untracked } from '@angular/core';
 import { MatButton } from '@angular/material/button';
 import { MatButtonToggle, MatButtonToggleGroup } from '@angular/material/button-toggle';
 import { MatDialog } from '@angular/material/dialog';
 import { EditorState, type PreprocessorStatus } from './editor-state';
+import { confirmGeometry } from './geometry-comparison-dialog';
 import { NumberField } from './number-field';
 import { toExplicitWidths } from './preprocessor-draft';
 import { AddRow, RecordRow, RemoveRow } from './record-editor';
 import { SelectField } from './select-field';
-import { ShapeFields, confirmShape } from './shape-fields';
+import { ShapeFields, lossText } from './shape-fields';
 import { TextField } from './text-field';
 
 const STATUS: Readonly<Record<PreprocessorStatus, string>> = {
@@ -51,7 +52,7 @@ const STATUS: Readonly<Record<PreprocessorStatus, string>> = {
             matButton="filled"
             type="button"
             [disabled]="status() !== 'differs'"
-            (click)="editor.applyPreprocessor()"
+            (click)="apply()"
           >
             Apply to section 1
           </button>
@@ -321,6 +322,7 @@ const STATUS: Readonly<Record<PreprocessorStatus, string>> = {
 export class PreprocessorSection {
   protected readonly editor = inject(EditorState);
   private readonly dialogs = inject(MatDialog);
+  private readonly injector = inject(Injector);
   protected readonly form = this.editor.preprocessorForm;
 
   protected readonly status = this.editor.preprocessorStatus;
@@ -410,17 +412,49 @@ export class PreprocessorSection {
     },
   ] as const;
 
+  protected apply(): void {
+    const after = this.editor.appliedGeometry();
+    if (!after) return;
+    const cells = this.newCellCount();
+    confirmGeometry(this.dialogs, this.injector, {
+      title: 'Apply to section 1?',
+      message:
+        'Applying replaces the cells and rib positions of section 1 with those the parameters ' +
+        'generate, and keeps its other rib columns.' +
+        (cells === undefined
+          ? ''
+          : ` The cell count changes from ${this.editor.draft.value().geometry.cells} to ` +
+            `${cells}; other sections may need corrections.`),
+      change: 'applied',
+      confirm: 'Apply',
+      before: this.editor.draft.project().design,
+      after,
+    }).subscribe((confirmed) => {
+      if (confirmed) this.editor.applyPreprocessor();
+    });
+  }
+
   /** Fit sets Auto parameters: in Manual, it switches to Auto. */
   protected fit(): void {
-    const { preprocessor } = this.editor;
-    confirmShape(
-      this.dialogs,
-      preprocessor.shapeLosses(),
-      preprocessor.input(),
-      'Fit to section 1',
-    ).subscribe((confirmed) => {
+    const fitted = this.editor.fitted();
+    if (!fitted) return;
+    const { shapeLosses, input } = this.editor.preprocessor;
+    const losses = shapeLosses();
+    confirmGeometry(this.dialogs, this.injector, {
+      title: 'Fit to section 1?',
+      message:
+        'Fitting sets the area, aspect ratio, taper, sweep, tip angle and cells of Auto to ' +
+        'those of section 1: the parameters it gives may not generate section 1 exactly.' +
+        (losses.length
+          ? ` Auto sets fewer parameters than this wing has: it replaces ${lossText(losses, input())}.`
+          : ''),
+      change: 'fitted',
+      confirm: 'Fit',
+      before: this.editor.draft.project().design,
+      after: fitted.design,
+    }).subscribe((confirmed) => {
       if (!confirmed) return;
-      this.editor.fitPreprocessor();
+      this.editor.fitPreprocessor(fitted.shape);
       this.mode.set('auto');
     });
   }

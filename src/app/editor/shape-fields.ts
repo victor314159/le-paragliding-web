@@ -31,7 +31,7 @@ export const lossText = (losses: readonly ShapePart[], input: PreprocessorInput)
   new Intl.ListFormat('en').format(losses.map((part) => LOSSES[part](input)));
 
 /** Emits once: true if an Auto shape loses nothing of `input`, or if `action` is confirmed. */
-export function confirmShape(
+function confirmShape(
   dialogs: MatDialog,
   losses: readonly ShapePart[],
   input: PreprocessorInput,

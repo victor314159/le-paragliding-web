@@ -1,4 +1,5 @@
 import { wingMetrics } from '@lepara/design';
+import type { LepDesign } from '@lepara/format';
 import { centroid, finite, flipX, mirrored, previewBounds, type Point } from './geometry.ts';
 import {
   ANCHOR_COLORS,
@@ -9,7 +10,36 @@ import {
 } from './profile.ts';
 import { PreviewDrawing, metricsNote, type PreviewContext } from './scene.ts';
 
-const NOTE = 'Input coordinates · Mirrored wing. Focus a rib row to highlight it.';
+const COORDINATES = 'Input coordinates · Mirrored wing.';
+const NOTE = `${COORDINATES} Focus a rib row to highlight it.`;
+
+/** The ribs of section 1 with a vault point, from the center. */
+const vaultHalf = ({ geometry }: Pick<LepDesign, 'geometry'>) =>
+  geometry.ribs.flatMap((r, index) =>
+    finite(r.xp) && finite(r.z) ? [{ index, number: r.number, point: [r.xp, r.z] as Point }] : [],
+  );
+
+/** Both halves of a vault, from the left tip. */
+const vaultRibs = (half: ReturnType<typeof vaultHalf>) =>
+  mirrored(half, (r) => ({ ...r, point: flipX(r.point) }));
+
+/** The ribs of section 1 with a planform position, from the center. */
+const planformHalf = ({ geometry }: Pick<LepDesign, 'geometry'>) =>
+  geometry.ribs.flatMap((r, index) =>
+    finite(r.x) && finite(r.yLE) && finite(r.yTE)
+      ? [{ index, number: r.number, x: r.x, le: r.yLE, te: r.yTE }]
+      : [],
+  );
+
+/** Both halves of a planform, from the left tip: their outline, leading then trailing edge. */
+function planformOutline(half: ReturnType<typeof planformHalf>) {
+  const ribs = mirrored(half, (r) => ({ ...r, x: -r.x }));
+  const outline = [
+    ...ribs.map((r): Point => [r.x, r.le]),
+    ...[...ribs].reverse().map((r): Point => [r.x, r.te]),
+  ];
+  return { ribs, outline };
+}
 
 /** Section 1: the input planform or vault of both halves, the selected rib highlighted. */
 export function geometryScene({ design, view, selected }: PreviewContext<'geometry'>) {
@@ -19,11 +49,9 @@ export function geometryScene({ design, view, selected }: PreviewContext<'geomet
     : NOTE;
   if (view === 'front') {
     const d = new PreviewDrawing('Wing front view', note);
-    const half = design.geometry.ribs.flatMap((r, index) =>
-      finite(r.xp) && finite(r.z) ? [{ index, number: r.number, point: [r.xp, r.z] as Point }] : [],
-    );
+    const half = vaultHalf(design);
     if (!half.length) d.label([0, 0], 'Enter rib X′ and Z coordinates to preview the vault');
-    const ribs = mirrored(half, (r) => ({ ...r, point: flipX(r.point) }));
+    const ribs = vaultRibs(half);
     const points = ribs.map((r) => r.point);
     const bounds = previewBounds(points);
     const center = centroid(points);
@@ -54,18 +82,10 @@ export function geometryScene({ design, view, selected }: PreviewContext<'geomet
     return d.finish();
   }
   const d = new PreviewDrawing('Wing planform', note);
-  const half = design.geometry.ribs.flatMap((r, index) =>
-    finite(r.x) && finite(r.yLE) && finite(r.yTE)
-      ? [{ index, number: r.number, x: r.x, le: r.yLE, te: r.yTE }]
-      : [],
-  );
+  const half = planformHalf(design);
   if (!half.length)
     d.label([0, 0], 'Enter rib X and leading/trailing edge Y coordinates to preview the planform');
-  const ribs = mirrored(half, (r) => ({ ...r, x: -r.x }));
-  const outline = [
-    ...ribs.map((r): Point => [r.x, r.le]),
-    ...[...ribs].reverse().map((r): Point => [r.x, r.te]),
-  ];
+  const { ribs, outline } = planformOutline(half);
   const bounds = previewBounds(outline);
   const fontSize = (bounds.right - bounds.left) * 0.016;
   d.path(outline, 'outline', false, '', true);
@@ -92,6 +112,43 @@ export function geometryScene({ design, view, selected }: PreviewContext<'geomet
     direction: [0, r.te - r.le] as Point,
   }));
   d.ribNumbers(numbers, fontSize, selected);
+  return d.finish();
+}
+
+/**
+ * Section 1 `before` and `after` a change, superposed: their planforms or
+ * vaults (`front`), dashed before and solid after, with the ribs after.
+ * Both share the Wing scale of section 1, so input coordinates compare.
+ */
+export function geometryComparisonScene(
+  before: Pick<LepDesign, 'geometry'>,
+  after: Pick<LepDesign, 'geometry'>,
+  view: string,
+  change: string,
+) {
+  const front = view === 'front';
+  const d = new PreviewDrawing(
+    `Wing ${front ? 'front view' : 'planform'} · section 1 and ${change}`,
+    `Dashed: section 1 · Solid: ${change} · ${COORDINATES}`,
+  );
+  if (front) {
+    const vault = (design: Pick<LepDesign, 'geometry'>) =>
+      vaultRibs(vaultHalf(design)).map((r) => r.point);
+    d.path(vault(after), 'arch');
+    d.path(vault(before), 'original');
+    return d.finish();
+  }
+  const next = planformOutline(planformHalf(after));
+  d.path(next.outline, 'modified', false, '', true);
+  for (const r of next.ribs)
+    d.path(
+      [
+        [r.x, r.le],
+        [r.x, r.te],
+      ],
+      'rib',
+    );
+  d.path(planformOutline(planformHalf(before)).outline, 'original', false, '', true);
   return d.finish();
 }
 
