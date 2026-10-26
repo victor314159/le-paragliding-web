@@ -54,6 +54,14 @@ table, within the rounding. `fitShape(shape, design)` sets the settings of
 the parameters of a new pre-data.txt: `SHAPE_DEFAULTS`, with the wing name of
 section 1.
 
+## Metrics
+
+`wingMetrics(design)` gives the flat and projected spans (m), areas (m²) and
+aspect ratios of the rib table of section 1, at Wing scale, which the engine
+applies to its lengths: the main parameters of its lep-out.txt, and those of
+the preprocessor's result before Wing scale, within the F7.2 rounding of the
+table. None while a coordinate is missing or an area is not positive.
+
 ## Build and test
 
 ```sh

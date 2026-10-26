@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { wingMetrics } from '../../packages/design/src/index.ts';
 import { parseLep, type LepAirfoil, type RodCurve } from '../../packages/format/src/index.ts';
 import {
   ANCHOR_COLORS,
@@ -6,6 +7,7 @@ import {
   arcPoints,
   deflectedRod,
   lineTree,
+  metricsNote,
   miniribEllipses,
   reinforcementAttachments,
   ribProfile,
@@ -256,6 +258,18 @@ test('every detail preview and view handles empty collections and disabled secti
       expect(scene.paths.every((p) => !/NaN|Infinity/.test(p.d))).toBe(true);
     }
   }
+});
+
+test('the geometry scene notes the metrics of its rib table, while it has them', () => {
+  const c = context();
+  const metrics = wingMetrics(c.design)!;
+  const note = (design: PreviewContext['design']) =>
+    SECTION_SCENES.get(1)!.draw({ ...c, design }).note;
+  expect(note(c.design)).toContain(
+    `${metricsNote(metrics, c.design.geometry.cells)} · At Wing scale`,
+  );
+  const ribs = [{ ...c.design.geometry.ribs[0], x: null as unknown as number }];
+  expect(note({ ...c.design, geometry: { ...c.design.geometry, ribs } })).not.toContain('Flat');
 });
 
 test('a scene is a standalone SVG document, its texts escaped', () => {

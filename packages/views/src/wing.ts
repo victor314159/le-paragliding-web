@@ -1,3 +1,4 @@
+import { wingMetrics } from '@lepara/design';
 import { centroid, finite, flipX, mirrored, previewBounds, type Point } from './geometry.ts';
 import {
   ANCHOR_COLORS,
@@ -6,14 +7,18 @@ import {
   ribProfile,
   type ProfileSections,
 } from './profile.ts';
-import { PreviewDrawing, type PreviewContext } from './scene.ts';
+import { PreviewDrawing, metricsNote, type PreviewContext } from './scene.ts';
 
 const NOTE = 'Input coordinates · Mirrored wing. Focus a rib row to highlight it.';
 
 /** Section 1: the input planform or vault of both halves, the selected rib highlighted. */
 export function geometryScene({ design, view, selected }: PreviewContext<'geometry'>) {
+  const metrics = wingMetrics(design);
+  const note = metrics
+    ? `${metricsNote(metrics, design.geometry.cells)} · At Wing scale · ${NOTE}`
+    : NOTE;
   if (view === 'front') {
-    const d = new PreviewDrawing('Wing front view', NOTE);
+    const d = new PreviewDrawing('Wing front view', note);
     const half = design.geometry.ribs.flatMap((r, index) =>
       finite(r.xp) && finite(r.z) ? [{ index, number: r.number, point: [r.xp, r.z] as Point }] : [],
     );
@@ -48,7 +53,7 @@ export function geometryScene({ design, view, selected }: PreviewContext<'geomet
     d.ribNumbers(numbers, fontSize, selected);
     return d.finish();
   }
-  const d = new PreviewDrawing('Wing planform', NOTE);
+  const d = new PreviewDrawing('Wing planform', note);
   const half = design.geometry.ribs.flatMap((r, index) =>
     finite(r.x) && finite(r.yLE) && finite(r.yTE)
       ? [{ index, number: r.number, x: r.x, le: r.yLE, te: r.yTE }]

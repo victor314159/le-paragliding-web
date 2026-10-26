@@ -1,6 +1,6 @@
 import type { GeometryResult, PreprocessorInput } from '@lepara/preprocessor';
 import { flipX, mirrored, previewBounds, type Point } from './geometry.ts';
-import { PreviewDrawing } from './scene.ts';
+import { PreviewDrawing, metricsNote } from './scene.ts';
 
 /** A parameter group of pre-data.txt, highlighted in its scene. */
 export type PreprocessorFocus =
@@ -151,8 +151,6 @@ function cellBars(result: GeometryResult, focus: PreprocessorFocus | undefined):
   return s;
 }
 
-const fixed = (value: number) => value.toFixed(2);
-
 /**
  * The geometry the parameters of pre-data.txt generate, before Wing scale as
  * geometry-out.txt: its planform, vault (`front`) or cell widths (`cells`),
@@ -170,14 +168,12 @@ export function preprocessorScene(
       : view === 'front'
         ? front(result, focus)
         : planform(result, input, focus);
-  const m = result.metrics;
   const d = new PreviewDrawing(
     `Generated ${view === 'front' ? 'vault' : view === 'cells' ? 'half-wing cell widths (cm)' : 'planform'}${
       s.selection ? ` · ${s.selection}` : ''
     }`,
-    `Flat: ${fixed(m.flatSpan)} m · ${fixed(m.flatArea)} m² · AR ${fixed(m.flatAspectRatio)} · ` +
-      `Projected: ${fixed(m.projectedSpan)} m · ${fixed(m.projectedArea)} m² · AR ${fixed(m.projectedAspectRatio)} · ` +
-      `${result.cells} cells · Before Wing scale, as geometry-out.txt. Focus a parameter group to highlight it.`,
+    `${metricsNote(result.metrics, result.cells)} · Before Wing scale, as geometry-out.txt. ` +
+      'Focus a parameter group to highlight it.',
   );
   const all = [s.cells, s.ribs, s.curves.map((c) => c.points), s.highlights].flat(2);
   const bounds = previewBounds(all);

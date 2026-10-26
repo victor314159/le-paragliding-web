@@ -15,6 +15,7 @@ test('compiled package draws in Node, typed by @lepara/format', async () => {
   // Only types come from @lepara/format: its declarations import it, not the modules.
   expect(readFileSync(`${BUILD}/views/profile.d.ts`, 'utf8')).toContain("'@lepara/format'");
   expect(readFileSync(`${BUILD}/views/profile.js`, 'utf8')).not.toContain('@lepara/format');
+  expect(readFileSync(`${BUILD}/views/wing.js`, 'utf8')).toMatch(/from ["']@lepara\/design["']/);
 
   const parsed = format.parseLep(lep());
   if (!parsed.ok) throw new Error('The design does not parse');

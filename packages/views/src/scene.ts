@@ -1,3 +1,4 @@
+import type { WingMetrics } from '@lepara/design';
 import type { LepAirfoil, LepDesign } from '@lepara/format';
 import { finite, pointPath, previewBounds, ribNumbers, type Point } from './geometry.ts';
 
@@ -147,6 +148,13 @@ export class PreviewDrawing {
 }
 export const valueLabel = (value: number | null | undefined, unit = '') =>
   finite(value) ? `${Number(value.toPrecision(5))}${unit}` : '—';
+const fixed = (value: number) => value.toFixed(2);
+
+/** Flat and projected span (m), area (m²) and aspect ratio of a wing, and its cells. */
+export const metricsNote = (m: WingMetrics, cells: number) =>
+  `Flat: ${fixed(m.flatSpan)} m · ${fixed(m.flatArea)} m² · AR ${fixed(m.flatAspectRatio)} · ` +
+  `Projected: ${fixed(m.projectedSpan)} m · ${fixed(m.projectedArea)} m² · AR ${fixed(m.projectedAspectRatio)} · ` +
+  `${cells} cells`;
 export const ellipsePoints = (center: Point, a: number, b: number, angle = 0): Point[] =>
   Array.from({ length: 81 }, (_, i): Point => {
     const theta = (i * Math.PI) / 40;

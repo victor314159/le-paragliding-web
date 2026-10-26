@@ -3,8 +3,9 @@
 Drawings of LEparagliding 3.29 designs: every preview of the parameter
 editor, as plain scenes and standalone SVG. Typed by
 [`@lepara/format`](../format/README.md) and
-[`@lepara/preprocessor`](../preprocessor/README.md), without runtime
-dependencies or file access; runs in browsers, Workers and Node. GPL-3.0-only.
+[`@lepara/preprocessor`](../preprocessor/README.md); its only runtime
+dependency is [`@lepara/design`](../design/README.md), for the metrics of
+section 1. No file access; runs in browsers, Workers and Node. GPL-3.0-only.
 
 ```ts
 import { parseLep } from '@lepara/format';
@@ -51,3 +52,6 @@ and holes.
 docker compose run --rm web scripts/assemble-package.sh views   # -> build/views/
 docker compose run --rm web npm test -- views
 ```
+
+`build/views/` imports `@lepara/design` by name: the script assembles it and
+its dependencies too, and links them in `build/node_modules/`.

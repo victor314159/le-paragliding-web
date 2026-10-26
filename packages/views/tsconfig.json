@@ -6,6 +6,7 @@
     "rootDir": "..",
     "noEmit": true,
     "paths": {
+      "@lepara/design": ["../design/src/index.ts"],
       "@lepara/format": ["../format/src/index.ts"],
       "@lepara/preprocessor": ["../preprocessor/src/index.ts"]
     }

@@ -25,6 +25,7 @@
   ],
   "sideEffects": false,
   "dependencies": {
+    "@lepara/design": "0.1.0",
     "@lepara/format": "0.1.0",
     "@lepara/preprocessor": "0.1.0"
   }

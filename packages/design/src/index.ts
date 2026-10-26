@@ -9,6 +9,7 @@ export {
   type ShapePart,
   type WingShape,
 } from './shape.ts';
+export { wingMetrics, type WingMetrics } from './metrics.ts';
 export {
   GENERATED_COLUMNS,
   applyGeometry,

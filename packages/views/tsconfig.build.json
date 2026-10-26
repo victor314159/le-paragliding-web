@@ -5,6 +5,7 @@
     "outDir": "../../build/views",
     "noEmit": false,
     "paths": {
+      "@lepara/design": ["../../build/design/index.d.ts"],
       "@lepara/format": ["../../build/format/index.d.ts"],
       "@lepara/preprocessor": ["../../build/preprocessor/index.d.ts"]
     }
