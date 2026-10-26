@@ -50,7 +50,9 @@ columns of existing rows stay, and new rows take the preprocessor's washin
 settings, with no rotation in an 11-column table.
 `isGeneratedGeometry(design, result)` tells whether section 1 has that rib
 table, within the rounding. `fitShape(shape, design)` sets the settings of
-`shapeOfRibs` from section 1, keeping the others. `newPreData(design)` gives
+`shapeOfRibs` from section 1, and searches the others (cell uniformity, tip
+curl, edge roundness) for the least distance to its rib columns; without a
+valid table or vault, it keeps them. `newPreData(design)` gives
 the parameters of a new pre-data.txt: `SHAPE_DEFAULTS`, with the wing name of
 section 1.
 

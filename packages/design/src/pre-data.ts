@@ -3,10 +3,11 @@
 import type { LepDesign } from '@lepara/format';
 import {
   PREPROCESSOR_EXAMPLE,
+  generateGeometry,
   type GeometryResult,
   type PreprocessorInput,
 } from '@lepara/preprocessor';
-import { SHAPE_DEFAULTS, fromShape, shapeOfRibs, type WingShape } from './shape.ts';
+import { SHAPE_DEFAULTS, SHAPE_LIMITS, fromShape, shapeOfRibs, type WingShape } from './shape.ts';
 
 /** The rib columns the preprocessor generates; applying it keeps the others. */
 export const GENERATED_COLUMNS = ['number', 'x', 'yLE', 'yTE', 'xp', 'z', 'beta'] as const;
@@ -59,10 +60,75 @@ export function isGeneratedGeometry(
   );
 }
 
-/** `shape` with the settings the rib table of section 1 gives: the others stay. */
+type RibColumn = 'x' | 'yLE' | 'yTE' | 'xp' | 'z';
+
+/**
+ * The settings a rib table does not give, each with the columns it moves
+ * most: cells first, since the others are compared rib by rib.
+ */
+const FITTED: readonly [keyof WingShape, readonly RibColumn[]][] = [
+  ['cellUniformity', ['x']],
+  ['tipCurl', ['xp', 'z']],
+  ['leadingEdgeRoundness', ['yLE']],
+  ['trailingEdgeRoundness', ['yTE']],
+];
+/** The roundness moves the chords, which the cells follow: a second round settles them. */
+const ROUNDS = 2;
+/** Golden-section steps: 12 narrow a setting to under 1% of its range. */
+const STEPS = 12;
+const GOLDEN = (Math.sqrt(5) - 1) / 2;
+
+/** The value of `key` within its limits that gives the least `error`, by golden-section search. */
+function minimize(key: keyof WingShape, error: (value: number) => number): number {
+  let [a, b] = SHAPE_LIMITS[key];
+  let c = b - GOLDEN * (b - a);
+  let d = a + GOLDEN * (b - a);
+  let [ec, ed] = [error(c), error(d)];
+  for (let i = 0; i < STEPS; i++)
+    if (ec < ed) {
+      [b, d, ed] = [d, c, ec];
+      c = b - GOLDEN * (b - a);
+      ec = error(c);
+    } else {
+      [a, c, ec] = [c, d, ed];
+      d = a + GOLDEN * (b - a);
+      ed = error(d);
+    }
+  return (a + b) / 2;
+}
+
+/**
+ * `shape` with the settings the rib table of section 1 gives, and the
+ * others set to follow its cells, vault and edges as closely as they can.
+ * Without a valid table, its whole vault or its cell count within the
+ * limits, the others stay.
+ */
 export function fitShape(shape: WingShape, design: Pick<LepDesign, 'geometry'>): WingShape {
   const { ribs, cells } = design.geometry;
-  return { ...shape, ...shapeOfRibs(ribs, cells) };
+  const given = shapeOfRibs(ribs, cells);
+  let fitted: WingShape = { ...shape, ...given };
+  if (
+    given.cells !== cells ||
+    !ribs.every((rib) => Number.isFinite(rib.xp) && Number.isFinite(rib.z))
+  )
+    return fitted;
+  /** The squared distance of the `columns` the shape generates to those of the table. */
+  const error = (candidate: WingShape, columns: readonly RibColumn[]) => {
+    const result = generateGeometry(fromShape(candidate, PREPROCESSOR_EXAMPLE));
+    if (!result.ok || result.value.ribs.length !== ribs.length) return Infinity;
+    return result.value.ribs.reduce(
+      (sum, rib, i) =>
+        sum + columns.reduce((s, column) => s + (rib[column] - ribs[i][column]) ** 2, 0),
+      0,
+    );
+  };
+  for (let round = 0; round < ROUNDS; round++)
+    for (const [key, columns] of FITTED)
+      fitted = {
+        ...fitted,
+        [key]: minimize(key, (value) => error({ ...fitted, [key]: value }, columns)),
+      };
+  return fitted;
 }
 
 /** The parameters a new pre-data.txt starts from: the default shape, with the wing name of section 1. */

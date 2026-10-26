@@ -2,12 +2,14 @@ import { expect, test } from '@playwright/test';
 import {
   GENERATED_COLUMNS,
   SHAPE_DEFAULTS,
+  SHAPE_LIMITS,
   applyGeometry,
   fitShape,
   fromShape,
   isGeneratedGeometry,
   newPreData,
   shapeOfRibs,
+  type WingShape,
 } from '../../packages/design/src/index.ts';
 import { parseLep, validateDesign, type LepDesign } from '../../packages/format/src/index.ts';
 import { PREPROCESSOR_EXAMPLE, generateGeometry } from '../../packages/preprocessor/src/index.ts';
@@ -82,14 +84,31 @@ test('new rows take the washin of the preprocessor, and rotations only in an 11-
   expect(sectionErrors({ ...nine, geometry: grown })).toEqual([]);
 });
 
-test('fitting keeps the settings a rib table does not give', () => {
+test('fitting a rib table that a shape generates gives that shape back', () => {
+  const shape = {
+    ...SHAPE_DEFAULTS,
+    leadingEdgeRoundness: 0.9,
+    trailingEdgeRoundness: 0.5,
+    tipCurl: 0.25,
+    cellUniformity: 0.4,
+  };
+  const generated = ok(generateGeometry(fromShape(shape, PREPROCESSOR_EXAMPLE)));
+  const fitted = fitShape(SHAPE_DEFAULTS, { geometry: applyGeometry(design(), generated) });
+  for (const key of Object.keys(SHAPE_LIMITS) as (keyof WingShape)[]) {
+    const [min, max] = SHAPE_LIMITS[key];
+    expect(Math.abs(fitted[key] - shape[key]), key).toBeLessThan(0.02 * (max - min));
+  }
+});
+
+test('without its vault, fitting keeps the settings a rib table does not give', () => {
   const d = design();
-  const applied = { geometry: applyGeometry(d, ok(generateGeometry(withCells(44)))) };
-  const fitted = fitShape({ ...SHAPE_DEFAULTS, tipCurl: 0.5 }, applied);
+  const applied = applyGeometry(d, ok(generateGeometry(withCells(44))));
+  const ribs = applied.ribs.map((rib, i) => (i === 1 ? { ...rib, z: Number.NaN } : rib));
+  const fitted = fitShape({ ...SHAPE_DEFAULTS, tipCurl: 0.5 }, { geometry: { ...applied, ribs } });
   expect(fitted).toEqual({
     ...SHAPE_DEFAULTS,
     tipCurl: 0.5,
-    ...shapeOfRibs(applied.geometry.ribs, 44),
+    ...shapeOfRibs(ribs, 44),
   });
 });
 

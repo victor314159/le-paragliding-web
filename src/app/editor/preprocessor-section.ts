@@ -444,7 +444,8 @@ export class PreprocessorSection {
       title: 'Fit to section 1?',
       message:
         'Fitting sets the area, aspect ratio, taper, sweep, tip angle and cells of Auto to ' +
-        'those of section 1: the parameters it gives may not generate section 1 exactly.' +
+        'those of section 1, and its other settings to follow its cells, vault and edges: ' +
+        'the parameters it gives may not generate section 1 exactly.' +
         (losses.length
           ? ` Auto sets fewer parameters than this wing has: it replaces ${lossText(losses, input())}.`
           : ''),

@@ -5,9 +5,10 @@ import {
   GENERATED_COLUMNS,
   SHAPE_DEFAULTS,
   applyGeometry,
+  fitShape,
   fromShape,
   newPreData,
-  shapeOfRibs,
+  shapeOf,
 } from '../packages/design/src/index.ts';
 import { parseLep, validateDesign, writeLep } from '../packages/format/src/index.ts';
 import {
@@ -593,25 +594,30 @@ test('Auto lists what its shape replaces before tuning, and keeps the inactive m
   await expect(field(page, 'Vault horizontal radius · a1 (cm)')).toHaveValue('450');
 });
 
-test('Fit sets the settings of section 1 and keeps the others, in Auto', async ({ page }) => {
+test('Fit sets the settings of section 1, and the others to follow its table, in Auto', async ({
+  page,
+}) => {
   await page.goto('/');
   const { geometry } = ok(parseLep(await download(page, 'leparagliding.txt')));
-  const fitted = shapeOfRibs(geometry.ribs, geometry.cells);
+  const input = newPreData({ geometry });
+  const fitted = fitShape(shapeOf(input, ok(generateGeometry(input))), { geometry });
   await open(page);
   await button(page, 'Create pre-data.txt').click();
   await expect(page.getByText(DIFFERS, { exact: true })).toBeVisible();
-  await expect(button(page, 'Fit to section 1')).toBeEnabled();
-  await page.getByRole('slider', { name: 'Tip curl' }).press('ArrowRight');
-  await expect(setting(page, 'tipCurl')).toHaveText('40%');
-  const roundness = await setting(page, 'leadingEdgeRoundness').textContent();
   await mode(page, 'Manual').click();
   await confirmed(page, 'Fit to section 1', 'Fit');
   await expect(mode(page, 'Auto')).toBeChecked();
   await expect(setting(page, 'cells')).toHaveText(String(fitted.cells));
-  await expect(setting(page, 'area')).toHaveText(`${fitted.area!.toFixed(1)} m²`);
-  await expect(setting(page, 'taper')).toHaveText(`${Math.round(fitted.taper! * 100)}%`);
-  await expect(setting(page, 'tipCurl')).toHaveText('40%');
-  await expect(setting(page, 'leadingEdgeRoundness')).toHaveText(roundness!);
+  await expect(setting(page, 'area')).toHaveText(`${fitted.area.toFixed(1)} m²`);
+  const percent = (value: number) => `${Math.round(value * 100)}%`;
+  for (const key of [
+    'taper',
+    'tipCurl',
+    'leadingEdgeRoundness',
+    'trailingEdgeRoundness',
+    'cellUniformity',
+  ] as const)
+    await expect(setting(page, key)).toHaveText(percent(fitted[key]));
 });
 
 test('Fit compares section 1 with the fitted shape, and asks before replacing parameters', async ({
