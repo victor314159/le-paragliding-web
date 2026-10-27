@@ -3,6 +3,12 @@
     <div class="header-title">
       <h2>{{ designFile }}</h2>
       <span class="editor-mode mat-text-on-surface-variant">Edit parameters</span>
+      <span
+        class="warning-badge mat-font-label-sm"
+        tabindex="0"
+        matTooltip="The parameter editor is very experimental: check what it writes before relying on it."
+        ><mat-icon svgIcon="warning" />Experimental</span
+      >
       @if (editor.changed()) {
         <span class="mat-text-on-surface-variant">· Modified</span>
       }
@@ -49,6 +55,11 @@
       <section #content aria-labelledby="editor-section-title">
         <div class="section-heading">
           <h3 id="editor-section-title">{{ title() }}</h3>
+          @if (editor.selection() === preDataFile) {
+            <span class="warning-badge mat-font-label-sm" tabindex="0" [matTooltip]="preDataNote"
+              ><mat-icon svgIcon="warning" />Differs from official</span
+            >
+          }
           @if (manual(); as manual) {
             <a class="mat-font-body-sm" [href]="manual.href" target="_blank" rel="noopener">{{
               manual.label

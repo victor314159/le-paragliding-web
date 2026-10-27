@@ -35,7 +35,9 @@ import { DESIGN_FILE } from '@lepara/format';
 import { PRE_DATA_FILE } from '@lepara/preprocessor';
 import { ComputeService } from '../compute/compute.service';
 import type { DesignEditorData, DesignEditorResult, Selection } from '../editor/editor-state';
+import { confirm } from '../shared/confirm-dialog';
 import { diagnosticLabel, withSeverity } from '../shared/diagnostics';
+import { PRE_DATA_NOTE } from '../shared/pre-data-note';
 import { DesignFilesService, type InputFile } from './design-files.service';
 import { DESIGNS } from './designs';
 import type { FileEditorData } from './file-editor-dialog';
@@ -172,6 +174,20 @@ export class DesignInput implements OnInit {
       .subscribe((text: string | undefined) => {
         if (text !== undefined) this.inputs.edit(file, text);
       });
+  }
+
+  /** Downloads the file, after a warning for pre-data.txt. */
+  protected download(file: InputFile): void {
+    if (file.name !== PRE_DATA_FILE) return this.inputs.exportFile(file);
+    confirm(this.dialog, {
+      title: `Download ${PRE_DATA_FILE}?`,
+      message: PRE_DATA_NOTE,
+      icon: 'warning',
+      cancel: 'Cancel',
+      confirm: 'Download',
+    }).subscribe((confirmed) => {
+      if (confirmed) this.inputs.exportFile(file);
+    });
   }
 
   /** Opens the file picker, to add files or to replace the named one. */

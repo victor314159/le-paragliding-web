@@ -160,6 +160,9 @@ async function download(page: Page, name: string): Promise<string> {
   await button(page, `Actions for ${name}`).click();
   const downloading = page.waitForEvent('download');
   await page.getByRole('menuitem', { name: 'Download', exact: true }).click();
+  // pre-data.txt is downloaded after a warning.
+  if (name === 'pre-data.txt')
+    await page.getByRole('dialog').getByRole('button', { name: 'Download' }).click();
   return readFile(await (await downloading).path(), 'utf8');
 }
 

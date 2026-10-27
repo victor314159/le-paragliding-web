@@ -24,6 +24,7 @@ import tune from '@material-symbols/svg-400/outlined/tune.svg' with { loader: 't
 import upload from '@material-symbols/svg-400/outlined/upload.svg' with { loader: 'text' };
 import viewInAr from '@material-symbols/svg-400/outlined/view_in_ar.svg' with { loader: 'text' };
 import visibility from '@material-symbols/svg-400/outlined/visibility.svg' with { loader: 'text' };
+import warning from '@material-symbols/svg-400/outlined/warning.svg' with { loader: 'text' };
 
 // Material Symbols bundled at build time: no icon font and no network request.
 const ICONS = {
@@ -46,6 +47,7 @@ const ICONS = {
   upload,
   view_in_ar: viewInAr,
   visibility,
+  warning,
 };
 
 /** Registers the app's icons for `<mat-icon svgIcon="name" />`. */

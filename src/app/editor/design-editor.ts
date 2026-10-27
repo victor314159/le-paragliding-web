@@ -16,11 +16,13 @@ import { FormRoot } from '@angular/forms/signals';
 import { MatButton, MatIconButton } from '@angular/material/button';
 import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { MatIcon } from '@angular/material/icon';
+import { MatTooltip } from '@angular/material/tooltip';
 import { DESIGN_FILE, SECTIONS, type Diagnostic } from '@lepara/format';
 import { PRE_DATA_FILE } from '@lepara/preprocessor';
 import { filter } from 'rxjs';
 import { confirm } from '../shared/confirm-dialog';
 import { diagnosticLabel, withSeverity } from '../shared/diagnostics';
+import { PRE_DATA_NOTE } from '../shared/pre-data-note';
 import { AirfoilSection } from './airfoil-section';
 import { EditorPreview, PREVIEW_VIEWS } from './editor-preview';
 import {
@@ -61,7 +63,15 @@ interface NavigationItem {
 /** Edits the parameters of a project in a dialog; closes with the new design, if saved. */
 @Component({
   selector: 'app-design-editor',
-  imports: [FormRoot, MatButton, MatIconButton, MatIcon, NgComponentOutlet, EditorPreview],
+  imports: [
+    FormRoot,
+    MatButton,
+    MatIconButton,
+    MatIcon,
+    MatTooltip,
+    NgComponentOutlet,
+    EditorPreview,
+  ],
   templateUrl: './design-editor.html',
   styleUrl: './design-editor.css',
   providers: [EditorState],
@@ -73,6 +83,8 @@ export class DesignEditor {
   protected readonly editor = inject(EditorState);
   protected readonly draft = this.editor.draft;
   protected readonly designFile = DESIGN_FILE;
+  protected readonly preDataFile = PRE_DATA_FILE;
+  protected readonly preDataNote = PRE_DATA_NOTE;
   protected readonly diagnosticLabel = diagnosticLabel;
   protected readonly sectionForm = computed(() =>
     this.editor.airfoil()
