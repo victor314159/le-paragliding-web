@@ -42,6 +42,9 @@ import { DesignFilesService, type InputFile } from './design-files.service';
 import { DESIGNS } from './designs';
 import type { FileEditorData } from './file-editor-dialog';
 
+/** Hosts that show the experimental parameter editor: a local server, not the public site. */
+const EDITOR_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
+
 /** The input card: pick an example or import files, then edit them. */
 @Component({
   selector: 'app-design-input',
@@ -82,6 +85,7 @@ export class DesignInput implements OnInit {
   protected readonly inputs = inject(DesignFilesService);
   protected readonly designFile = DESIGN_FILE;
   protected readonly diagnosticLabel = diagnosticLabel;
+  protected readonly editor = EDITOR_HOSTS.has(location.hostname);
   private readonly compute = inject(ComputeService);
   private readonly dialog = inject(MatDialog);
   private readonly importInput = viewChild.required<ElementRef<HTMLInputElement>>('importInput');

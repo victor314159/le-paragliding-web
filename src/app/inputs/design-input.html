@@ -52,7 +52,7 @@
             } @else if (file.origin === 'imported') {
               <mat-chip>Imported</mat-chip>
             }
-            @if (file.name === designFile) {
+            @if (editor && file.name === designFile) {
               <span
                 [matTooltip]="
                   inputs.reading().project || locked()
@@ -70,7 +70,7 @@
                   <mat-icon svgIcon="tune" />
                 </button>
               </span>
-            } @else if (parameterFiles().has(file.name)) {
+            } @else if (editor && parameterFiles().has(file.name)) {
               <span
                 [matTooltip]="
                   parameterFiles().get(file.name) || locked()
