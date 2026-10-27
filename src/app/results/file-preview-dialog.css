@@ -1,11 +1,20 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
 h2 {
   overflow-wrap: anywhere;
 }
 mat-dialog-content {
-  max-height: 70dvh;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  max-height: none;
 }
 .viewport {
-  height: 48dvh;
+  flex: 1;
   min-height: 200px;
   margin-top: 8px;
   overflow: hidden;
@@ -15,14 +24,19 @@ mat-dialog-content {
   /* dxf-viewer sets display: block inline when it creates its canvas. */
   display: none !important;
 }
+button {
+  align-self: flex-start;
+}
 .profile {
   display: block;
+  flex-shrink: 0;
   width: 100%;
   max-height: 240px;
   margin-bottom: 12px;
 }
 pre {
-  max-height: 50dvh;
+  flex: 1;
+  min-height: 200px;
   margin: 0;
   padding: 16px;
   overflow: auto;

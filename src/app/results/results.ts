@@ -25,6 +25,7 @@ import {
 import { MatTooltip } from '@angular/material/tooltip';
 import { ComputeService, type ResultFile } from '../compute/compute.service';
 import { ByteSizePipe } from '../shared/byte-size.pipe';
+import { FULL_PAGE_DIALOG } from '../shared/full-page-dialog';
 
 type FileKind = '2d' | '3d' | 'report' | 'log';
 
@@ -112,7 +113,7 @@ export class Results {
 
   protected async preview(file: ResultFile): Promise<void> {
     const { FilePreviewDialog } = await import('./file-preview-dialog');
-    this.dialog.open(FilePreviewDialog, { data: file, width: '1100px' });
+    this.dialog.open(FilePreviewDialog, { ...FULL_PAGE_DIALOG, data: file });
   }
 
   protected async downloadZip(): Promise<void> {

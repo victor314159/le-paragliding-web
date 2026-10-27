@@ -37,6 +37,7 @@ import { ComputeService } from '../compute/compute.service';
 import type { DesignEditorData, DesignEditorResult, Selection } from '../editor/editor-state';
 import { confirm } from '../shared/confirm-dialog';
 import { diagnosticLabel, withSeverity } from '../shared/diagnostics';
+import { FULL_PAGE_DIALOG } from '../shared/full-page-dialog';
 import { PRE_DATA_NOTE } from '../shared/pre-data-note';
 import { DesignFilesService, type InputFile } from './design-files.service';
 import { DESIGNS } from './designs';
@@ -145,11 +146,8 @@ export class DesignInput implements OnInit {
     };
     this.dialog
       .open(DesignEditor, {
+        ...FULL_PAGE_DIALOG,
         data,
-        width: '100vw',
-        height: '100dvh',
-        maxWidth: '100vw',
-        panelClass: 'design-editor-dialog',
         disableClose: true,
         ariaLabel: `Edit parameters · ${DESIGN_FILE}`,
       })
