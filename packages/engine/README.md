@@ -22,6 +22,10 @@ certification. They must not be used as the sole basis for building or flying a
 wing. Any real-world use requires independent verification and appropriate
 testing by qualified individuals.
 
+Paragliding is inherently dangerous. Designing, building, testing or flying a
+wing, even one built from correct results, can cause property damage, serious
+injury or death. You do so at your own risk.
+
 The software is provided without warranty, to the extent permitted by
 applicable law. See the GNU GPL v3 license.
 
