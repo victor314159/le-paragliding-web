@@ -37,6 +37,14 @@ mat-list {
 .file-actions::before {
   content: none;
 }
+.main-badge {
+  margin-inline-start: 8px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  vertical-align: middle;
+  background: var(--mat-sys-secondary-container);
+  color: var(--mat-sys-on-secondary-container);
+}
 .message {
   display: flex;
   flex-wrap: wrap;

@@ -33,7 +33,16 @@
       @for (file of inputs.files(); track file.name) {
         <mat-divider />
         <mat-list-item role="listitem" data-testid="input-file-row">
-          <span matListItemTitle>{{ file.name }}</span>
+          <span matListItemTitle>
+            {{ file.name }}
+            @if (file.name === designFile) {
+              <span
+                class="main-badge mat-font-label-sm"
+                matTooltip="The engine runs this file, with the airfoils its section 2 names."
+                >Main input</span
+              >
+            }
+          </span>
           <span matListItemLine>{{ kind(file) }}</span>
           <div matListItemMeta class="file-actions">
             @if (file.origin === 'created') {
