@@ -12,6 +12,8 @@ export class PreviewScene {
   private readonly controls: OrbitControls;
   private readonly observer: ResizeObserver;
   private readonly textures: THREE.Texture[] = [];
+  /** Half extents of the model on screen at zoom 1, in camera units. */
+  private fit = { width: 1, height: 1 };
 
   constructor(
     private readonly container: HTMLElement,
@@ -101,19 +103,47 @@ export class PreviewScene {
   reset(): void {
     const bounds = new THREE.Box3().setFromObject(this.model);
     const center = bounds.getCenter(new THREE.Vector3());
-    const size = bounds.getSize(new THREE.Vector3());
-    const radius = Math.max(size.length() / 2, 0.01);
+    const radius = Math.max(bounds.getSize(new THREE.Vector3()).length() / 2, 0.01);
     const direction = new THREE.Vector3(1, -1, 0.8).normalize();
     this.camera.position.copy(center).addScaledVector(direction, radius * 3);
     this.camera.near = radius / 1000;
     this.camera.far = radius * 10;
     this.camera.zoom = 1;
     this.controls.target.copy(center);
-    const halfHeight = radius * 1.15;
-    this.camera.top = halfHeight;
-    this.camera.bottom = -halfHeight;
     this.controls.update();
+    // Frame the model's points as seen from the camera, not its bounding sphere.
+    const view = this.viewBounds();
+    const offset = view.getCenter(new THREE.Vector3()).setZ(0);
+    offset.applyQuaternion(this.camera.quaternion);
+    this.camera.position.add(offset);
+    this.controls.target.add(offset);
+    this.controls.update();
+    const size = view.getSize(new THREE.Vector3()).multiplyScalar(0.55);
+    this.fit = { width: Math.max(size.x, 0.01), height: Math.max(size.y, 0.01) };
     this.resize();
+  }
+
+  /** Bounds of the model's points in camera space. */
+  private viewBounds(): THREE.Box3 {
+    this.model.updateMatrixWorld(true);
+    this.camera.updateMatrixWorld();
+    const bounds = new THREE.Box3();
+    const point = new THREE.Vector3();
+    this.model.traverse((object) => {
+      const toView = new THREE.Matrix4().multiplyMatrices(
+        this.camera.matrixWorldInverse,
+        object.matrixWorld,
+      );
+      if (object instanceof THREE.Sprite) {
+        bounds.expandByPoint(point.set(0, 0, 0).applyMatrix4(toView));
+        return;
+      }
+      const positions = (object as Partial<THREE.Mesh>).geometry?.getAttribute('position');
+      if (!positions) return;
+      for (let i = 0; i < positions.count; i++)
+        bounds.expandByPoint(point.fromBufferAttribute(positions, i).applyMatrix4(toView));
+    });
+    return bounds;
   }
 
   dispose(): void {
@@ -146,7 +176,10 @@ export class PreviewScene {
     const width = this.container.clientWidth;
     const height = this.container.clientHeight;
     if (!width || !height) return;
-    this.camera.right = (this.camera.top * width) / height;
+    const aspect = width / height;
+    this.camera.top = Math.max(this.fit.height, this.fit.width / aspect);
+    this.camera.bottom = -this.camera.top;
+    this.camera.right = this.camera.top * aspect;
     this.camera.left = -this.camera.right;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
