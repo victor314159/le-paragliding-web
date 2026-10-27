@@ -1,6 +1,6 @@
 {
   "name": "@victor314159/leparagliding-wasm",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "LEparagliding 3.29, the paraglider design program by Pere Casellas, compiled to WebAssembly. Unofficial port.",
   "keywords": [
     "paraglider",
