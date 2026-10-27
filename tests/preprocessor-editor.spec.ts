@@ -189,6 +189,8 @@ async function choose(page: Page, name: string, value: string): Promise<void> {
 async function exportZip(page: Page): Promise<JSZip> {
   const zipping = page.waitForEvent('download');
   await button(page, 'Export all (.zip)').click();
+  // With pre-data.txt, the export asks first.
+  await page.getByRole('dialog').getByRole('button', { name: 'Export' }).click();
   return JSZip.loadAsync(await readFile(await (await zipping).path()));
 }
 

@@ -179,14 +179,27 @@ export class DesignInput implements OnInit {
   /** Downloads the file, after a warning for pre-data.txt. */
   protected download(file: InputFile): void {
     if (file.name !== PRE_DATA_FILE) return this.inputs.exportFile(file);
+    this.warnPreData(`Download ${PRE_DATA_FILE}?`, 'Download', () => this.inputs.exportFile(file));
+  }
+
+  /** Exports all the files, after a warning if they include pre-data.txt. */
+  protected exportAll(): void {
+    if (!this.inputs.files().some((file) => file.name === PRE_DATA_FILE))
+      return void this.inputs.exportAll();
+    this.warnPreData(`Export ${PRE_DATA_FILE} with the other files?`, 'Export', () => {
+      void this.inputs.exportAll();
+    });
+  }
+
+  private warnPreData(title: string, action: string, save: () => void): void {
     confirm(this.dialog, {
-      title: `Download ${PRE_DATA_FILE}?`,
+      title,
       message: PRE_DATA_NOTE,
       icon: 'warning',
       cancel: 'Cancel',
-      confirm: 'Download',
+      confirm: action,
     }).subscribe((confirmed) => {
-      if (confirmed) this.inputs.exportFile(file);
+      if (confirmed) save();
     });
   }
 

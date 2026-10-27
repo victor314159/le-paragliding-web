@@ -157,7 +157,7 @@
       matButton
       type="button"
       [disabled]="locked() || !inputs.files().length || inputs.zipping()"
-      (click)="inputs.exportAll()"
+      (click)="exportAll()"
     >
       <mat-icon svgIcon="download" />
       {{ inputs.zipping() ? 'Exporting…' : 'Export all (.zip)' }}
