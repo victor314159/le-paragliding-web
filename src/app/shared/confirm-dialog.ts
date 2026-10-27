@@ -10,10 +10,11 @@ import {
 } from '@angular/material/dialog';
 import { MatIcon } from '@angular/material/icon';
 import { map, type Observable } from 'rxjs';
+import type { RichText } from './rich-text';
 
 export interface ConfirmDialogData {
   readonly title: string;
-  readonly message: string;
+  readonly message: string | RichText;
   /** An icon before the title, such as `warning`. */
   readonly icon?: string;
   readonly cancel: string;
@@ -31,7 +32,15 @@ export interface ConfirmDialogData {
       }
       {{ data.title }}
     </h2>
-    <mat-dialog-content>{{ data.message }}</mat-dialog-content>
+    <mat-dialog-content>
+      @for (part of message; track $index) {
+        @if (typeof part === 'string') {
+          {{ part }}
+        } @else {
+          <a [href]="part.href" target="_blank" rel="noopener">{{ part.text }}</a>
+        }
+      }
+    </mat-dialog-content>
     <mat-dialog-actions>
       <button matButton type="button" [mat-dialog-close]="false">{{ data.cancel }}</button>
       <button matButton="filled" type="button" [mat-dialog-close]="true">
@@ -49,6 +58,8 @@ export interface ConfirmDialogData {
 })
 export class ConfirmDialog {
   protected readonly data = inject<ConfirmDialogData>(MAT_DIALOG_DATA);
+  protected readonly message: RichText =
+    typeof this.data.message === 'string' ? [this.data.message] : this.data.message;
 }
 
 /** Emits once: true if confirmed. */

@@ -22,7 +22,7 @@ import { PRE_DATA_FILE } from '@lepara/preprocessor';
 import { filter } from 'rxjs';
 import { confirm } from '../shared/confirm-dialog';
 import { diagnosticLabel, withSeverity } from '../shared/diagnostics';
-import { PRE_DATA_NOTE } from '../shared/pre-data-note';
+import { PRE_DATA_NOTE_TEXT } from '../shared/pre-data-note';
 import { AirfoilSection } from './airfoil-section';
 import { EditorPreview, PREVIEW_VIEWS } from './editor-preview';
 import {
@@ -84,7 +84,7 @@ export class DesignEditor {
   protected readonly draft = this.editor.draft;
   protected readonly designFile = DESIGN_FILE;
   protected readonly preDataFile = PRE_DATA_FILE;
-  protected readonly preDataNote = PRE_DATA_NOTE;
+  protected readonly preDataNote = PRE_DATA_NOTE_TEXT;
   protected readonly diagnosticLabel = diagnosticLabel;
   protected readonly sectionForm = computed(() =>
     this.editor.airfoil()
