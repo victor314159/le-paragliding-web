@@ -330,6 +330,8 @@ export interface ShapingZone {
   readonly surface: 'upper' | 'lower';
   readonly from: number;
   readonly to: number;
+  /** The cuts of its surface, from 0, whose arcs it gives its length to. */
+  readonly cuts: readonly number[];
 }
 
 /** A cut of section 29: the cut `index` of its surface, at a point of the airfoil. */
@@ -355,15 +357,21 @@ export function shapingZones(group: ShapingGroup, extrados: number, intrados: nu
   if (first) {
     cuts.push({ surface: 'upper', index: 0, point: first.end });
     if (second) {
-      zones.push({ zone: 2, surface: 'upper', from: second.start, to: second.end });
+      zones.push({ zone: 2, surface: 'upper', from: second.start, to: second.end, cuts: [0, 1] });
       cuts.push({ surface: 'upper', index: 1, point: second.end });
     }
-    zones.push({ zone: 3, surface: 'upper', from: (second ?? first).end, to: extrados });
+    zones.push({
+      zone: 3,
+      surface: 'upper',
+      from: (second ?? first).end,
+      to: extrados,
+      cuts: [second ? 1 : 0],
+    });
   }
   const lower = group.lower.cuts[0];
   if (lower) {
-    zones.push({ zone: 5, surface: 'lower', from: intrados, to: lower.start });
-    zones.push({ zone: 6, surface: 'lower', from: lower.start, to: lower.end });
+    zones.push({ zone: 5, surface: 'lower', from: intrados, to: lower.start, cuts: [0] });
+    zones.push({ zone: 6, surface: 'lower', from: lower.start, to: lower.end, cuts: [0] });
     cuts.push({ surface: 'lower', index: 0, point: lower.start });
   }
   const valid = (point: number) => Number.isInteger(point) && point >= 1;
@@ -406,7 +414,7 @@ export function shapingScene(context: PreviewContext<ProfileSections | 'shaping'
         d.path(
           points,
           zone.surface === 'upper' ? 'influence-upper' : 'influence-lower',
-          false,
+          zone.surface === surface && zone.cuts.includes(active),
           `Zone ${zone.zone}`,
         );
     }

@@ -1597,7 +1597,10 @@ test('rods and shaping previews follow groups, rib choice, pockets and influence
   await page.getByRole('textbox', { name: 'Depth coefficient', exact: true }).fill('2');
   await expect(svg).toContainText('k=2');
   await expect(svg.locator('path.influence-upper.selected')).toHaveCount(1);
+  // The engine replaces the start of the first upper zone: its zone runs from the cut point.
   await page.getByRole('textbox', { name: 'Start airfoil point', exact: true }).fill('');
+  await expect(svg.locator('path.influence-upper')).toHaveCount(1);
+  await page.getByRole('textbox', { name: 'End airfoil point', exact: true }).fill('');
   await expect(svg.locator('path.influence-upper')).toHaveCount(0);
   expect(await svg.evaluate((element) => !/NaN|Infinity/.test(element.innerHTML))).toBe(true);
 });
