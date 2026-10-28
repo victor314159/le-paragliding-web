@@ -205,6 +205,12 @@ export function flatToRib({ flat }: HoledVRib, p: Point): Point {
   return [s, ((p[0] - l[0]) * dx + (p[1] - l[1]) * dy) / (dx * dx + dy * dy || 1)];
 }
 
+/** The point of `vrib` laid flat at `s` along its rows and `t` across. */
+export function flatAt({ flat: { left, right } }: HoledVRib, [s, t]: Point): Point {
+  const [l, r] = [at(left, s), at(right, s)];
+  return [l[0] + (r[0] - l[0]) * t, l[1] + (r[1] - l[1]) * t];
+}
+
 /** The point in 3D of `vrib` at `s` along its rows and `t` across. */
 export function ribAt({ edges: [left, right] }: HoledVRib, [s, t]: Point): Point3 {
   const [l, r] = [at(left, s), at(right, s)];

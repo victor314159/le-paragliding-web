@@ -83,15 +83,15 @@ chord (column 9 at 1) keeps its widths in cm, unscaled, the section being
 read twice, and the profile point nearest the far end of a band is left out
 of its polyline.
 
-`vRibHoles(design, airfoils)` gives the holes of section 38 in the V-ribs
-of types 5 and 6, as the engine cuts them on the V-ribs laid flat
-(`flatten`, its `flatt`: row after row, each quadrilateral of the same
-sides and diagonal), from the last row of each type with holes: type 5
-turned along its edge on the anchor rib, a hole at each anchor sized by
-the distance across in x to the other edge, as the engine measures it;
-type 6 holes evenly along it (`vhholes`). `flatToRib` and `ribAt` carry a
-flat point onto the V-rib, row by row. A hole may overflow its V-rib, as
-the engine's do.
+`vRibHoles(design, airfoils)` gives the holes of section 38 in the V-ribs of
+types 5 and 6, as the engine cuts them on the V-ribs laid flat (`flatten`,
+its `flatt`: row after row, each quadrilateral of the same sides and
+diagonal), from the last row of each type with holes: type 5 turned along
+its edge on the anchor rib, a hole at each anchor sized by the distance
+across in x to the other edge, as the engine measures it; type 6 holes
+evenly along it (`vhholes`). `flatToRib`, `flatAt` and `ribAt` carry a point
+between the V-rib laid flat, its rows (along) and fraction across, and 3D. A
+hole may overflow its V-rib, as the engine's do.
 
 ## Build and test
 
