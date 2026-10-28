@@ -49,14 +49,15 @@ and holes.
 
 A `PreviewModel` is a 3D drawing, at Wing scale in the engine's coordinates
 (Z down) of [`@lepara/geometry`](../geometry/README.md): grids of skin,
-planar fills with holes, lines and dots. A section with one gives it as the
+some colored over it, planar fills with holes, lines and dots. A section with one gives it as the
 `model` of its `SECTION_SCENES` entry, for its `MODEL_VIEW` view:
 `wingModel` (sections 1 to 3 and 30, the skin open at the inlets of open
 cells and ballooned by section 5), `holesModel` (section 4), `trimModel`
 (section 8, beside its `trimScene`), `linesModel` (sections 9 to 11, the
-lines and brakes) and `reinforcementModel` (section 12, the V and VH ribs
+lines and brakes), `reinforcementModel` (section 12, the V and VH ribs
 and the H straps among the ribs, without the skin, with the lines that reach
-the anchors). `preDataModel(result)` draws the wing pre-data.txt
+the anchors) and `colorsModel` (sections 15 and 16, the color regions and
+cuts, or the rib marks, on the skin). `preDataModel(result)` draws the wing pre-data.txt
 generates on a generic airfoil, without the rest of the design.
 
 ## Build and test

@@ -1,3 +1,4 @@
+import { colorsModel } from './colors.ts';
 import { brakeDistributionScene, networkScene, ramificationScene } from './lines.ts';
 import { holesModel, wingModel, type PreviewModel } from './model.ts';
 import { colorsScene, tensionScene } from './patterns.ts';
@@ -41,6 +42,13 @@ const always = () => true;
 /** Sections 2 and 3: the wing with the selected rib, or its profile. */
 const ribRow = (anchors: boolean) => (c: PreviewContext) =>
   c.view === 'profile' ? ribScene(c, anchors) : anchorsWingScene(c, c.selected);
+
+/** Sections 15 and 16: the color layout of the extrados or intrados, or the wing in 3D. */
+const colorsSection = (upper: boolean): SectionScene => ({
+  views: [['planform', 'Planform'], MODEL_VIEW],
+  draw: (c: PreviewContext) => colorsScene(c, upper),
+  model: (c: PreviewContext) => colorsModel(c.design, c.airfoils, upper, c.selected, c.active),
+});
 
 /**
  * The scenes of the sections of leparagliding.txt, by section number. In
@@ -133,8 +141,8 @@ export const SECTION_SCENES: ReadonlyMap<number, SectionScene> = new Map([
       model: (c: PreviewContext) => reinforcementModel(c.design, c.airfoils, c.selected),
     },
   ],
-  [15, { views: [], draw: (c: PreviewContext) => colorsScene(c, true) }],
-  [16, { views: [], draw: (c: PreviewContext) => colorsScene(c, false) }],
+  [15, colorsSection(true)],
+  [16, colorsSection(false)],
   [17, { views: [], ribs: always, draw: additionalPointsScene }],
   [
     20,
