@@ -13,14 +13,29 @@ Setup, build and test commands are in [README.md](README.md).
   volume, empty on the host. Scripts without dependencies, such as
   `npm run bump:web|bump:engine`, can run on the host; the bump scripts push,
   so run them only on request.
-- Tests run against `dist/`: rebuild it (`docker build --output dist .`) before
-  testing a change. Run one test file with
-  `docker compose run --rm web npm test -- inputs`.
-- `tests/oracle.spec.ts` checks one design; all of them with
-  `docker compose run --rm -e ORACLE_ALL=1 web npm test -- oracle`.
+- Browser tests run against `dist/`: rebuild it (`docker build --output dist .`)
+  before testing an app change.
+- Run the tests of what you changed, not the whole suite (CI runs it):
+  `docker compose run --rm web npm test -- <filters>`, which match test file
+  paths.
+
+  | Changed                  | Filters                          |
+  | ------------------------ | -------------------------------- |
+  | `packages/format/`       | `format`                         |
+  | `packages/preprocessor/` | `preprocessor`                   |
+  | `packages/design/`       | `design`                         |
+  | `packages/views/`        | `views`                          |
+  | `packages/engine/`       | `format/engine compute oracle`   |
+  | `src/app/editor/`        | `editor`                         |
+  | rest of `src/app/`       | `inputs compute previews editor` |
+
+- The equivalence tests `tests/oracle.spec.ts` and `tests/format/engine.spec.ts`
+  check one design; every design and variant with `-e ORACLE_ALL=1`, as CI
+  does. Use it when changing the engine or how `packages/format/` reads or
+  writes.
 - Use the Playwright MCP to see frontend changes (`docker compose up`).
-- Before saying a change is done, run `npm run check` and the tests related to
-  it.
+- Before saying a change is done, run `npm run check` and the tests of what
+  you changed.
 
 ## Input format
 

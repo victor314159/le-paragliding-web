@@ -35,7 +35,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
       - name: Browser tests
-        run: docker compose run --rm web sh -c 'npm ci && npm test'
+        run: docker compose run --rm -e ORACLE_ALL=1 web sh -c 'npm ci && npm test'
       # The patched source on the official toolchain: only the pinned patch effects.
       - name: Patched engine, native
         run: docker compose run --rm oracle node scripts/check-patched-native.ts

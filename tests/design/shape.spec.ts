@@ -104,14 +104,14 @@ test('chained setting changes, as when dragging sliders, are read back without l
   // Each change starts from the shape read back from the previous parameters, as Auto does.
   for (let run = 0; run < 200; run++) {
     let input = fromShape(SHAPE_DEFAULTS, PREPROCESSOR_EXAMPLE);
+    let shape = shapeOf(input, ok(generateGeometry(input)));
     for (let i = 0; i < 40; i++) {
       const key = keys[Math.floor(random() * keys.length)];
       const [min, max] = SHAPE_LIMITS[key];
       const value = min + Math.round((random() * (max - min)) / steps[key]) * steps[key];
-      const shape = shapeOf(input, ok(generateGeometry(input)));
       input = fromShape({ ...shape, [key]: Number(value.toFixed(4)) }, input);
-      const back = shapeOf(input, ok(generateGeometry(input)));
-      expect(shapeLosses(back, input), `run ${run}, ${key}=${value}`).toEqual([]);
+      shape = shapeOf(input, ok(generateGeometry(input)));
+      expect(shapeLosses(shape, input), `run ${run}, ${key}=${value}`).toEqual([]);
     }
   }
 });

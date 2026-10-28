@@ -32,7 +32,7 @@ function rewrite(name: string, text: string): string {
     : ok(writeAirfoil(ok(parseAirfoil(name, text))));
 }
 
-const cases = [
+const allCases = [
   ...[...DESIGNS.map((id) => `oracle/designs/${id}`), DAT_FIXTURE].map((dir) => ({
     name: dir,
     files: () => designFiles(dir),
@@ -42,6 +42,12 @@ const cases = [
     files: () => variantFiles(variant),
   })),
 ];
+// Each case runs the engine twice, seconds per run: one design by default,
+// every case with ORACLE_ALL=1 (CI).
+const cases =
+  process.env['ORACLE_ALL'] === '1'
+    ? allCases
+    : allCases.filter(({ name }) => name === 'oracle/designs/gnuA7-26');
 
 for (const { name, files } of cases) {
   test(`${name}: same engine run on the rewritten inputs`, async () => {
