@@ -6,7 +6,7 @@ import { additionalPointsScene, rodsScene, shapingScene } from './rods.ts';
 import type { PreviewContext, PreviewScene } from './scene.ts';
 import { markTypeScene, sewingMarksScene, sewingScene } from './sewing.ts';
 import { hvrHolesScene, ventsScene, wingTipScene } from './special.ts';
-import { reinforcementScene } from './structure.ts';
+import { reinforcementModel, reinforcementScene } from './structure.ts';
 import { linesModel } from './suspension.ts';
 import { trimModel, trimScene } from './trim.ts';
 import { anchorsWingScene, geometryScene } from './wing.ts';
@@ -128,11 +128,9 @@ export const SECTION_SCENES: ReadonlyMap<number, SectionScene> = new Map([
   [
     12,
     {
-      views: [
-        ['planform', 'Planform'],
-        ['front', 'Front'],
-      ],
+      views: [['planform', 'Planform'], ['front', 'Front'], MODEL_VIEW],
       draw: reinforcementScene,
+      model: (c: PreviewContext) => reinforcementModel(c.design, c.airfoils, c.selected),
     },
   ],
   [15, { views: [], draw: (c: PreviewContext) => colorsScene(c, true) }],

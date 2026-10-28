@@ -1,7 +1,10 @@
-import type { LepDesign } from '@lepara/format';
+import type { LepAirfoil, LepDesign } from '@lepara/format';
+import { hStraps, suspensionLines, vRibs, type LineSections, type Point3 } from '@lepara/geometry';
 import { centroid, finite, type Point } from './geometry.ts';
+import { wingModel, type PreviewModel } from './model.ts';
 import { contourPoint, frontPoint, ribProfile, type ProfileSections } from './profile.ts';
 import { PreviewDrawing, type PreviewContext } from './scene.ts';
+import { planColor } from './suspension.ts';
 
 interface Attachment {
   rib: number;
@@ -177,4 +180,54 @@ export function reinforcementScene(context: PreviewContext<ProfileSections | 'hv
   }
   d.label([0, 0], 'Add an HVR row to show its attachment layout');
   return d.finish();
+}
+
+const mirror = ([x, y, z]: Point3): Point3 => [-x, y, z];
+
+/**
+ * Section 12: the ribs of the wing, without its skin, its V and VH ribs as
+ * the engine draws them in its 3D model, and the lines that reach the
+ * anchors (the last level of each path), which they spread over the ribs,
+ * both halves; and the H straps, which the engine computes but leaves out
+ * of its 3D model. The record `selected` (from 0) is highlighted: its V
+ * and VH ribs, those of type 5 from any of their rows, or its H strap.
+ */
+export function reinforcementModel(
+  design: Pick<LepDesign, ProfileSections | LineSections | 'hvRibs'>,
+  airfoils: ReadonlyMap<string, LepAirfoil>,
+  selected = -1,
+): PreviewModel {
+  const model = wingModel(design, airfoils);
+  const ribs = vRibs(design, airfoils);
+  const straps = hStraps(design, airfoils);
+  model.surfaces = [...ribs, ...straps].flatMap(({ rows, edges }) => {
+    const kind = rows.includes(selected + 1) ? 'selected' : 'skin';
+    return [
+      { rows: edges.map((edge) => edge.map(mirror)), kind },
+      { rows: edges.map((edge) => [...edge]), kind },
+    ];
+  });
+  const lines = suspensionLines(design, airfoils).filter((line) => line.level === line.levels);
+  for (const line of lines)
+    for (const side of [mirror, (p: Point3) => p])
+      model.lines.push({
+        points: [line.start, line.end].map(side),
+        kind: 'line',
+        selected: false,
+        color: planColor(line.plan),
+      });
+  model.legend = [...new Set(lines.map((line) => line.plan))]
+    .sort((a, b) => a - b)
+    .map((plan) => ({
+      text: `Plan ${plan}`,
+      color: planColor(plan),
+    }));
+  model.title = 'Wing 3D model · V and VH ribs';
+  model.note =
+    `${ribs.length} V and VH ribs a side between ribs, as the engine draws them in its 3D ` +
+    `model (§16), and ${straps.length} H straps (type 1), which it computes but leaves out ` +
+    'of it; with the lines that reach the anchors, as the engine places ' +
+    'them before load (§12). At Wing scale, ribs placed as the engine places them, without ' +
+    'the skin. Drag to rotate, scroll to zoom.';
+  return model;
 }

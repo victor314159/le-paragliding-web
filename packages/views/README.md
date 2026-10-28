@@ -53,8 +53,10 @@ planar fills with holes, lines and dots. A section with one gives it as the
 `model` of its `SECTION_SCENES` entry, for its `MODEL_VIEW` view:
 `wingModel` (sections 1 to 3 and 30, the skin open at the inlets of open
 cells and ballooned by section 5), `holesModel` (section 4), `trimModel`
-(section 8, beside its `trimScene`) and `linesModel` (sections 9 to 11, the
-lines and brakes). `preDataModel(result)` draws the wing pre-data.txt
+(section 8, beside its `trimScene`), `linesModel` (sections 9 to 11, the
+lines and brakes) and `reinforcementModel` (section 12, the V and VH ribs
+and the H straps among the ribs, without the skin, with the lines that reach
+the anchors). `preDataModel(result)` draws the wing pre-data.txt
 generates on a generic airfoil, without the rest of the design.
 
 ## Build and test
