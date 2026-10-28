@@ -24,6 +24,7 @@ Setup, build and test commands are in [README.md](README.md).
   | `packages/format/`       | `format`                         |
   | `packages/preprocessor/` | `preprocessor`                   |
   | `packages/design/`       | `design`                         |
+  | `packages/geometry/`     | `geometry views`                 |
   | `packages/views/`        | `views`                          |
   | `packages/engine/`       | `format/engine compute oracle`   |
   | `src/app/editor/`        | `editor`                         |
@@ -98,6 +99,11 @@ Setup, build and test commands are in [README.md](README.md).
   (`format`, `preprocessor`, `engine`), which hold only what their oracles
   check. The editor's form adapters stay in `src/app/editor/`.
   Run `docker compose run --rm web npm test -- design` after changing it.
+- `packages/geometry/` ports the engine's 3D geometry (rib placement,
+  trim, suspension and brake lines), quirks included, at Wing scale; its tests compare
+  it with `lep-out.txt` in `oracle/reference/`. What the engine computes in
+  space goes there, typed on the sections it reads, not in `views`.
+  Run `docker compose run --rm web npm test -- geometry views` after changing it.
 - `packages/views/` draws a design: each scene is a function of a
   `PreviewContext` (the `LepDesign` sections it reads), or of the file it
   draws, returning a `PreviewScene`, which the editor renders with

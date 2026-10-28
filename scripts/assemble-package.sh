@@ -3,7 +3,7 @@
 # its sources compiled by tsc (ES modules + declarations), its documents and
 # LICENSE. build/node_modules/ links each package, for Node to resolve them.
 #
-# Usage: scripts/assemble-package.sh format|preprocessor|design|views (after npm ci)
+# Usage: scripts/assemble-package.sh format|preprocessor|design|geometry|views (after npm ci)
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 NAME="$1"

@@ -1,7 +1,61 @@
+import type { PreviewModel } from '@lepara/views';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
+import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import type { PreviewDrawing } from './preview-geometry';
+
+/** The theme colors of a `PreviewModel`, as 0xRRGGBB: its background, skin, lines and highlight. */
+export interface ModelColors {
+  background: number;
+  skin: number;
+  line: number;
+  selected: number;
+}
+
+type Point3 = PreviewModel['dots'][number]['point'];
+
+/**
+ * A closed outline without its last point when it repeats the first, to
+ * rounding: such near duplicates, as of an ellipse at 0 and 2π, make the
+ * triangulation overlap.
+ */
+function open(points: readonly Point3[]): readonly Point3[] {
+  const [first, last] = [points[0], points[points.length - 1]];
+  if (points.length < 2) return points;
+  const gap = Math.hypot(first[0] - last[0], first[1] - last[1], first[2] - last[2]);
+  return gap <= 1e-9 * (1 + Math.hypot(...first)) ? points.slice(0, -1) : points;
+}
+
+/**
+ * The triangles of a planar polygon with `holes`, concave or not: its
+ * vertices, the outline's then the holes', and their indices.
+ */
+function triangulate(outline: readonly Point3[], holes: readonly (readonly Point3[])[] = []) {
+  const rings = [outline, ...holes].map(open);
+  // Newell's normal, then the points in two axes of their plane.
+  const normal = new THREE.Vector3();
+  rings[0].forEach((a, i) => {
+    const b = rings[0][(i + 1) % rings[0].length];
+    normal.x += (a[1] - b[1]) * (a[2] + b[2]);
+    normal.y += (a[2] - b[2]) * (a[0] + b[0]);
+    normal.z += (a[0] - b[0]) * (a[1] + b[1]);
+  });
+  const vertices = rings.flat();
+  if (!normal.lengthSq()) return { vertices, faces: [] };
+  normal.normalize();
+  const reference =
+    Math.abs(normal.x) < 0.9 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0);
+  const u = new THREE.Vector3().crossVectors(normal, reference).normalize();
+  const v = new THREE.Vector3().crossVectors(normal, u);
+  const point = new THREE.Vector3();
+  const [contour, ...cutouts] = rings.map((ring) =>
+    ring.map((p) => new THREE.Vector2(point.set(...p).dot(u), point.dot(v))),
+  );
+  return { vertices, faces: THREE.ShapeUtils.triangulateShape(contour, cutouts) };
+}
 
 /** Owns all GPU resources for a single dialog; renders only when the view changes. */
 export class PreviewScene {
@@ -12,16 +66,23 @@ export class PreviewScene {
   private readonly controls: OrbitControls;
   private readonly observer: ResizeObserver;
   private readonly textures: THREE.Texture[] = [];
+  /** The materials of the wide lines, drawn at the size of the canvas. */
+  private wide: LineMaterial[] = [];
+  /** The direction the view looks from on reset, given by the model, in Z-up coordinates. */
+  private viewFrom?: { x: number; y: number; z: number };
   /** Half extents of the model on screen at zoom 1, in camera units. */
   private fit = { width: 1, height: 1 };
 
   constructor(
     private readonly container: HTMLElement,
     background: number,
+    label = 'File preview',
+    /** Where the camera looks from on reset, in Z-up model coordinates. */
+    private readonly direction = { x: 1, y: -1, z: 0.8 },
   ) {
     this.scene.background = new THREE.Color(background);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.renderer.domElement.setAttribute('aria-label', 'File preview');
+    this.renderer.domElement.setAttribute('aria-label', label);
     this.renderer.domElement.setAttribute('role', 'img');
     container.append(this.renderer.domElement);
     this.scene.add(this.model, new THREE.HemisphereLight(0xffffff, 0x65776a, 3));
@@ -100,11 +161,159 @@ export class PreviewScene {
     this.reset();
   }
 
+  /**
+   * Replaces the model with `model`, keeping the view unless `fit`. The
+   * selected lines and surfaces are drawn over the others, so that a rib
+   * inside the wing shows through its skin; selected lines are wider, in
+   * their own color or else the highlight.
+   */
+  loadModel(model: PreviewModel, colors: ModelColors, fit: boolean): void {
+    this.clear();
+    this.scene.background = new THREE.Color(colors.background);
+    for (const selected of [false, true]) {
+      const kind = (item: { kind: string }) => (item.kind === 'selected') === selected;
+      const positions: number[] = [];
+      const indices: number[] = [];
+      for (const fill of model.fills.filter(kind)) {
+        const start = positions.length / 3;
+        const { vertices, faces } = triangulate(fill.points, fill.holes);
+        for (const point of vertices) positions.push(...point);
+        for (const face of faces) indices.push(...face.map((i) => start + i));
+      }
+      for (const { rows } of model.surfaces.filter(kind)) {
+        const width = rows[0].length;
+        const start = positions.length / 3;
+        for (const row of rows) for (const point of row) positions.push(...point);
+        for (let r = 1; r < rows.length; r++)
+          for (let k = 1; k < width; k++) {
+            const a = start + (r - 1) * width + k - 1;
+            const b = a + width;
+            indices.push(a, b, a + 1, a + 1, b, b + 1);
+          }
+      }
+      if (indices.length) {
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        geometry.setIndex(indices);
+        geometry.computeVertexNormals();
+        const mesh = new THREE.Mesh(
+          geometry,
+          selected
+            ? new THREE.MeshBasicMaterial({
+                color: colors.selected,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.6,
+                depthTest: false,
+              })
+            : // Pushed back, so that the ribs on its edges stay visible.
+              new THREE.MeshStandardMaterial({
+                color: colors.skin,
+                side: THREE.DoubleSide,
+                roughness: 0.8,
+                polygonOffset: true,
+                polygonOffsetFactor: 1,
+                polygonOffsetUnits: 1,
+              }),
+        );
+        mesh.renderOrder = selected ? 1 : 0;
+        this.model.add(mesh);
+      }
+      const segments: number[] = [];
+      const segmentColors: number[] = [];
+      const color = new THREE.Color();
+      for (const line of model.lines.filter((l) => l.selected === selected)) {
+        color.set(line.color ?? (selected ? colors.selected : colors.line));
+        for (let i = 1; i < line.points.length; i++) {
+          segments.push(...line.points[i - 1], ...line.points[i]);
+          segmentColors.push(color.r, color.g, color.b, color.r, color.g, color.b);
+        }
+      }
+      if (segments.length && selected) {
+        // WebGL lines are a pixel wide: the selected ones are wide lines, in pixels, of
+        // quads that the model's mirrored Z turns over.
+        const material = new LineMaterial({
+          vertexColors: true,
+          linewidth: 2.5,
+          depthTest: false,
+          side: THREE.DoubleSide,
+        });
+        material.resolution.set(this.container.clientWidth, this.container.clientHeight);
+        this.wide.push(material);
+        const lines = new LineSegments2(
+          new LineSegmentsGeometry().setPositions(segments).setColors(segmentColors),
+          material,
+        );
+        lines.renderOrder = 2;
+        this.model.add(lines);
+      } else if (segments.length) {
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(segments, 3));
+        geometry.setAttribute('color', new THREE.Float32BufferAttribute(segmentColors, 3));
+        this.model.add(
+          new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ vertexColors: true })),
+        );
+      }
+      const dots = model.dots.filter((d) => d.selected === selected);
+      if (dots.length) {
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute(
+          'position',
+          new THREE.Float32BufferAttribute(
+            dots.flatMap((d) => d.point),
+            3,
+          ),
+        );
+        geometry.setAttribute(
+          'color',
+          new THREE.Float32BufferAttribute(
+            dots.flatMap((d) => color.set(d.color ?? colors.line).toArray()),
+            3,
+          ),
+        );
+        const points = new THREE.Points(
+          geometry,
+          // Round dots of a constant size on screen, the selected rib's larger.
+          new THREE.PointsMaterial({
+            size: selected ? 9 : 5,
+            sizeAttenuation: false,
+            vertexColors: true,
+            map: this.disc(),
+            alphaTest: 0.5,
+            depthTest: !selected,
+          }),
+        );
+        points.renderOrder = selected ? 3 : 0;
+        this.model.add(points);
+      }
+    }
+    // Like the engine's DXFs, models are in Z-down coordinates.
+    this.model.scale.z = -1;
+    this.viewFrom = model.camera && { x: model.camera[0], y: model.camera[1], z: -model.camera[2] };
+    if (fit && this.model.children.length) this.reset();
+    else this.render();
+  }
+
+  /** A white disc, the shape of the dots of a model. */
+  private disc(): THREE.Texture {
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 32;
+    const context = canvas.getContext('2d')!;
+    context.fillStyle = '#fff';
+    context.beginPath();
+    context.arc(16, 16, 15, 0, 2 * Math.PI);
+    context.fill();
+    const texture = new THREE.CanvasTexture(canvas);
+    this.textures.push(texture);
+    return texture;
+  }
+
   reset(): void {
     const bounds = new THREE.Box3().setFromObject(this.model);
     const center = bounds.getCenter(new THREE.Vector3());
     const radius = Math.max(bounds.getSize(new THREE.Vector3()).length() / 2, 0.01);
-    const direction = new THREE.Vector3(1, -1, 0.8).normalize();
+    const { x, y, z } = this.viewFrom ?? this.direction;
+    const direction = new THREE.Vector3(x, y, z).normalize();
     this.camera.position.copy(center).addScaledVector(direction, radius * 3);
     this.camera.near = radius / 1000;
     this.camera.far = radius * 10;
@@ -138,6 +347,8 @@ export class PreviewScene {
         bounds.expandByPoint(point.set(0, 0, 0).applyMatrix4(toView));
         return;
       }
+      // Their positions are those of a quad; the model's other points frame them.
+      if (object instanceof LineSegments2) return;
       const positions = (object as Partial<THREE.Mesh>).geometry?.getAttribute('position');
       if (!positions) return;
       for (let i = 0; i < positions.count; i++)
@@ -149,10 +360,19 @@ export class PreviewScene {
   dispose(): void {
     this.observer.disconnect();
     this.controls.dispose();
+    this.clear();
+    this.renderer.dispose();
+    this.renderer.forceContextLoss();
+    this.renderer.domElement.remove();
+  }
+
+  /** Removes the model and frees its resources. */
+  private clear(): void {
     this.model.traverse((object) => {
       if (
         object instanceof THREE.Mesh ||
         object instanceof THREE.Line ||
+        object instanceof THREE.Points ||
         object instanceof THREE.Sprite
       ) {
         const primitive = object as THREE.Mesh<
@@ -166,10 +386,9 @@ export class PreviewScene {
         for (const material of materials) material.dispose();
       }
     });
-    for (const texture of this.textures) texture.dispose();
-    this.renderer.dispose();
-    this.renderer.forceContextLoss();
-    this.renderer.domElement.remove();
+    for (const texture of this.textures.splice(0)) texture.dispose();
+    this.wide = [];
+    this.model.clear();
   }
 
   private resize(): void {
@@ -183,6 +402,7 @@ export class PreviewScene {
     this.camera.left = -this.camera.right;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
+    for (const material of this.wide) material.resolution.set(width, height);
     this.render();
   }
 

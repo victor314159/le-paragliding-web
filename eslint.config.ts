@@ -39,6 +39,7 @@ export default defineConfig(
           './packages/engine/smoke/tsconfig.json',
           './packages/design/tsconfig.json',
           './packages/format/tsconfig.json',
+          './packages/geometry/tsconfig.json',
           './packages/preprocessor/tsconfig.json',
           './packages/views/tsconfig.json',
         ],

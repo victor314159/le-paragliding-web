@@ -1,5 +1,6 @@
 export * from './geometry.ts';
 export * from './lines.ts';
+export * from './model.ts';
 export * from './patterns.ts';
 export * from './preprocessor.ts';
 export * from './profile.ts';
@@ -10,5 +11,7 @@ export * from './sections.ts';
 export * from './sewing.ts';
 export * from './special.ts';
 export * from './structure.ts';
+export * from './suspension.ts';
 export * from './svg.ts';
+export * from './trim.ts';
 export * from './wing.ts';

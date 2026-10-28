@@ -3,9 +3,10 @@
 Drawings of LEparagliding 3.29 designs: every preview of the parameter
 editor, as plain scenes and standalone SVG. Typed by
 [`@lepara/format`](../format/README.md) and
-[`@lepara/preprocessor`](../preprocessor/README.md); its only runtime
-dependency is [`@lepara/design`](../design/README.md), for the metrics of
-section 1. No file access; runs in browsers, Workers and Node. GPL-3.0-only.
+[`@lepara/preprocessor`](../preprocessor/README.md); its runtime
+dependencies are [`@lepara/design`](../design/README.md), for the metrics of
+section 1, and [`@lepara/geometry`](../geometry/README.md), for the 3D
+geometry of the engine. No file access; runs in browsers, Workers and Node. GPL-3.0-only.
 
 ```ts
 import { parseLep } from '@lepara/format';
@@ -46,6 +47,16 @@ writes an SVG document, with a light default style for the kinds of its items. T
 reinforcement attachments, color cuts, skin tension curves, vents, wing tips
 and holes.
 
+A `PreviewModel` is a 3D drawing, at Wing scale in the engine's coordinates
+(Z down) of [`@lepara/geometry`](../geometry/README.md): grids of skin,
+planar fills with holes, lines and dots. A section with one gives it as the
+`model` of its `SECTION_SCENES` entry, for its `MODEL_VIEW` view:
+`wingModel` (sections 1 to 3 and 30, the skin open at the inlets of open
+cells and ballooned by section 5), `holesModel` (section 4), `trimModel`
+(section 8, beside its `trimScene`) and `linesModel` (sections 9 to 11, the
+lines and brakes). `preDataModel(result)` draws the wing pre-data.txt
+generates on a generic airfoil, without the rest of the design.
+
 ## Build and test
 
 ```sh
@@ -53,5 +64,6 @@ docker compose run --rm web scripts/assemble-package.sh views   # -> build/views
 docker compose run --rm web npm test -- views
 ```
 
-`build/views/` imports `@lepara/design` by name: the script assembles it and
-its dependencies too, and links them in `build/node_modules/`.
+`build/views/` imports `@lepara/design` and `@lepara/geometry` by name: the
+script assembles them and their dependencies too, and links them in
+`build/node_modules/`.
