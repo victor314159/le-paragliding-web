@@ -1,5 +1,12 @@
 import type { LepAirfoil, LepDesign } from '@lepara/format';
-import { hStraps, suspensionLines, vRibs, type LineSections, type Point3 } from '@lepara/geometry';
+import {
+  hStraps,
+  suspensionLines,
+  vRibs,
+  type LineSections,
+  type Point3,
+  type VRib,
+} from '@lepara/geometry';
 import { centroid, finite, type Point } from './geometry.ts';
 import { wingModel, type PreviewModel } from './model.ts';
 import { contourPoint, frontPoint, ribProfile, type ProfileSections } from './profile.ts';
@@ -190,23 +197,34 @@ const mirror = ([x, y, z]: Point3): Point3 => [-x, y, z];
  * anchors (the last level of each path), which they spread over the ribs,
  * both halves; and the H straps, which the engine computes but leaves out
  * of its 3D model. The record `selected` (from 0) is highlighted: its V
- * and VH ribs, those of type 5 from any of their rows, or its H strap.
+ * and VH ribs, those of type 5 from any of their rows, or its H strap. A V
+ * rib that `cut` cuts is drawn as the outline it gives, with its holes.
  */
 export function reinforcementModel(
   design: Pick<LepDesign, ProfileSections | LineSections | 'hvRibs'>,
   airfoils: ReadonlyMap<string, LepAirfoil>,
   selected = -1,
+  cut?: (rib: VRib) => { outline: Point3[]; holes: Point3[][] } | undefined,
 ): PreviewModel {
   const model = wingModel(design, airfoils);
   const ribs = vRibs(design, airfoils);
   const straps = hStraps(design, airfoils);
-  model.surfaces = [...ribs, ...straps].flatMap(({ rows, edges }) => {
+  model.surfaces = [];
+  const pieces = [
+    ...ribs.map((rib) => ({ ...rib, cutout: cut?.(rib) })),
+    ...straps.map((strap) => ({ ...strap, cutout: undefined })),
+  ];
+  for (const { rows, edges, cutout } of pieces) {
     const kind = rows.includes(selected + 1) ? 'selected' : 'skin';
-    return [
-      { rows: edges.map((edge) => edge.map(mirror)), kind },
-      { rows: edges.map((edge) => [...edge]), kind },
-    ];
-  });
+    for (const side of [mirror, (p: Point3) => p])
+      if (cutout)
+        model.fills.push({
+          points: cutout.outline.map(side),
+          holes: cutout.holes.map((hole) => hole.map(side)),
+          kind,
+        });
+      else model.surfaces.push({ rows: edges.map((edge) => edge.map(side)), kind });
+  }
   const lines = suspensionLines(design, airfoils).filter((line) => line.level === line.levels);
   for (const line of lines)
     for (const side of [mirror, (p: Point3) => p])

@@ -6,7 +6,6 @@ import { placeOnRib, ribPoint, type Point3 } from '@lepara/geometry';
 import { ANCHOR_COLORS, ANCHOR_NAMES, ribProfile, type ProfileSections } from './profile.ts';
 import { tensionCurve, type TensionSurface } from './patterns.ts';
 import type { PreviewScene } from './scene.ts';
-import { distance, dot, sub, type Vector } from './vector.ts';
 
 /**
  * A 3D drawing in the engine's absolute coordinates (Z down). `surfaces`
@@ -161,6 +160,11 @@ function placedRib(
 
 /** Rows of skin between two ribs, when it balloons. */
 const SUBDIVISIONS = 8;
+
+type Vector = readonly [number, number, number];
+const sub = (a: Vector, b: Vector): Vector => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const dot = (a: Vector, b: Vector) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const distance = (a: Vector, b: Vector) => Math.hypot(...sub(a, b));
 
 /** The overwidth (% of the cell width) of a panel's edge on rib `index` at `station`. */
 type Overwidth = (station: Station, index: number) => number;

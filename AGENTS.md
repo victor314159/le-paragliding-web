@@ -102,8 +102,8 @@ Setup, build and test commands are in [README.md](README.md).
 - `packages/geometry/` ports the engine's 3D geometry (rib placement,
   trim, suspension and brake lines, V and VH ribs), quirks included, at
   Wing scale; its tests compare it with `lep-out.txt` in `oracle/reference/`,
-  and the V and VH ribs with the `lep-3d.dxf` of the engine, which they run
-  (`build/engine/`). What the engine computes in
+  the V and VH ribs with the `lep-3d.dxf` of the engine, and their holes with
+  its `leparagliding.dxf`, which they run (`build/engine/`). What the engine computes in
   space goes there, typed on the sections it reads, not in `views`.
   Run `docker compose run --rm web npm test -- geometry views` after changing it.
 - `packages/views/` draws a design: each scene is a function of a
