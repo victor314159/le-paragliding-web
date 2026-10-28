@@ -235,7 +235,12 @@ export interface SkinTension {
     SkinTensionPoint,
     SkinTensionPoint,
   ];
-  /** Strain in miniribs, `htens` (default 0.0114). */
+  /**
+   * Strain of the H straps of section 12, `htens` (default 0.0114): the
+   * manual's "strain in mini-ribs", the engine calling its V and H ribs
+   * mini-ribs, not the miniribs of section 2. The engine shortens each H
+   * strap by it as it lays it flat (§16.1.4).
+   */
   readonly miniribStrain: number;
   /**
    * Panel reformatting, `ndif` (integer) and `xndif`: 1000 and 1.0 for the

@@ -9,12 +9,15 @@ import { SkinPoints } from './skin-points';
   template: `
     <app-skin-points [form]="form.points" />
     <fieldset>
-      <legend>Panel correction</legend>
+      <legend>H straps</legend>
       <app-number-field
-        label="Minirib strain"
-        hint="The usual strain is 0.0114."
+        label="H strap strain"
+        hint="Shortens the H straps of section 12 (the manual's mini-ribs) as they are cut; usually 0.0114."
         [field]="form.miniribStrain"
       />
+    </fieldset>
+    <fieldset>
+      <legend>Panel correction</legend>
       <app-number-field
         label="Correction points"
         hint="1000 with factor 1 selects the full precision method."
