@@ -23,6 +23,7 @@ import {
   hvrHolesModel,
   hvrHolesScene,
   miniribsModel,
+  withMiniribs,
   ventsModel,
   ventsScene,
   wingTipModel,
@@ -104,7 +105,8 @@ export const SECTION_SCENES: ReadonlyMap<number, SectionScene> = new Map([
     {
       views: [...TENSION_VIEWS, MODEL_VIEW],
       draw: (c: PreviewContext) => tensionScene(c, false),
-      model: (c: PreviewContext) => tensionModel(c.design, c.airfoils),
+      model: (c: PreviewContext) =>
+        withMiniribs(tensionModel(c.design, c.airfoils), c.design, c.airfoils),
     },
   ],
   [
@@ -238,7 +240,8 @@ export const SECTION_SCENES: ReadonlyMap<number, SectionScene> = new Map([
     {
       views: [...TENSION_VIEWS, MODEL_VIEW],
       draw: (c: PreviewContext) => tensionScene(c, true),
-      model: (c: PreviewContext) => tensionGroupsModel(c.design, c.airfoils, c.selected),
+      model: (c: PreviewContext) =>
+        withMiniribs(tensionGroupsModel(c.design, c.airfoils, c.selected), c.design, c.airfoils),
     },
   ],
   [

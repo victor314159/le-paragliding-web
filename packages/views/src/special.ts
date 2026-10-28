@@ -426,28 +426,35 @@ export function miniribs(
   });
 }
 
+/** `model` with the outlines of the miniribs (`miniribs`), both halves. */
+export function withMiniribs(
+  model: PreviewModel,
+  design: Pick<LepDesign, ProfileSections | 'hvrHoles'>,
+  airfoils: ReadonlyMap<string, LepAirfoil>,
+): PreviewModel {
+  for (const { outline } of miniribs(design, airfoils))
+    for (const side of [mirror, (p: Point3) => p]) {
+      const points = outline.map(side);
+      model.lines.push({ points: [...points, points[0]], kind: 'minirib', selected: false });
+    }
+  return model;
+}
+
 /**
  * Section 2: the wing in 3D, the rib `row` highlighted, with the outlines
- * of the miniribs (`miniribs`), that of the row filled.
+ * of the miniribs (`miniribs`), that of the row filled; their holes are
+ * those of section 38.
  */
 export function miniribsModel(
   design: Pick<LepDesign, ProfileSections | 'hvrHoles'>,
   airfoils: ReadonlyMap<string, LepAirfoil>,
   row: number,
 ): PreviewModel {
-  const model = wingModel(design, airfoils, { row });
+  const model = withMiniribs(wingModel(design, airfoils, { row }), design, airfoils);
   const placed = miniribs(design, airfoils);
-  for (const minirib of placed)
-    for (const side of [mirror, (p: Point3) => p]) {
-      const outline = minirib.outline.map(side);
-      model.lines.push({ points: [...outline, outline[0]], kind: 'minirib', selected: false });
-      if (minirib.row === row)
-        model.fills.push({
-          points: outline,
-          holes: minirib.holes.map(({ points }) => points.map(side)),
-          kind: 'selected',
-        });
-    }
+  for (const minirib of placed.filter((m) => m.row === row))
+    for (const side of [mirror, (p: Point3) => p])
+      model.fills.push({ points: minirib.outline.map(side), kind: 'selected' });
   if (placed.length)
     model.note = `Miniribs midway across their cells, the row's filled; the engine leaves them out of its 3D model. ${model.note}`;
   return model;
