@@ -12,7 +12,7 @@ import {
 } from './rods.ts';
 import type { PreviewContext, PreviewScene } from './scene.ts';
 import { markTypeScene, sewingMarksScene, sewingScene } from './sewing.ts';
-import { hvrHolesScene, ventsScene, wingTipScene } from './special.ts';
+import { hvrHolesScene, ventsModel, ventsScene, wingTipScene } from './special.ts';
 import { reinforcementModel, reinforcementScene } from './structure.ts';
 import { linesModel } from './suspension.ts';
 import { trimModel, trimScene } from './trim.ts';
@@ -177,7 +177,14 @@ export const SECTION_SCENES: ReadonlyMap<number, SectionScene> = new Map([
       model: (c: PreviewContext) => rodsModel(c.design, c.airfoils, c.rib, c.secondary, c.selected),
     },
   ],
-  [26, { views: [], draw: ventsScene }],
+  [
+    26,
+    {
+      views: [['inlet', 'Inlet'], MODEL_VIEW],
+      draw: ventsScene,
+      model: (c: PreviewContext) => ventsModel(c.design, c.airfoils, c.selected),
+    },
+  ],
   [27, { views: [], draw: wingTipScene }],
   [
     29,
