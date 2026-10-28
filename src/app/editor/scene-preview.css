@@ -60,13 +60,6 @@ circle {
   stroke: var(--mat-sys-tertiary);
   stroke-width: 2;
 }
-.legend {
-  display: flex;
-  flex-shrink: 0;
-  gap: 4px 12px;
-  flex-wrap: wrap;
-  font: var(--mat-sys-label-small);
-}
 .selected {
   stroke: var(--mat-sys-tertiary);
   stroke-width: 3;

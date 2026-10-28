@@ -928,6 +928,7 @@ for (const viewport of [
       '3 · Anchor points',
       '4 · Lightening holes',
       '5 · Skin tension',
+      '8 · Global angle of attack estimation',
       '15 · Extrados colors',
       '16 · Intrados colors',
       '30 · Airfoil thickness modification',
@@ -963,7 +964,7 @@ for (const viewport of [
       expect(after.height).toBeLessThan(viewport.height * 0.4);
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(viewport.width);
     }
-    await section(page, '8 · Global angle of attack estimation');
+    await section(page, '18 · Elastic lines corrections');
     await expect(page.locator('app-editor-preview')).toHaveCount(0);
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(page.getByText('Modified', { exact: true })).toHaveCount(0);

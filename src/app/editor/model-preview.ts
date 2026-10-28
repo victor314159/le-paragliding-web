@@ -1,0 +1,94 @@
+import {
+  afterNextRender,
+  Component,
+  DestroyRef,
+  effect,
+  type ElementRef,
+  inject,
+  input,
+  signal,
+  viewChild,
+} from '@angular/core';
+import type { PreviewModel } from '@lepara/views';
+import type { PreviewScene } from '../results/preview-scene';
+import { ThemeService } from '../shared/theme.service';
+import { themeColor } from '../shared/theme-color';
+import { EditorState } from './editor-state';
+
+/** A 3D model of @lepara/views, orbiting, kept in view while it changes until fitted again. */
+@Component({
+  selector: 'app-model-preview',
+  template: `
+    <figure>
+      <figcaption>{{ model().title }}</figcaption>
+      @if (model().legend.length) {
+        <div class="legend" aria-label="Legend">
+          @for (entry of model().legend; track entry.text) {
+            <span [style.color]="entry.color">● {{ entry.text }}</span>
+          }
+        </div>
+      }
+      <div #viewport class="viewport"></div>
+      <p>{{ model().note }}</p>
+    </figure>
+  `,
+  styleUrl: './preview-layout.css',
+  styles: `
+    .viewport {
+      flex: 1;
+      height: 0;
+      min-height: 56px;
+      margin-block: 4px;
+      overflow: hidden;
+    }
+    .viewport ::ng-deep canvas {
+      display: block;
+    }
+  `,
+})
+export class ModelPreview {
+  readonly model = input.required<PreviewModel>();
+  private readonly editor = inject(EditorState);
+  private readonly theme = inject(ThemeService);
+  private readonly viewport = viewChild.required<ElementRef<HTMLDivElement>>('viewport');
+  private readonly viewer = signal<PreviewScene | undefined>(undefined);
+
+  constructor() {
+    const destroy = inject(DestroyRef);
+    afterNextRender(() => {
+      void import('../results/preview-scene').then(({ PreviewScene }) => {
+        if (destroy.destroyed) return;
+        // Three-quarter front view, from above: ahead of the leading edge, Y running to the trailing edge.
+        const viewer = new PreviewScene(this.viewport().nativeElement, 0, 'Wing 3D model', {
+          x: 0.3,
+          y: -1,
+          z: 0.8,
+        });
+        destroy.onDestroy(() => viewer.dispose());
+        this.viewer.set(viewer);
+      });
+    });
+    let fitted = false;
+    let request = this.editor.previewFitRequest();
+    effect(() => {
+      const viewer = this.viewer();
+      const model = this.model();
+      const fit = this.editor.previewFitRequest();
+      this.theme.scheme();
+      if (!viewer) return;
+      const color = (token: string) => themeColor(this.viewport().nativeElement, token);
+      viewer.loadModel(
+        model,
+        {
+          background: color('--mat-sys-surface-container-low'),
+          skin: color('--mat-sys-secondary-container'),
+          line: color('--mat-sys-outline'),
+          selected: color('--mat-sys-tertiary'),
+        },
+        !fitted || fit !== request,
+      );
+      fitted ||= model.lines.length > 0 || model.surfaces.length > 0;
+      request = fit;
+    });
+  }
+}

@@ -11,30 +11,42 @@ import { MatButton, MatIconButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 import { MatTooltip } from '@angular/material/tooltip';
 import { PRE_DATA_FILE } from '@lepara/preprocessor';
-import { airfoilScene, preprocessorScene, SECTION_SCENES, type PreviewViews } from '@lepara/views';
+import {
+  airfoilScene,
+  MODEL_VIEW,
+  preDataModel,
+  preprocessorScene,
+  SECTION_SCENES,
+  type PreviewViews,
+} from '@lepara/views';
 import { EditorState, type Selection } from './editor-state';
+import { ModelPreview } from './model-preview';
 import { ScenePreview } from './scene-preview';
 import { SectionPreview } from './section-preview';
 
 /** The sections and files with a preview, and the views it offers: the first one by default. */
 export const PREVIEW_VIEWS: ReadonlyMap<Selection, PreviewViews> = new Map<Selection, PreviewViews>(
   [
-    [
-      PRE_DATA_FILE,
-      [
-        ['planform', 'Planform'],
-        ['front', 'Front'],
-        ['cells', 'Cells'],
-      ],
-    ],
+    [PRE_DATA_FILE, [['planform', 'Planform'], ['front', 'Front'], ['cells', 'Cells'], MODEL_VIEW]],
     ...[...SECTION_SCENES].map(([section, { views }]) => [section, views] as const),
   ],
 );
 
+/** Views take buttons while their labels fit the toolbar, and a select beyond. */
+const BUTTON_LABELS_LENGTH = 28;
+
 /** A docked, resizable preview alongside independently scrolling fields. */
 @Component({
   selector: 'app-editor-preview',
-  imports: [MatButton, MatIconButton, MatIcon, MatTooltip, ScenePreview, SectionPreview],
+  imports: [
+    MatButton,
+    MatIconButton,
+    MatIcon,
+    MatTooltip,
+    ModelPreview,
+    ScenePreview,
+    SectionPreview,
+  ],
   host: {
     '[class.collapsed]': 'editor.previewCollapsed()',
     '[class.resizing]': 'resizing()',
@@ -69,7 +81,7 @@ export const PREVIEW_VIEWS: ReadonlyMap<Selection, PreviewViews> = new Map<Selec
       @if (!editor.previewCollapsed()) {
         @if (views().length) {
           <div class="view-selector" role="group" aria-label="Preview view">
-            @if (views().length > 3) {
+            @if (select()) {
               <select
                 class="view-select"
                 aria-label="Preview view"
@@ -127,7 +139,10 @@ export const PREVIEW_VIEWS: ReadonlyMap<Selection, PreviewViews> = new Map<Selec
       @if (editor.airfoil()) {
         <app-scene-preview [scene]="airfoil()" />
       } @else if (section() === preDataFile) {
-        @if (generated(); as scene) {
+        @let model = view() === modelView ? generatedModel() : undefined;
+        @if (model) {
+          <app-model-preview [model]="model" />
+        } @else if (generated(); as scene) {
           <app-scene-preview [scene]="scene" />
         } @else {
           <p class="empty">Correct the parameters to see the geometry.</p>
@@ -143,7 +158,12 @@ export class EditorPreview {
   protected readonly editor = inject(EditorState);
   protected readonly section = this.editor.selection;
   protected readonly preDataFile = PRE_DATA_FILE;
+  protected readonly modelView = MODEL_VIEW[0];
   protected readonly views = computed(() => PREVIEW_VIEWS.get(this.section()) ?? []);
+  protected readonly select = computed(
+    () =>
+      this.views().reduce((length, [, label]) => length + label.length, 0) > BUTTON_LABELS_LENGTH,
+  );
   /** Sections 5 and 31 draw the same overwidth curves, so they share a view. */
   private readonly viewKey = computed(() => (this.section() === 31 ? 5 : this.section()));
   protected readonly view = computed(() => {
@@ -170,6 +190,11 @@ export class EditorPreview {
         this.editor.preprocessorFocus(),
       )
     );
+  });
+  /** The wing the parameters generate, on its own. */
+  protected readonly generatedModel = computed(() => {
+    const result = this.editor.generated();
+    return result && preDataModel(result);
   });
   private readonly element = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
   private readonly destroy = inject(DestroyRef);

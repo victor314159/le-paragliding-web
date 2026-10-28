@@ -18,6 +18,7 @@ import {
 } from '@angular/material/dialog';
 import type { DxfViewer } from 'dxf-viewer';
 import type { ResultFile } from '../compute/compute.service';
+import { themeColor } from '../shared/theme-color';
 import type {
   PreviewDrawing,
   PreviewDrawingRequest,
@@ -179,19 +180,8 @@ export class FilePreviewDialog {
     });
   }
 
-  /**
-   * A theme color as a 0xRRGGBB number, so WebGL canvases follow the theme.
-   * The tokens are `light-dark()` pairs: only a computed color resolves them.
-   */
   private color(token: string): number {
-    const probe = document.createElement('span');
-    probe.style.color = `var(${token})`;
-    this.viewport().nativeElement.append(probe);
-    const [r, g, b] = getComputedStyle(probe)
-      .color.match(/[\d.]+/g)!
-      .map(Number);
-    probe.remove();
-    return (r << 16) | (g << 8) | b;
+    return themeColor(this.viewport().nativeElement, token);
   }
 
   private makeProfile(text: string): void {

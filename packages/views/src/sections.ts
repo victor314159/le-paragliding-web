@@ -1,4 +1,5 @@
 import { brakeDistributionScene, networkScene, ramificationScene } from './lines.ts';
+import { holesModel, wingModel, type PreviewModel } from './model.ts';
 import { colorsScene, tensionScene } from './patterns.ts';
 import { holesScene, ribScene, thicknessScene } from './ribs.ts';
 import { additionalPointsScene, rodsScene, shapingScene } from './rods.ts';
@@ -6,16 +7,19 @@ import type { PreviewContext, PreviewScene } from './scene.ts';
 import { markTypeScene, sewingMarksScene, sewingScene } from './sewing.ts';
 import { hvrHolesScene, ventsScene, wingTipScene } from './special.ts';
 import { reinforcementScene } from './structure.ts';
+import { linesModel } from './suspension.ts';
+import { trimModel, trimScene } from './trim.ts';
 import { anchorsWingScene, geometryScene } from './wing.ts';
 
 /** The views of a preview: value and label. */
 export type PreviewViews = readonly (readonly [value: string, label: string])[];
 
-/** A section's scene: its views, whether a view draws the chosen rib, and the drawing. */
+/** A section's scene: its views, whether a view draws the chosen rib, and the drawing, or its 3D `model` view. */
 export interface SectionScene {
   readonly views: PreviewViews;
   ribs?(view: string): boolean;
   draw(context: PreviewContext): PreviewScene;
+  model?(context: PreviewContext): PreviewModel;
 }
 
 const WING_VIEWS: PreviewViews = [
@@ -23,6 +27,11 @@ const WING_VIEWS: PreviewViews = [
   ['front', 'Front'],
 ];
 const RIB_VIEWS: PreviewViews = [...WING_VIEWS, ['profile', 'Profile']];
+/** The view of a section's `model`. */
+export const MODEL_VIEW = ['3d', '3D'] as const;
+/** The wing in 3D, the focused rib row highlighted, with the anchor rows or not. */
+const wingRowModel = (anchors: boolean) => (c: PreviewContext) =>
+  wingModel(c.design, c.airfoils, { row: c.selected, anchors });
 const TENSION_VIEWS: PreviewViews = [
   ['both', 'Both'],
   ['extrados', 'Extrados'],
@@ -39,21 +48,30 @@ const ribRow = (anchors: boolean) => (c: PreviewContext) =>
  * group, row...) and `active` the one focused in it (point, cut, hole...).
  */
 export const SECTION_SCENES: ReadonlyMap<number, SectionScene> = new Map([
-  [1, { views: WING_VIEWS, draw: geometryScene }],
-  [2, { views: RIB_VIEWS, draw: ribRow(false) }],
-  [3, { views: RIB_VIEWS, draw: ribRow(true) }],
+  [1, { views: [...WING_VIEWS, MODEL_VIEW], draw: geometryScene, model: wingRowModel(false) }],
+  [2, { views: [...RIB_VIEWS, MODEL_VIEW], draw: ribRow(false), model: wingRowModel(false) }],
+  [3, { views: [...RIB_VIEWS, MODEL_VIEW], draw: ribRow(true), model: wingRowModel(true) }],
   [
     4,
     {
-      views: RIB_VIEWS,
+      views: [...RIB_VIEWS, MODEL_VIEW],
       ribs: (view: string) => view === 'profile',
       draw: (c: PreviewContext) =>
         c.view === 'profile' || !c.design.holes.length
           ? holesScene(c)
           : anchorsWingScene(c, c.rib, c.selected),
+      model: (c: PreviewContext) => holesModel(c.design, c.airfoils, c.selected, c.active),
     },
   ],
-  [5, { views: TENSION_VIEWS, draw: (c: PreviewContext) => tensionScene(c, false) }],
+  [
+    5,
+    {
+      views: [...TENSION_VIEWS, MODEL_VIEW],
+      draw: (c: PreviewContext) => tensionScene(c, false),
+      model: (c: PreviewContext) =>
+        wingModel(c.design, c.airfoils, { overwidths: c.design.skinTension.points }),
+    },
+  ],
   [
     6,
     {
@@ -67,14 +85,28 @@ export const SECTION_SCENES: ReadonlyMap<number, SectionScene> = new Map([
     },
   ],
   [7, { views: [], draw: sewingMarksScene }],
-  [9, { views: [], draw: (c: PreviewContext) => networkScene(c, false) }],
+  [
+    8,
+    {
+      views: [['side', 'Side'], MODEL_VIEW],
+      draw: trimScene,
+      model: (c: PreviewContext) => trimModel(c.design, c.airfoils),
+    },
+  ],
+  [
+    9,
+    {
+      views: [['network', 'Connections'], MODEL_VIEW],
+      draw: (c: PreviewContext) => networkScene(c, false),
+      model: (c: PreviewContext) =>
+        linesModel(c.design, c.airfoils, { plan: c.selected, path: c.active }),
+    },
+  ],
   [
     10,
     {
-      views: [
-        ['network', 'Connections'],
-        ['distribution', 'Distribution'],
-      ],
+      views: [['network', 'Connections'], ['distribution', 'Distribution'], MODEL_VIEW],
+      model: (c: PreviewContext) => linesModel(c.design, c.airfoils, { plan: -1, path: c.active }),
       draw: (c: PreviewContext) =>
         c.view === 'distribution' ? brakeDistributionScene(c) : networkScene(c, true),
     },
@@ -87,8 +119,10 @@ export const SECTION_SCENES: ReadonlyMap<number, SectionScene> = new Map([
         ['lines4', 'Lines · 4'],
         ['brakes3', 'Brakes · 3'],
         ['brakes4', 'Brakes · 4'],
+        MODEL_VIEW,
       ],
       draw: ramificationScene,
+      model: (c: PreviewContext) => linesModel(c.design, c.airfoils),
     },
   ],
   [
@@ -129,7 +163,15 @@ export const SECTION_SCENES: ReadonlyMap<number, SectionScene> = new Map([
       draw: shapingScene,
     },
   ],
-  [30, { views: [], ribs: always, draw: thicknessScene }],
+  [
+    30,
+    {
+      views: [['profile', 'Profile'], MODEL_VIEW],
+      ribs: always,
+      draw: thicknessScene,
+      model: wingRowModel(false),
+    },
+  ],
   [31, { views: TENSION_VIEWS, draw: (c: PreviewContext) => tensionScene(c, true) }],
   [38, { views: [], ribs: always, draw: hvrHolesScene }],
 ]);

@@ -143,13 +143,14 @@ released: fix it on `main`, and the next run releases the same version.
 | `packages/design/`       | Design helpers without a native equivalent ([details](packages/design/README.md))                  |
 | `packages/engine/`       | The engine as an npm package ([details](packages/engine/README.md))                                |
 | `packages/format/`       | Input files as typed objects ([details](packages/format/README.md))                                |
+| `packages/geometry/`     | The engine's 3D geometry in TypeScript ([details](packages/geometry/README.md))                    |
 | `packages/preprocessor/` | Geometry preprocessor in TypeScript ([details](packages/preprocessor/README.md))                   |
 | `packages/views/`        | Drawings of a design, as scenes and SVG ([details](packages/views/README.md))                      |
 | `oracle/`                | Example designs and the official outputs the WASM build must match                                 |
 | `scripts/`               | Engine build and oracle scripts                                                                    |
 
-The app bundles `@lepara/format`, `@lepara/preprocessor`, `@lepara/design` and
-`@lepara/views` from their source (TypeScript path aliases);
+The app bundles `@lepara/format`, `@lepara/preprocessor`, `@lepara/design`,
+`@lepara/geometry` and `@lepara/views` from their source (TypeScript path aliases);
 the parameter editor (`src/app/editor/`) is loaded on demand.
 
 ## Example designs

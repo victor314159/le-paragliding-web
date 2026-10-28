@@ -1,34 +1,40 @@
 import { Component, computed, inject, input } from '@angular/core';
-import { SECTION_SCENES, finite, type PreviewContext } from '@lepara/views';
+import { MODEL_VIEW, SECTION_SCENES, finite, type PreviewContext } from '@lepara/views';
 import { EditorState } from './editor-state';
+import { ModelPreview } from './model-preview';
 import { ScenePreview } from './scene-preview';
 
 /** The scene of the selected section, on the records focused in its form. */
 @Component({
   selector: 'app-section-preview',
-  imports: [ScenePreview],
+  imports: [ModelPreview, ScenePreview],
   template: `
-    <app-scene-preview [scene]="scene()">
-      @if (definition()?.ribs?.(context().view) && ribs().length) {
-        <div class="preview-controls">
-          <label
-            >Preview rib
-            <select
-              aria-label="Preview rib"
-              [value]="context().rib"
-              (change)="setRib(+$any($event.target).value)"
-            >
-              @for (rib of ribs(); track rib) {
-                <option [value]="rib">Rib {{ rib + 1 }}</option>
-              }
-            </select>
-          </label>
-        </div>
-      }
-    </app-scene-preview>
+    @if (model(); as model) {
+      <app-model-preview [model]="model" />
+    } @else {
+      <app-scene-preview [scene]="scene()">
+        @if (definition()?.ribs?.(context().view) && ribs().length) {
+          <div class="preview-controls">
+            <label
+              >Preview rib
+              <select
+                aria-label="Preview rib"
+                [value]="context().rib"
+                (change)="setRib(+$any($event.target).value)"
+              >
+                @for (rib of ribs(); track rib) {
+                  <option [value]="rib">Rib {{ rib + 1 }}</option>
+                }
+              </select>
+            </label>
+          </div>
+        }
+      </app-scene-preview>
+    }
   `,
   styles: `
     :host,
+    app-model-preview,
     app-scene-preview {
       display: flex;
       flex-direction: column;
@@ -179,6 +185,9 @@ export class SectionPreview {
     };
   });
   protected readonly scene = computed(() => this.definition()!.draw(this.context()));
+  protected readonly model = computed(() =>
+    this.view() === MODEL_VIEW[0] ? this.definition()?.model?.(this.context()) : undefined,
+  );
   protected setRib(rib: number): void {
     if (this.section() === 30) this.editor.selectRecord(this.editor.form.thickness.ribs, rib);
     else this.editor.setPreviewRib(this.section(), rib);
