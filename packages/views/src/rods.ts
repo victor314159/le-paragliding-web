@@ -275,6 +275,53 @@ export function additionalPointsModel(
   return model;
 }
 
+/**
+ * Section 21: the ribs of the wing, without its skin, with the center line
+ * of each rod on the ribs of its group, as the engine draws them on the
+ * ribs (§6.12.6), before panel corrections, both halves; the group
+ * `selected` of bloc `bloc` and the rib `rib` highlighted.
+ */
+export function rodsModel(
+  design: Pick<LepDesign, ProfileSections | 'joncs'>,
+  airfoils: ReadonlyMap<string, LepAirfoil>,
+  rib: number,
+  bloc: number,
+  selected: number,
+): PreviewModel {
+  const model = wingModel(design, airfoils, { row: rib });
+  model.surfaces = [];
+  const { joncs } = design;
+  const blocs =
+    joncs.mode === 0 ? [] : joncs.mode === 1 ? [joncs.groups] : joncs.blocs.map((b) => b.groups);
+  blocs.forEach((groups, b) =>
+    groups.forEach((_, g) => {
+      const rod = rodOf(joncs, b, g);
+      if (!rod || !finite(rod.group.firstRib) || !finite(rod.group.lastRib)) return;
+      const last = Math.min(rod.group.lastRib, design.geometry.ribs.length);
+      for (let index = Math.max(rod.group.firstRib - 1, 0); index < last; index++)
+        for (const outline of rodOutlines(rod, ribProfile(design, airfoils, index))) {
+          const points = outline.flatMap((p) => {
+            const point = ribPoint(design, index, p);
+            return point ? [point] : [];
+          });
+          if (points.length > 1)
+            for (const side of [mirror, (p: Point3) => p])
+              model.lines.push({
+                points: points.map(side),
+                kind: 'rod',
+                selected: b === (joncs.mode === 1 ? 0 : bloc) && g === selected,
+              });
+        }
+    }),
+  );
+  model.title = 'Wing 3D model · nylon rods';
+  model.note =
+    'The center line of each rod on the ribs of its group, as the engine draws them on the ' +
+    'ribs (§6.12.6), before panel corrections; the selected group highlighted. At Wing scale, ' +
+    'ribs placed as the engine places them, without the skin. Drag to rotate, scroll to zoom.';
+  return model;
+}
+
 export function shapingScene(context: PreviewContext<ProfileSections | 'shaping'>) {
   const { design, rib, selected, active, surface, view } = context;
   const shaping = design.shaping;
