@@ -19,7 +19,14 @@ import {
 } from './rods.ts';
 import type { PreviewContext, PreviewScene } from './scene.ts';
 import { markTypeScene, sewingMarksScene, sewingScene } from './sewing.ts';
-import { hvrHolesScene, ventsModel, ventsScene, wingTipModel, wingTipScene } from './special.ts';
+import {
+  hvrHolesModel,
+  hvrHolesScene,
+  ventsModel,
+  ventsScene,
+  wingTipModel,
+  wingTipScene,
+} from './special.ts';
 import { reinforcementModel, reinforcementScene } from './structure.ts';
 import { linesModel } from './suspension.ts';
 import { trimModel, trimScene } from './trim.ts';
@@ -226,5 +233,13 @@ export const SECTION_SCENES: ReadonlyMap<number, SectionScene> = new Map([
       model: (c: PreviewContext) => tensionGroupsModel(c.design, c.airfoils, c.selected),
     },
   ],
-  [38, { views: [], ribs: always, draw: hvrHolesScene }],
+  [
+    38,
+    {
+      views: [['holes', 'Holes'], MODEL_VIEW],
+      ribs: always,
+      draw: hvrHolesScene,
+      model: (c: PreviewContext) => hvrHolesModel(c.design, c.airfoils, c.selected),
+    },
+  ],
 ]);
