@@ -79,6 +79,8 @@ function noseParts(points: readonly Point[]): Point[][] {
 interface Station {
   readonly surface: TensionSurface | 'inlet';
   readonly position: number;
+  /** Its place along the chord, from the leading edge (0) to the trailing edge (1). */
+  readonly x: number;
 }
 
 /**
@@ -141,12 +143,12 @@ function placedRib(
   // The extrados from the trailing edge to the inlet, the intrados from the inlet.
   const fromLeadingEdge = positions(flat.slice(0, INLET[0] + 1));
   const fromTrailingEdge = positions(flat.slice(INLET[1]));
-  const stations = flat.map((_, k): Station =>
+  const stations = flat.map(([x], k): Station =>
     k <= INLET[0]
-      ? { surface: 'extrados', position: fromLeadingEdge[k] }
+      ? { surface: 'extrados', position: fromLeadingEdge[k], x }
       : k >= INLET[1] && sampled.length > 3
-        ? { surface: 'intrados', position: fromTrailingEdge[k - INLET[1]] }
-        : { surface: 'inlet', position: 0 },
+        ? { surface: 'intrados', position: fromTrailingEdge[k - INLET[1]], x }
+        : { surface: 'inlet', position: 0, x },
   );
   return {
     index,
@@ -176,9 +178,12 @@ type Run = { index: number; section: Point3[]; stations: readonly Station[] }[];
  * The rows of skin of `run`, ballooned between its ribs: each panel an arc
  * of circle as long as the cell is wide plus its overwidth on both edges,
  * as the engine adds it (§8.2): `overwidth` (% of the cell width at the
- * middle of the surface) on the edge of each rib.
+ * middle of the surface) on the edge of each rib. Over the `minirib` of a
+ * cell (its length, a fraction of chord, by the cell's outer rib), the skin
+ * sewn to it midway across, each half of the panel an arc of its own,
+ * sharing the panel's extra length.
  */
-function inflate(run: Run, overwidth: Overwidth): Point3[][] {
+function inflate(run: Run, overwidth: Overwidth, minirib?: (index: number) => number): Point3[][] {
   const rows = [run[0].section];
   const last = run[0].section.length - 1;
   const middle = {
@@ -191,6 +196,7 @@ function inflate(run: Run, overwidth: Overwidth): Point3[][] {
     const center: Vector = [0, 1, 2].map(
       (axis) => points.reduce((sum, p) => sum + p[axis], 0) / points.length,
     ) as unknown as Vector;
+    const tail = minirib?.(Math.max(run[i - 1].index, run[i].index)) ?? 0;
     const arcs = a.map((p, k) => {
       const station = run[i - 1].stations[k];
       if (station.surface === 'inlet') return undefined;
@@ -200,7 +206,10 @@ function inflate(run: Run, overwidth: Overwidth): Point3[][] {
           Math.max(0, overwidth(station, run[i].index))) *
           width) /
         100;
-      const chord = distance(p, b[k]);
+      const pinched = tail > 0 && station.x >= 1 - tail;
+      // Pinched, each half of the panel with half its chord and half its extra length.
+      const halves = pinched ? 2 : 1;
+      const chord = distance(p, b[k]) / halves;
       if (!extra || !chord) return undefined;
       // Outwards, across the panel: its span crossed with the section's tangent.
       const span = sub(b[k], p);
@@ -216,9 +225,9 @@ function inflate(run: Run, overwidth: Overwidth): Point3[][] {
       const sign = dot(normal, sub(mid, center)) < 0 ? -1 : 1;
       normal = normal.map((value) => (sign * value) / length) as unknown as Vector;
       // The sagitta of an arc `extra` longer than its chord, for a shallow arc.
-      const sagitta = Math.sqrt((3 * chord * extra) / 8);
+      const sagitta = Math.sqrt((3 * chord * (extra / halves)) / 8);
       const radius = (chord * chord) / 4 + sagitta * sagitta;
-      return { normal, chord, sagitta, radius: radius / (2 * sagitta) };
+      return { normal, chord, sagitta, radius: radius / (2 * sagitta), halves };
     });
     for (let j = 1; j < SUBDIVISIONS; j++) {
       const t = j / SUBDIVISIONS;
@@ -227,7 +236,7 @@ function inflate(run: Run, overwidth: Overwidth): Point3[][] {
           const q = p.map((value, axis) => value + (b[k][axis] - value) * t);
           const arc = arcs[k];
           if (!arc) return q as unknown as Point3;
-          const x = (t - 0.5) * arc.chord;
+          const x = (((t * arc.halves) % 1) - 0.5) * arc.chord;
           const lift = Math.sqrt(arc.radius ** 2 - x * x) - (arc.radius - arc.sagitta);
           return q.map((value, axis) => value + arc.normal[axis] * lift) as unknown as Point3;
         }),
@@ -251,6 +260,7 @@ function assemble(
   note: string,
   overwidth?: Overwidth,
   highlighted?: (index: number) => boolean,
+  minirib?: (index: number) => number,
 ): PreviewModel {
   const lines: PreviewModel['lines'] = [];
   for (const rib of half)
@@ -277,7 +287,7 @@ function assemble(
   const open = new Set(half.filter((r) => r.open).map((r) => r.index));
   const surfaces: PreviewModel['surfaces'] = [];
   for (const run of runs.filter((ribs) => ribs.length > 1)) {
-    const rows = overwidth ? inflate(run, overwidth) : run.map(({ section }) => section);
+    const rows = overwidth ? inflate(run, overwidth, minirib) : run.map(({ section }) => section);
     const step = overwidth ? SUBDIVISIONS : 1;
     const columns = (from: number, to?: number, cell?: number) =>
       (cell === undefined ? rows : rows.slice((cell - 1) * step, cell * step + 1)).map((points) =>
@@ -356,7 +366,7 @@ function overwidthAt(points: readonly SkinTensionPoint[], { surface, position }:
  * The wing of a design in 3D, both halves: each rib's airfoil placed as the
  * engine places it, the skin straight between ribs or ballooned by
  * `overwidths` (section 5), or by those of each rib (index from 0) on its
- * panel edges (section 31), open at the inlets of open cells, or of every
+ * panel edges (section 31), pinched over the miniribs, open at the inlets of open cells, or of every
  * cell without `inlets`, and, with `anchors`, the anchor rows; the rib
  * `row` highlighted, and the outlines of the `ribs`.
  */
@@ -399,8 +409,8 @@ export function wingModel(
     'At Wing scale · Ribs placed as the engine places them, ' +
       (overwidths
         ? 'skin ballooned by these overwidths: each panel an arc of circle as long as the ' +
-          'cell plus its overwidth on both edges, an illustration of the cut, not the flying ' +
-          'shape. No 3D shaping.'
+          'cell plus its overwidth on both edges, two half arcs over a minirib, sewn to it ' +
+          'midway, an illustration of the cut, not the flying shape. No 3D shaping.'
         : 'skin straight between ribs: no ballooning or 3D shaping.') +
       (single
         ? ' Single skin: the skin over the extrados and air inlets only, as the engine meshes it.'
@@ -411,6 +421,11 @@ export function wingModel(
         return points ? overwidthAt(points, station) : 0;
       }),
     ribs,
+    // The miniribs of a double skin, between 1 and 100 % of chord.
+    (index) => {
+      const length = (design.airfoils[index]?.minirib ?? 0) / 100;
+      return !single && length > 0.01 && length < 1 ? length : 0;
+    },
   );
 }
 
