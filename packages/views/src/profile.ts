@@ -18,6 +18,17 @@ export function airfoilPart(
   return 'intrados';
 }
 
+/** A contour segment at chord limits, in the requested direction. */
+export function profileSegment(surface: readonly Point[], from: number, to: number): Point[] {
+  const a = contourPoint(surface, from),
+    b = contourPoint(surface, to);
+  if (!a || !b) return [];
+  const between = surface
+    .filter(([x]) => x > Math.min(from, to) && x < Math.max(from, to))
+    .sort((a, b) => (from <= to ? a[0] - b[0] : b[0] - a[0]));
+  return [a, ...between, b];
+}
+
 /** Interpolate the input contour at a chord position. No extrapolation across missing data. */
 export function contourPoint(points: readonly Point[], x: number): Point | undefined {
   for (let i = 1; i < points.length; i++) {

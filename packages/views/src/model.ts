@@ -3,7 +3,14 @@ import type { GeometryResult } from '@lepara/preprocessor';
 import { GENERIC_AIRFOIL } from './generic-airfoil.ts';
 import { finite, holeOutline, mirrored, type Point } from './geometry.ts';
 import { placeOnRib, ribPoint, type Point3 } from '@lepara/geometry';
-import { ANCHOR_COLORS, ANCHOR_NAMES, ribProfile, type ProfileSections } from './profile.ts';
+import {
+  ANCHOR_COLORS,
+  ANCHOR_NAMES,
+  contourPoint,
+  profileSegment,
+  ribProfile,
+  type ProfileSections,
+} from './profile.ts';
 import { tensionCurve, type TensionSurface } from './patterns.ts';
 import type { PreviewScene } from './scene.ts';
 
@@ -362,13 +369,60 @@ function overwidthAt(points: readonly SkinTensionPoint[], { surface, position }:
   return a.value + ((b.value - a.value) * (position - a.position)) / (b.position - a.position || 1);
 }
 
+/** A minirib in 3D: its row (its outer rib, from 0), outline and placement of its rib-local points. */
+export interface PlacedMinirib {
+  readonly row: number;
+  readonly outline: Point3[];
+  /** Its length (a fraction of chord) and its height where it starts, of its inner rib. */
+  readonly length: number;
+  readonly height: number;
+  readonly place: (point: Point) => Point3 | undefined;
+}
+
+/**
+ * The miniribs of section 2 in 3D, which the engine leaves out of its 3D
+ * model: in the cell of each row whose minirib is above 1 and below 100 %
+ * of chord (not on a single skin), the tail of its inner rib's airfoil from
+ * the trailing edge, as the engine cuts it (§9), placed midway between the
+ * cell's ribs (rib 0 is rib 1 mirrored).
+ */
+export function placedMiniribs(
+  design: Pick<LepDesign, ProfileSections>,
+  airfoils: ReadonlyMap<string, LepAirfoil>,
+): PlacedMinirib[] {
+  if (design.geometry.paragliderType === 'ss') return [];
+  return design.airfoils.flatMap((row, index): PlacedMinirib[] => {
+    const length = row.minirib / 100;
+    if (!(length > 0.01 && length < 1)) return [];
+    const inner = Math.max(index - 1, 0);
+    const profile = ribProfile(design, airfoils, inner);
+    const start = 1 - length;
+    const [top, bottom] = [contourPoint(profile.upper, start), contourPoint(profile.lower, start)];
+    if (!top || !bottom) return [];
+    // Midway between the cell's ribs, the inner one mirrored for the central cell.
+    const place = (p: Point): Point3 | undefined => {
+      const [a, b] = [ribPoint(design, inner, p), ribPoint(design, index, p)];
+      if (!a || !b) return undefined;
+      const x = index === 0 ? -a[0] : a[0];
+      return [(x + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2];
+    };
+    const outline = [
+      ...profileSegment(profile.upper, 1, start),
+      ...profileSegment(profile.lower, start, 1).slice(1, -1),
+    ].map(place);
+    if (!outline.every((p): p is Point3 => !!p)) return [];
+    return [{ row: index, outline, length, height: bottom[1] - top[1], place }];
+  });
+}
+
 /**
  * The wing of a design in 3D, both halves: each rib's airfoil placed as the
  * engine places it, the skin straight between ribs or ballooned by
  * `overwidths` (section 5), or by those of each rib (index from 0) on its
  * panel edges (section 31), pinched over the miniribs, open at the inlets of open cells, or of every
- * cell without `inlets`, and, with `anchors`, the anchor rows; the rib
- * `row` highlighted, and the outlines of the `ribs`.
+ * cell without `inlets`, and, with `anchors`, the anchor rows, and the
+ * outlines of the miniribs, unless not `miniribs`; the rib `row`
+ * highlighted, and the outlines of the `ribs`.
  */
 export function wingModel(
   design: Pick<LepDesign, ProfileSections>,
@@ -379,6 +433,7 @@ export function wingModel(
     overwidths,
     inlets = true,
     ribs,
+    miniribs = true,
   }: {
     row?: number;
     anchors?: boolean;
@@ -386,6 +441,7 @@ export function wingModel(
       readonly SkinTensionPoint[] | ((index: number) => readonly SkinTensionPoint[] | undefined);
     inlets?: boolean;
     ribs?: (index: number) => boolean;
+    miniribs?: boolean;
   } = {},
 ): PreviewModel {
   const single = design.geometry.paragliderType === 'ss';
@@ -402,7 +458,7 @@ export function wingModel(
       placedRib(index, profile.points, place, parts, profile.open === 1 || !inlets, points) ?? []
     );
   });
-  return assemble(
+  const model = assemble(
     half,
     row,
     overwidths ? 'Wing 3D model · ballooned skin' : 'Wing 3D model',
@@ -427,6 +483,11 @@ export function wingModel(
       return !single && length > 0.01 && length < 1 ? length : 0;
     },
   );
+  if (miniribs)
+    for (const { outline } of placedMiniribs(design, airfoils))
+      for (const side of [outline.map(mirror), outline])
+        model.lines.push({ points: [...side, side[0]], kind: 'minirib', selected: false });
+  return model;
 }
 
 /** The overwidths of each rib (from 0) under section 31: its group's, the last that names it. */

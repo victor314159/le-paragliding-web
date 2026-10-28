@@ -12,10 +12,9 @@ import {
   type VRib,
 } from '@lepara/geometry';
 import { finite, type Point } from './geometry.ts';
-import { wingModel, type PreviewModel } from './model.ts';
+import { placedMiniribs, wingModel, type PreviewModel } from './model.ts';
 import { SURFACE_COLORS } from './patterns.ts';
-import { contourPoint, ribProfile, type ProfileSections } from './profile.ts';
-import { profileSegment } from './rods.ts';
+import { contourPoint, profileSegment, ribProfile, type ProfileSections } from './profile.ts';
 import { arcPoints, ellipsePoints, PreviewDrawing, type PreviewContext } from './scene.ts';
 import { reinforcementModel } from './structure.ts';
 
@@ -363,95 +362,44 @@ export function miniribEllipses(row: HvrHoleRow, length: number, height: number)
   });
 }
 
-/** A minirib in 3D: its row (outer rib, from 0), its outline and its holes, with the row of section 38 they come from. */
-export interface PlacedMinirib {
-  readonly row: number;
-  readonly outline: Point3[];
-  readonly holes: { points: Point3[]; row: number }[];
-}
-
 /**
- * The miniribs of section 2 in 3D, which the engine leaves out of its 3D
- * model: in the cell of each row whose minirib is above 1 and below 100 %
- * of chord (not on a single skin), the tail of its inner rib's airfoil from
- * the trailing edge, as the engine cuts it (§9), placed midway between the
- * cell's ribs (rib 0 is rib 1 mirrored); with the holes of the last row of
- * type 9 of section 38 with holes (`miniribEllipses`).
+ * The holes of the miniribs (`placedMiniribs`), from the last row of type 9
+ * of section 38 with holes (`miniribEllipses`), and that row.
  */
-export function miniribs(
+function miniribHoles(
   design: Pick<LepDesign, ProfileSections | 'hvrHoles'>,
   airfoils: ReadonlyMap<string, LepAirfoil>,
-): PlacedMinirib[] {
-  if (design.geometry.paragliderType === 'ss') return [];
+) {
   const rows = design.hvrHoles.mode === 0 ? [] : design.hvrHoles.rows;
-  const kept = rows.findIndex(
-    (row, i) =>
-      row.type === 9 &&
-      row.drawn > 0 &&
-      !rows.slice(i + 1).some((r) => r.type === 9 && r.drawn > 0),
-  );
-  return design.airfoils.flatMap((row, index): PlacedMinirib[] => {
-    const length = row.minirib / 100;
-    if (!(length > 0.01 && length < 1)) return [];
-    const inner = Math.max(index - 1, 0);
-    const profile = ribProfile(design, airfoils, inner);
-    const start = 1 - length;
-    const [top, bottom] = [contourPoint(profile.upper, start), contourPoint(profile.lower, start)];
-    if (!top || !bottom) return [];
-    // Midway between the cell's ribs, the inner one mirrored for the central cell.
-    const place = (p: Point): Point3 | undefined => {
-      const [a, b] = [ribPoint(design, inner, p), ribPoint(design, index, p)];
-      if (!a || !b) return undefined;
-      const x = index === 0 ? -a[0] : a[0];
-      return [(x + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2];
-    };
-    const placeAll = (points: readonly Point[]) => {
-      const placed = points.map(place);
-      return placed.every((p): p is Point3 => !!p) ? placed : undefined;
-    };
-    const outline = placeAll([
-      ...profileSegment(profile.upper, 1, start),
-      ...profileSegment(profile.lower, start, 1).slice(1, -1),
-    ]);
-    if (!outline) return [];
-    const holes = rows[kept]
-      ? miniribEllipses(rows[kept], length, bottom[1] - top[1]).flatMap((hole) => {
-          const points = placeAll(
-            ellipsePoints(hole.center, hole.a, hole.b, hole.angle).slice(0, -1),
-          );
-          return points ? [{ points, row: kept }] : [];
-        })
-      : [];
-    return [{ row: index, outline, holes }];
+  let kept = -1;
+  rows.forEach((row, i) => {
+    if (row.type === 9 && row.drawn > 0) kept = i;
   });
-}
-
-/** `model` with the outlines of the miniribs (`miniribs`), both halves. */
-export function withMiniribs(
-  model: PreviewModel,
-  design: Pick<LepDesign, ProfileSections | 'hvrHoles'>,
-  airfoils: ReadonlyMap<string, LepAirfoil>,
-): PreviewModel {
-  for (const { outline } of miniribs(design, airfoils))
-    for (const side of [mirror, (p: Point3) => p]) {
-      const points = outline.map(side);
-      model.lines.push({ points: [...points, points[0]], kind: 'minirib', selected: false });
-    }
-  return model;
+  return placedMiniribs(design, airfoils).map((minirib) => ({
+    ...minirib,
+    holes: rows[kept]
+      ? miniribEllipses(rows[kept], minirib.length, minirib.height).flatMap((hole) => {
+          const points = ellipsePoints(hole.center, hole.a, hole.b, hole.angle)
+            .slice(0, -1)
+            .map(minirib.place);
+          return points.every((p): p is Point3 => !!p) ? [{ points, row: kept }] : [];
+        })
+      : [],
+  }));
 }
 
 /**
- * Section 2: the wing in 3D, the rib `row` highlighted, with the outlines
- * of the miniribs (`miniribs`), that of the row filled; their holes are
- * those of section 38.
+ * Section 2: the wing in 3D, the rib `row` highlighted, with its miniribs
+ * (`placedMiniribs`), that of the row filled; their holes are those of
+ * section 38.
  */
 export function miniribsModel(
-  design: Pick<LepDesign, ProfileSections | 'hvrHoles'>,
+  design: Pick<LepDesign, ProfileSections>,
   airfoils: ReadonlyMap<string, LepAirfoil>,
   row: number,
 ): PreviewModel {
-  const model = withMiniribs(wingModel(design, airfoils, { row }), design, airfoils);
-  const placed = miniribs(design, airfoils);
+  const model = wingModel(design, airfoils, { row });
+  const placed = placedMiniribs(design, airfoils);
   for (const minirib of placed.filter((m) => m.row === row))
     for (const side of [mirror, (p: Point3) => p])
       model.fills.push({ points: minirib.outline.map(side), kind: 'selected' });
@@ -636,7 +584,7 @@ function cutGrids(vrib: HoledVRib): Point[][][] {
  * types 5 and 6 cut out of them as the engine cuts them on the V-ribs laid
  * flat (`vRibHoles`), carried onto each V-rib row by row: a hole that
  * overflows its V-rib, as the engine's may, notches it; and the miniribs
- * (`miniribs`), with those of type 9. The row `selected` highlighted, if it
+ * (`placedMiniribs`), with those of type 9. The row `selected` highlighted, if it
  * is the one the engine keeps.
  */
 export function hvrHolesModel(
@@ -652,7 +600,7 @@ export function hvrHolesModel(
     return vrib && cutGrids(vrib).map((grid) => grid.map((row) => row.map((p) => ribAt(vrib, p))));
   });
   model.title = 'Wing 3D model · HVR holes';
-  for (const minirib of miniribs(design, airfoils))
+  for (const minirib of miniribHoles(design, airfoils))
     for (const side of [mirror, (p: Point3) => p]) {
       model.fills.push({
         points: minirib.outline.map(side),

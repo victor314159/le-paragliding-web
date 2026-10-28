@@ -13,7 +13,7 @@ import { ribPoint, type Point3 } from '@lepara/geometry';
 import { finite, type Point } from './geometry.ts';
 import { wingModel, type PreviewModel } from './model.ts';
 import { SURFACE_COLORS } from './patterns.ts';
-import { contourPoint, ribProfile, type ProfileSections } from './profile.ts';
+import { contourPoint, profileSegment, ribProfile, type ProfileSections } from './profile.ts';
 import { arcPoints, PreviewDrawing, valueLabel, type PreviewContext } from './scene.ts';
 
 type Profile = ReturnType<typeof ribProfile>;
@@ -36,17 +36,6 @@ export function rodOf(joncs: Joncs, bloc: number, index: number): Rod | undefine
   const group = b?.groups[index];
   // A bloc's groups have its type.
   return group && ({ type: b.type, group } as Rod);
-}
-
-/** A contour segment at chord limits, in the requested direction. */
-export function profileSegment(surface: readonly Point[], from: number, to: number): Point[] {
-  const a = contourPoint(surface, from),
-    b = contourPoint(surface, to);
-  if (!a || !b) return [];
-  const between = surface
-    .filter(([x]) => x > Math.min(from, to) && x < Math.max(from, to))
-    .sort((a, b) => (from <= to ? a[0] - b[0] : b[0] - a[0]));
-  return [a, ...between, b];
 }
 
 /** Power-law deflection relative to the input profile, as used by joncs(). */
