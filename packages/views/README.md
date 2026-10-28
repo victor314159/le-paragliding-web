@@ -65,7 +65,9 @@ skin), `rodsModel` (section 21, the rods on the ribs of their groups,
 without the skin), `ventsModel` (section 26, the air inlets open or closed
 by the vents), `wingTipModel` (section 27), `shapingModel` (section 29, the
 cuts and their zones of influence on the skin), `hvrHolesModel` (section 38,
-the holes of the type 5 and 6 V-ribs). `preDataModel(result)` draws the wing
+the holes of the type 5 and 6 V-ribs and of the miniribs cut out),
+`miniribsModel` (section 2, the miniribs, which the engine leaves out of its
+3D model, midway across their cells). `preDataModel(result)` draws the wing
 pre-data.txt generates on a generic airfoil, without the rest of the design.
 
 ## Build and test
