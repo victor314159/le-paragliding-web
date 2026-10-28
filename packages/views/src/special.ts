@@ -1,11 +1,13 @@
 import type { HvrHoleRow, LepAirfoil, LepDesign } from '@lepara/format';
 import {
+  flatAt,
   flatToRib,
   holeOutline,
   ribAt,
   ribPoint,
   vRibHoles,
   type LineSections,
+  type HoledVRib,
   type Point3,
   type VRib,
 } from '@lepara/geometry';
@@ -445,80 +447,91 @@ export function hvrHolesScene(context: PreviewContext<ProfileSections | 'hvrHole
   return scene;
 }
 
-/** Whether `p` is inside the polygon `ring`. */
-function insideRing(ring: readonly Point[], [x, y]: Point) {
-  let inside = false;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const [[xi, yi], [xj, yj]] = [ring[i], ring[j]];
-    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
-  }
-  return inside;
-}
-
-/** Where segment `p`–`q` crosses an edge of `ring`: the point and the edge's first vertex. */
-function crossing(ring: readonly Point[], p: Point, q: Point) {
-  for (let k = 0; k < ring.length; k++) {
-    const [a, b] = [ring[k], ring[(k + 1) % ring.length]];
-    const d = (q[0] - p[0]) * (b[1] - a[1]) - (q[1] - p[1]) * (b[0] - a[0]);
-    if (!d) continue;
-    const u = ((a[0] - p[0]) * (b[1] - a[1]) - (a[1] - p[1]) * (b[0] - a[0])) / d;
-    const v = ((a[0] - p[0]) * (q[1] - p[1]) - (a[1] - p[1]) * (q[0] - p[0])) / d;
-    if (u >= 0 && u <= 1 && v >= 0 && v <= 1)
-      return { point: [p[0] + (q[0] - p[0]) * u, p[1] + (q[1] - p[1]) * u] as Point, edge: k };
-  }
-  return undefined;
-}
+/** Cells across a strip of a V-rib that a hole reaches. */
+const ACROSS = 32;
 
 /**
- * The outline of a V-rib whose rows are numbered 0 to `last`, in its own
- * coordinates (row along it, fraction across), notched by the `holes` (in
- * the same coordinates) that overflow it, as the engine's may: where the
- * outline enters a hole, the hole's own outline inside the V-rib instead.
+ * A V-rib cut by its `holes` as grids of skin in its own coordinates (`s`
+ * along its rows, `t` across): row strips (finer for long rows, about 1 cm)
+ * that no hole reaches whole, as the V-rib is straight across, the others
+ * in cells, their corners in a hole moved onto its edge, laid flat, and
+ * the cells all in a hole left out. A corner whose hole edge is off the
+ * V-rib, where a hole overflows it, leaves its cells out.
  */
-function notchedOutline(last: number, holes: readonly (readonly Point[])[]): Point[] {
-  const across = Array.from({ length: 11 }, (_, k) => k / 10);
-  let outline: Point[] = [
-    ...Array.from({ length: last + 1 }, (_, s): Point => [s, 0]),
-    ...across.slice(1).map((t): Point => [last, t]),
-    ...Array.from({ length: last }, (_, k): Point => [last - 1 - k, 1]),
-    ...across.slice(1, -1).map((t): Point => [0, 1 - t]),
-  ];
-  const within = ([s, t]: Point) => s >= 0 && s <= last && t >= 0 && t <= 1;
-  for (const hole of holes) {
-    const start = outline.findIndex((p) => !insideRing(hole, p));
-    if (start < 0) continue;
-    const ring = [...outline.slice(start), ...outline.slice(0, start)];
-    const result: Point[] = [];
-    for (let i = 0; i < ring.length; i++) {
-      if (!insideRing(hole, ring[i])) {
-        result.push(ring[i]);
-        continue;
-      }
-      let j = i;
-      while (j + 1 < ring.length && insideRing(hole, ring[j + 1])) j++;
-      const [enter, leave] = [
-        crossing(hole, ring[i - 1], ring[i]),
-        crossing(hole, ring[j], ring[(j + 1) % ring.length]),
-      ];
-      if (enter && leave) {
-        // The hole's vertices from one crossing to the other, the way that stays in the V-rib.
-        const n = hole.length;
-        const forward = Array.from(
-          { length: (leave.edge - enter.edge + n) % n },
-          (_, k) => hole[(enter.edge + 1 + k) % n],
-        );
-        const backward = Array.from(
-          { length: (enter.edge - leave.edge + n) % n },
-          (_, k) => hole[(enter.edge - k + n) % n],
-        );
-        const way = forward.length && within(forward[forward.length >> 1]) ? forward : backward;
-        result.push(enter.point, ...way, leave.point);
-      }
-      i = j;
+function cutGrids(vrib: HoledVRib): Point[][][] {
+  const last = vrib.flat.left.length - 1;
+  const length = vrib.flat.left.reduce(
+    (sum, p, j) =>
+      sum + (j ? Math.hypot(p[0] - vrib.flat.left[j - 1][0], p[1] - vrib.flat.left[j - 1][1]) : 0),
+    0,
+  );
+  const steps = Math.max(1, Math.round(length / last));
+  const rows = Array.from({ length: last * steps + 1 }, (_, k) => k / steps);
+  /** The hole `p` is in, its normalized radius there and its center. */
+  const holeAt = (p: Point) => {
+    const q = flatAt(vrib, p);
+    for (const hole of vrib.holes) {
+      const [dx, dy] = [q[0] - hole.center[0], q[1] - hole.center[1]];
+      const [c, s] = [Math.cos(hole.angle), Math.sin(hole.angle)];
+      const radius = Math.hypot((dx * c + dy * s) / hole.a, (-dx * s + dy * c) / hole.b);
+      if (radius < 1) return { radius, q, hole };
     }
-    outline = result;
+    return undefined;
+  };
+  /** A corner: on the V-rib, or on the edge of the hole it is in; `undefined` off the V-rib. */
+  const corner = (p: Point): { point?: Point; inside: boolean } => {
+    const found = holeAt(p);
+    if (!found) return { point: p, inside: false };
+    const { radius, q, hole } = found;
+    if (radius < 1e-6) return { inside: true };
+    const edge = flatToRib(vrib, [
+      hole.center[0] + (q[0] - hole.center[0]) / radius,
+      hole.center[1] + (q[1] - hole.center[1]) / radius,
+    ]);
+    const on = edge[0] >= 0 && edge[0] <= last && edge[1] >= 0 && edge[1] <= 1;
+    return { point: on ? edge : undefined, inside: true };
+  };
+  const grids: Point[][][] = [];
+  let whole: Point[][] = [];
+  for (let k = 0; k + 1 < rows.length; k++) {
+    const [a, b] = [rows[k], rows[k + 1]];
+    const across = Array.from({ length: ACROSS + 1 }, (_, n) => n / ACROSS);
+    const [lower, upper] = [a, b].map((s) => across.map((t) => corner([s, t])));
+    if (![...lower, ...upper].some((c) => c.inside)) {
+      // A strip no hole reaches, joined to the ones before it.
+      if (!whole.length)
+        whole.push([
+          [a, 0],
+          [a, 1],
+        ]);
+      whole.push([
+        [b, 0],
+        [b, 1],
+      ]);
+      continue;
+    }
+    if (whole.length) grids.push(whole);
+    whole = [];
+    // Runs of cells with all their corners on the V-rib, not all in a hole.
+    let run: number[] = [];
+    const flush = () => {
+      if (run.length)
+        grids.push(
+          [lower, upper].map((side) =>
+            [...run, run[run.length - 1] + 1].map((n) => side[n].point!),
+          ),
+        );
+      run = [];
+    };
+    for (let n = 0; n < ACROSS; n++) {
+      const cell = [lower[n], lower[n + 1], upper[n], upper[n + 1]];
+      if (cell.every((c) => c.point) && !cell.every((c) => c.inside)) run.push(n);
+      else flush();
+    }
+    flush();
   }
-  return outline;
+  if (whole.length) grids.push(whole);
+  return grids;
 }
 
 /**
@@ -533,42 +546,23 @@ export function hvrHolesModel(
   airfoils: ReadonlyMap<string, LepAirfoil>,
   selected: number,
 ): PreviewModel {
-  // The V-ribs with holes by the first points of their edges, each hole in the V-rib's coordinates.
+  // The V-ribs with holes by the first points of their edges.
   const key = ([a, b]: VRib['edges']) => `${a[0].join()}/${b[0].join()}`;
-  const holed = new Map(
-    vRibHoles(design, airfoils).map((vrib) => [
-      key(vrib.rib.edges),
-      {
-        vrib,
-        holes: vrib.holes.map((hole) => ({
-          row: hole.row,
-          ring: holeOutline(hole).map((p) => flatToRib(vrib, p)),
-        })),
-      },
-    ]),
-  );
+  const holed = new Map(vRibHoles(design, airfoils).map((vrib) => [key(vrib.rib.edges), vrib]));
   const model = reinforcementModel(design, airfoils, -1, (rib) => {
-    const entry = holed.get(key(rib.edges));
-    if (!entry) return undefined;
-    const { vrib, holes } = entry;
-    const last = vrib.flat.left.length - 1;
-    const fits = (ring: readonly Point[]) =>
-      ring.every(([s, t]) => s >= 0 && s <= last && t >= 0 && t <= 1);
-    const rings = holes.map(({ ring }) => ring);
-    return {
-      outline: notchedOutline(
-        last,
-        rings.filter((ring) => !fits(ring)),
-      ).map((p) => ribAt(vrib, p)),
-      holes: rings.filter(fits).map((ring) => ring.map((p) => ribAt(vrib, p))),
-    };
+    const vrib = holed.get(key(rib.edges));
+    return vrib && cutGrids(vrib).map((grid) => grid.map((row) => row.map((p) => ribAt(vrib, p))));
   });
   model.title = 'Wing 3D model · HVR holes';
-  for (const { vrib, holes } of holed.values())
-    for (const { ring, row } of holes) {
-      const points = [...ring, ring[0]].map((p) => ribAt(vrib, p));
+  for (const vrib of holed.values())
+    for (const hole of vrib.holes) {
+      const ring = holeOutline(hole).map((p) => ribAt(vrib, flatToRib(vrib, p)));
       for (const side of [mirror, (p: Point3) => p])
-        model.lines.push({ points: points.map(side), kind: 'hole', selected: row === selected });
+        model.lines.push({
+          points: [...ring, ring[0]].map(side),
+          kind: 'hole',
+          selected: hole.row === selected,
+        });
     }
   model.note =
     'The holes of the type 5 and 6 V-ribs cut out as the engine cuts them on the V-ribs laid ' +
