@@ -1,12 +1,16 @@
 import type {
   ArcRodGroup,
+  LepAirfoil,
+  LepDesign,
   Joncs,
   LongRodGroup,
   NoseRodGroup,
   RodCurve,
   SharkNoseGroup,
 } from '@lepara/format';
+import { ribPoint, type Point3 } from '@lepara/geometry';
 import { finite, type Point } from './geometry.ts';
+import { wingModel, type PreviewModel } from './model.ts';
 import { contourPoint, ribProfile, type ProfileSections } from './profile.ts';
 import { arcPoints, PreviewDrawing, valueLabel, type PreviewContext } from './scene.ts';
 
@@ -232,6 +236,43 @@ export function additionalPointsScene(context: PreviewContext<ProfileSections | 
     [1, 0.15],
   ]);
   return d.finish();
+}
+
+const mirror = ([x, y, z]: Point3): Point3 => [-x, y, z];
+
+/**
+ * Section 17: the ribs of the wing, without its skin, with the additional
+ * points on each of them, as the engine places them on the ribs it draws
+ * (§9.5, in % of chord), each point joined across the ribs, both halves;
+ * the point `selected` and the rib `rib` highlighted.
+ */
+export function additionalPointsModel(
+  design: Pick<LepDesign, ProfileSections | 'ribPoints'>,
+  airfoils: ReadonlyMap<string, LepAirfoil>,
+  rib: number,
+  selected: number,
+): PreviewModel {
+  const model = wingModel(design, airfoils, { row: rib });
+  model.surfaces = [];
+  design.ribPoints.forEach(([x, y], i) => {
+    if (!finite(x) || !finite(y)) return;
+    const points = design.geometry.ribs.flatMap((_, index) => {
+      const point = ribPoint(design, index, [x / 100, -y / 100]);
+      return point ? [point] : [];
+    });
+    const chosen = i === selected;
+    for (const side of [mirror, (p: Point3) => p]) {
+      model.lines.push({ points: points.map(side), kind: 'rib-point', selected: chosen });
+      for (const point of points)
+        model.dots.push({ point: side(point), kind: 'rib-point', selected: chosen });
+    }
+  });
+  model.title = 'Wing 3D model · additional rib points';
+  model.note =
+    'The points on every rib, as the engine marks them on the ribs it draws (§9.5), joined ' +
+    'across the ribs; the selected point highlighted. At Wing scale, ribs placed as the ' +
+    'engine places them, without the skin. Drag to rotate, scroll to zoom.';
+  return model;
 }
 
 export function shapingScene(context: PreviewContext<ProfileSections | 'shaping'>) {

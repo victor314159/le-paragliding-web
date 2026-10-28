@@ -56,8 +56,9 @@ cells and ballooned by section 5), `holesModel` (section 4), `trimModel`
 (section 8, beside its `trimScene`), `linesModel` (sections 9 to 11, the
 lines and brakes), `reinforcementModel` (section 12, the V and VH ribs
 and the H straps among the ribs, without the skin, with the lines that reach
-the anchors) and `colorsModel` (sections 15 and 16, the color regions and
-cuts, or the rib marks, on the skin). `preDataModel(result)` draws the wing pre-data.txt
+the anchors), `colorsModel` (sections 15 and 16, the color regions and
+cuts, or the rib marks, on the skin) and `additionalPointsModel` (section
+17, the points on every rib, without the skin). `preDataModel(result)` draws the wing pre-data.txt
 generates on a generic airfoil, without the rest of the design.
 
 ## Build and test
