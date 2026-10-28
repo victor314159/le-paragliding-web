@@ -166,6 +166,9 @@ const sub = (a: Vector, b: Vector): Vector => [a[0] - b[0], a[1] - b[1], a[2] - 
 const dot = (a: Vector, b: Vector) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const distance = (a: Vector, b: Vector) => Math.hypot(...sub(a, b));
 
+/** The overwidth (% of the cell width) of a panel's edge on rib `index` at `station`. */
+type Overwidth = (station: Station, index: number) => number;
+
 /** A ribbed run of skin: each rib's section and stations. */
 type Run = { index: number; section: Point3[]; stations: readonly Station[] }[];
 
@@ -173,9 +176,9 @@ type Run = { index: number; section: Point3[]; stations: readonly Station[] }[];
  * The rows of skin of `run`, ballooned between its ribs: each panel an arc
  * of circle as long as the cell is wide plus its overwidth on both edges,
  * as the engine adds it (§8.2): `overwidth` (% of the cell width at the
- * middle of the surface) on each edge.
+ * middle of the surface) on the edge of each rib.
  */
-function inflate(run: Run, overwidth: (station: Station) => number): Point3[][] {
+function inflate(run: Run, overwidth: Overwidth): Point3[][] {
   const rows = [run[0].section];
   const last = run[0].section.length - 1;
   const middle = {
@@ -192,7 +195,11 @@ function inflate(run: Run, overwidth: (station: Station) => number): Point3[][] 
       const station = run[i - 1].stations[k];
       if (station.surface === 'inlet') return undefined;
       const width = distance(a[middle[station.surface]], b[middle[station.surface]]);
-      const extra = (2 * Math.max(0, overwidth(station)) * width) / 100;
+      const extra =
+        ((Math.max(0, overwidth(station, run[i - 1].index)) +
+          Math.max(0, overwidth(station, run[i].index))) *
+          width) /
+        100;
       const chord = distance(p, b[k]);
       if (!extra || !chord) return undefined;
       // Outwards, across the panel: its span crossed with the section's tangent.
@@ -234,19 +241,25 @@ function inflate(run: Run, overwidth: (station: Station) => number): Point3[][] 
 /**
  * Both halves of a wing from its `half`: the ribs, the skin between
  * adjacent ribs, straight or ballooned by `overwidth`, open at the air
- * inlets of open cells, and the anchor rows; the rib `row` highlighted.
+ * inlets of open cells, and the anchor rows; the rib `row` highlighted,
+ * and the outlines of the `highlighted` ones.
  */
 function assemble(
   half: readonly PlacedRib[],
   row: number,
   title: string,
   note: string,
-  overwidth?: (station: Station) => number,
+  overwidth?: Overwidth,
+  highlighted?: (index: number) => boolean,
 ): PreviewModel {
   const lines: PreviewModel['lines'] = [];
   for (const rib of half)
     for (const side of [rib.contour.map(mirror), rib.contour])
-      lines.push({ points: side, kind: 'rib', selected: rib.index === row });
+      lines.push({
+        points: side,
+        kind: 'rib',
+        selected: rib.index === row || !!highlighted?.(rib.index),
+      });
   // Runs of adjacent ribs with a section, from the left tip: gaps split the skin.
   const runs: Run[] = [];
   let previous: number | undefined;
@@ -342,9 +355,10 @@ function overwidthAt(points: readonly SkinTensionPoint[], { surface, position }:
 /**
  * The wing of a design in 3D, both halves: each rib's airfoil placed as the
  * engine places it, the skin straight between ribs or ballooned by
- * `overwidths` (section 5), open at the inlets of open cells, or of every
+ * `overwidths` (section 5), or by those of each rib (index from 0) on its
+ * panel edges (section 31), open at the inlets of open cells, or of every
  * cell without `inlets`, and, with `anchors`, the anchor rows; the rib
- * `row` highlighted.
+ * `row` highlighted, and the outlines of the `ribs`.
  */
 export function wingModel(
   design: Pick<LepDesign, ProfileSections>,
@@ -354,11 +368,14 @@ export function wingModel(
     anchors = false,
     overwidths,
     inlets = true,
+    ribs,
   }: {
     row?: number;
     anchors?: boolean;
-    overwidths?: readonly SkinTensionPoint[];
+    overwidths?:
+      readonly SkinTensionPoint[] | ((index: number) => readonly SkinTensionPoint[] | undefined);
     inlets?: boolean;
+    ribs?: (index: number) => boolean;
   } = {},
 ): PreviewModel {
   const single = design.geometry.paragliderType === 'ss';
@@ -388,8 +405,54 @@ export function wingModel(
       (single
         ? ' Single skin: the skin over the extrados and air inlets only, as the engine meshes it.'
         : ''),
-    overwidths && ((station) => overwidthAt(overwidths, station)),
+    overwidths &&
+      ((station, index) => {
+        const points = typeof overwidths === 'function' ? overwidths(index) : overwidths;
+        return points ? overwidthAt(points, station) : 0;
+      }),
+    ribs,
   );
+}
+
+/**
+ * Section 31: the wing in 3D, its skin ballooned by the overwidths of the
+ * groups, as the engine adds them (§8.2): on each panel edge those of the
+ * rib's group (the last that names it), rib 0 those of rib 1; with groups
+ * disabled, those of section 5. The first and last ribs of group `selected`
+ * highlighted.
+ */
+export function tensionGroupsModel(
+  design: Pick<LepDesign, ProfileSections | 'skinTension' | 'skinTensionGroups'>,
+  airfoils: ReadonlyMap<string, LepAirfoil>,
+  selected: number,
+): PreviewModel {
+  const tension = design.skinTensionGroups;
+  if (tension.mode === 0) {
+    const model = wingModel(design, airfoils, { overwidths: design.skinTension.points });
+    model.note = `Skin tension groups are disabled: section 5's overwidths. ${model.note}`;
+    return model;
+  }
+  const groups = tension.groups;
+  /** The group of rib `index` (from 0), the last that names it. */
+  const last = [...groups].reverse();
+  const groupOf = (index: number) =>
+    last.find((g) => g.firstRib <= index + 1 && index + 1 <= g.lastRib);
+  const group = groups[selected];
+  const model = wingModel(design, airfoils, {
+    overwidths: (index) => groupOf(index)?.points,
+    // The last rib may be the virtual one past the tip, nribss + 1.
+    ribs: (index) =>
+      !!group &&
+      (index + 1 === group.firstRib ||
+        index + 1 === Math.min(group.lastRib, design.geometry.ribs.length)),
+  });
+  model.title = `Wing 3D model · skin tension group ${group?.group ?? '—'}`;
+  model.note =
+    "Each panel edge ballooned by its rib's group; the selected group's first and last ribs " +
+    'highlighted; ' +
+    'ribs in no group without overwidth. ' +
+    model.note;
+  return model;
 }
 
 /**
