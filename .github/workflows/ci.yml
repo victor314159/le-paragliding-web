@@ -38,9 +38,8 @@ jobs:
         uses: docker/setup-buildx-action@v4
         with:
           use: false
-      # The site (dist/) and the npm package (pkg/) of one build. The GitHub
-      # Actions cache skips the WASM compile and the oracle check when the
-      # engine has not changed.
+      # The site (dist/) and the npm package (pkg/) of one build. No cache:
+      # writing it took longer than compiling the WASM and checking it again.
       - name: Build (WASM, oracle check, lint, Angular, package)
         uses: docker/build-push-action@v7
         with:
@@ -48,10 +47,9 @@ jobs:
           context: .
           target: release
           outputs: type=local,dest=.
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      # One worker per core of the runner (Playwright defaults to half).
       - name: Browser tests
-        run: docker compose run --rm -e ORACLE_ALL=1 web sh -c 'npm ci && npm test'
+        run: docker compose run --rm -e ORACLE_ALL=1 web sh -c 'npm ci && npm test -- --workers=4'
       - if: steps.unreleased.outputs.web
         uses: actions/upload-pages-artifact@v5
         with:
