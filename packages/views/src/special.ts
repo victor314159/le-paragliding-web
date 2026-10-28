@@ -2,6 +2,7 @@ import type { HvrHoleRow, LepAirfoil, LepDesign } from '@lepara/format';
 import { ribPoint, type Point3 } from '@lepara/geometry';
 import { finite, type Point } from './geometry.ts';
 import { wingModel, type PreviewModel } from './model.ts';
+import { SURFACE_COLORS } from './patterns.ts';
 import { contourPoint, ribProfile, type ProfileSections } from './profile.ts';
 import { profileSegment } from './rods.ts';
 import { arcPoints, ellipsePoints, PreviewDrawing, type PreviewContext } from './scene.ts';
@@ -83,22 +84,65 @@ export function ventsScene({ design, selected }: PreviewContext<'glueVents'>) {
 
 const mirror = ([x, y, z]: Point3): Point3 => [-x, y, z];
 
+/** A band down an inlet, from `from(u)` to `to(u)`. */
+type Band = { readonly from: (u: number) => number; readonly to: (u: number) => number };
+
+/** Points across a cell's inlet, and down it. */
+const VENT_STEPS = 16;
+
 /**
- * Section 26: the wing in 3D with the vent of each cell drawn on its air
- * inlet, as the engine draws them on the planform (§5.1): row i the cell
- * between ribs i − 1 and i (rib 0 is rib 1 mirrored), across from rib to
- * rib and from the extrados end of the inlet to its intrados end, in % of
- * chord; both halves, the row `selected` highlighted.
+ * The closed part of an inlet of type `type`, in its normalized
+ * coordinates (`ventBoundary`): bands from `from(u)` to `to(u)` down the
+ * inlet, from its extrados end (0) to its intrados end (100), `u` across
+ * from the left rib (0) to the right one (100). Positive types close the
+ * extrados side of their boundary, negative ones the intrados side.
+ */
+function closedBands(type: number, parameters: readonly number[]): Band[] {
+  const all = (v: number) => () => v;
+  if (type === 1 || type === -1) return [{ from: all(0), to: all(100) }];
+  if (Math.abs(type) === 6) {
+    const [width, height] = parameters;
+    if (!finite(width) || !finite(height)) return [];
+    // Around an elliptic opening: above it and below it.
+    const half = (u: number) => {
+      const t = (u - 50) / (width / 2);
+      return Math.abs(t) < 1 ? (height / 2) * Math.sqrt(1 - t * t) : 0;
+    };
+    return [
+      { from: all(0), to: (u: number) => 50 - half(u) },
+      { from: (u: number) => 50 + half(u), to: all(100) },
+    ];
+  }
+  const boundary = [-2, -3, 4, -4, 5, -5].includes(type)
+    ? ventBoundary(type, parameters).at(-1)
+    : undefined;
+  if (!boundary || boundary.length < 2) return [];
+  const line = [...boundary].sort((a, b) => a[0] - b[0]);
+  const at = (u: number) => contourPoint(line, u)?.[1] ?? Number.NaN;
+  return [type > 0 ? { from: all(0), to: at } : { from: at, to: all(100) }];
+}
+
+/**
+ * Section 26: the wing in 3D with the air inlets as glue vents make them
+ * (§5.1, the drawing of the planform; the panels): row i the cell between
+ * ribs i − 1 and i (rib 0 is rib 1 mirrored), each inlet open but for its
+ * closed part, the fabric of the extrados or intrados panel, in its color,
+ * up to the vent's boundary; across from rib to rib and down the inlet in
+ * % of chord, both halves, the row `selected` highlighted.
  */
 export function ventsModel(
   design: Pick<LepDesign, ProfileSections | 'glueVents'>,
   airfoils: ReadonlyMap<string, LepAirfoil>,
   selected: number,
 ): PreviewModel {
-  const model = wingModel(design, airfoils, { row: selected });
+  const vents = design.glueVents;
+  const model = wingModel(design, airfoils, { row: selected, inlets: vents.mode === 0 });
   model.title = 'Wing 3D model · air inlets';
   model.camera = [0.25, -1, 0.35];
-  const vents = design.glueVents;
+  if (vents.mode === 0) {
+    model.note = `Special glue vents are disabled: classic inlets, open in open cells. ${model.note}`;
+    return model;
+  }
   /** The point at `v` % of rib `index`'s inlet, from its extrados end; -1 is the axis. */
   const inletPoint = (index: number, v: number): Point3 | undefined => {
     if (index < 0) {
@@ -116,39 +160,52 @@ export function ventsModel(
     const t = u / 100;
     return a && b && [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
   };
-  design.geometry.ribs.forEach((_, cell) => {
-    const row = vents.mode === 0 ? undefined : vents.ribs[cell];
-    const type = vents.mode === 0 ? 0 : row?.type;
+  /** The rows of `band` on the inlet of `cell`, across it, if they all place. */
+  const bandRows = (cell: number, { from, to }: Band): Point3[][] | undefined => {
+    const rows: Point3[][] = [];
+    for (let i = 0; i <= VENT_STEPS; i++) {
+      const u = (100 * i) / VENT_STEPS;
+      const [v0, v1] = [from(u), to(u)];
+      if (!finite(v0) || !finite(v1)) return undefined;
+      const row: Point3[] = [];
+      for (let k = 0; k <= VENT_STEPS; k++) {
+        const point = place(cell, [u, v0 + ((v1 - v0) * k) / VENT_STEPS]);
+        if (!point) return undefined;
+        row.push(point);
+      }
+      rows.push(row);
+    }
+    return rows;
+  };
+  const sides = [mirror, (p: Point3) => p];
+  vents.ribs.forEach(({ type, parameters }, cell) => {
     if (!finite(type)) return;
-    const frame: Point[] = [
-      [0, 0],
-      [100, 0],
-      [100, 100],
-      [0, 100],
-      [0, 0],
-    ];
-    for (const [points, kind] of [
-      [frame, 'baseline'],
-      ...ventBoundary(type, row?.parameters ?? []).map((points) => [points, 'vent'] as const),
-    ] as const) {
+    const color = type > 0 ? SURFACE_COLORS.extrados : SURFACE_COLORS.intrados;
+    for (const band of closedBands(type, parameters)) {
+      const rows = bandRows(cell, band);
+      if (rows)
+        for (const side of sides)
+          model.surfaces.push({ rows: rows.map((row) => row.map(side)), kind: 'skin', color });
+    }
+    for (const points of ventBoundary(type, parameters)) {
       const placed = points.flatMap((p) => {
         const point = place(cell, p);
         return point ? [point] : [];
       });
-      if (placed.length !== points.length) continue;
-      for (const side of [mirror, (p: Point3) => p])
-        model.lines.push({
-          points: placed.map(side),
-          kind,
-          selected: kind === 'vent' && cell === selected,
-        });
+      if (placed.length === points.length)
+        for (const side of sides)
+          model.lines.push({ points: placed.map(side), kind: 'vent', selected: cell === selected });
     }
   });
+  model.legend = [
+    { text: 'Closed · extrados panel', color: SURFACE_COLORS.extrados },
+    { text: 'Closed · intrados panel', color: SURFACE_COLORS.intrados },
+  ];
   model.note =
-    'The vent of each cell on its air inlet, as the engine draws them on the planform: ' +
-    'across from rib to rib and down the inlet in % of chord; the selected cell highlighted' +
-    (vents.mode === 0 ? '. Special glue vents are disabled: classic inlets. ' : '. ') +
-    model.note;
+    'Each air inlet open but for its closed part, the fabric of the extrados or intrados ' +
+    'panel up to the vent boundary, as the engine draws them: across from rib to rib and ' +
+    'down the inlet in % of chord; the selected cell highlighted. At Wing scale, ribs placed ' +
+    'as the engine places them, skin straight between ribs. Drag to rotate, scroll to zoom.';
   return model;
 }
 
@@ -248,6 +305,29 @@ export function wingTipScene(context: PreviewContext<ProfileSections | 'wingTip'
   d.path(data.original, 'baseline', false, '', true);
   d.path(data.modified, 'detail', true, '', true);
   return d.finish();
+}
+
+/**
+ * Section 27: the wing in 3D, its last rib highlighted, placed as the
+ * engine places it: with the edge angles of the last cell (type 1), the
+ * only type that reaches the 3D wing.
+ */
+export function wingTipModel(
+  design: Pick<LepDesign, ProfileSections>,
+  airfoils: ReadonlyMap<string, LepAirfoil>,
+): PreviewModel {
+  const model = wingModel(design, airfoils, { row: design.geometry.ribs.length - 1 });
+  const { mode } = design.wingTip;
+  model.title = 'Wing 3D model · wing tip';
+  model.note =
+    (mode === 1
+      ? 'The last cell with its edge angles, as the engine places it. '
+      : mode === 2
+        ? 'The rounded tip changes only the planform drawing: the engine places the ribs as input. '
+        : mode === 4
+          ? 'Engine 3.29 reads the last rib displacement and rotation but does not apply them. '
+          : 'No special wing tip. ') + model.note;
+  return model;
 }
 
 /** Section 38 type 9 follows the source's width=a/b, center=displacement, offset=angle. */
