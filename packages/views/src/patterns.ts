@@ -232,7 +232,9 @@ export function tensionScene(
     title,
     [
       'Intrados positions converted from TE.',
-      !grouped && groups.mode === 1 && 'Section 31 is active; these are the section 5 base values.',
+      !grouped &&
+        groups.mode === 1 &&
+        'Section 31 is active: its groups replace these overwidths; the engine still uses the extrados position of point 3 for the nose correction (ndif).',
       curves.some((curve) => curve.points.length !== input.length) &&
         'Incomplete or out-of-range points omitted; gaps are not interpolated.',
     ]
