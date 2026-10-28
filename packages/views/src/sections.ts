@@ -3,7 +3,7 @@ import { brakeDistributionScene, networkScene, ramificationScene } from './lines
 import { holesModel, wingModel, type PreviewModel } from './model.ts';
 import { colorsScene, tensionScene } from './patterns.ts';
 import { holesScene, ribScene, thicknessScene } from './ribs.ts';
-import { additionalPointsScene, rodsScene, shapingScene } from './rods.ts';
+import { additionalPointsModel, additionalPointsScene, rodsScene, shapingScene } from './rods.ts';
 import type { PreviewContext, PreviewScene } from './scene.ts';
 import { markTypeScene, sewingMarksScene, sewingScene } from './sewing.ts';
 import { hvrHolesScene, ventsScene, wingTipScene } from './special.ts';
@@ -143,7 +143,15 @@ export const SECTION_SCENES: ReadonlyMap<number, SectionScene> = new Map([
   ],
   [15, colorsSection(true)],
   [16, colorsSection(false)],
-  [17, { views: [], ribs: always, draw: additionalPointsScene }],
+  [
+    17,
+    {
+      views: [['profile', 'Profile'], MODEL_VIEW],
+      ribs: always,
+      draw: additionalPointsScene,
+      model: (c: PreviewContext) => additionalPointsModel(c.design, c.airfoils, c.rib, c.selected),
+    },
+  ],
   [
     20,
     {
