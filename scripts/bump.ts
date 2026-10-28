@@ -1,22 +1,26 @@
-// Release from main: bump a version, commit, tag and push.
-//   node scripts/bump.ts web|engine [patch|minor|major]
-// web: the app (root package.json), tag web-v<version>, which deploys GitHub
-// Pages. engine: packages/engine, tag engine-v<version>, which publishes the
-// npm package. Both run from .github/workflows/ci.yml.
+// Release from main: bump versions, commit and push.
+//   node scripts/bump.ts web|engine... [patch|minor|major]
+// web: the app (root package.json), deployed to GitHub Pages. engine:
+// packages/engine, published to npm. CI (.github/workflows/ci.yml) releases a
+// version of main once every check passed, then tags it web-v<version> or
+// engine-v<version>.
 // Runs on the host, for its git credentials; uses no dependencies.
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
-const [target, level = 'patch'] = process.argv.slice(2);
-const files = {
+const FILES = {
   web: ['package.json', 'package-lock.json'],
   engine: ['packages/engine/package.json'],
-}[target ?? ''];
-const part = ['major', 'minor', 'patch'].indexOf(level);
-if (files === undefined || part < 0) {
-  console.error('Usage: node scripts/bump.ts web|engine [patch|minor|major]');
+};
+type Target = keyof typeof FILES;
+const args = process.argv.slice(2);
+const targets = [...new Set(args.filter((arg): arg is Target => Object.hasOwn(FILES, arg)))];
+const levels = args.filter((arg) => !Object.hasOwn(FILES, arg));
+const part = ['major', 'minor', 'patch'].indexOf(levels[0] ?? 'patch');
+if (targets.length === 0 || levels.length > 1 || part < 0) {
+  console.error('Usage: node scripts/bump.ts web|engine... [patch|minor|major]');
   process.exit(1);
 }
 
@@ -39,25 +43,26 @@ const read = (file: string) =>
     version: string;
     packages?: Record<string, { version?: string }>;
   };
-const old = read(files[0]).version;
-const numbers = old.split('.').map(Number);
-if (numbers.length !== 3 || numbers.some(Number.isNaN)) fail(`Cannot bump version ${old}.`);
-numbers[part]++;
-numbers.fill(0, part + 1);
-const version = numbers.join('.');
-const tag = `${target}-v${version}`;
-if (git('tag', '--list', tag) !== '') fail(`Tag ${tag} already exists.`);
+const bumps = targets.map((target) => {
+  const old = read(FILES[target][0]).version;
+  const numbers = old.split('.').map(Number);
+  if (numbers.length !== 3 || numbers.some(Number.isNaN)) fail(`Cannot bump version ${old}.`);
+  numbers[part]++;
+  numbers.fill(0, part + 1);
+  const version = numbers.join('.');
+  for (const file of FILES[target]) {
+    const json = read(file);
+    json.version = version;
+    // package-lock.json repeats the root version in packages[""].
+    const lockRoot = json.packages?.[''];
+    if (lockRoot) lockRoot.version = version;
+    writeFileSync(resolve(root, file), JSON.stringify(json, null, 2) + '\n');
+  }
+  return { target, old, version };
+});
 
-for (const file of files) {
-  const json = read(file);
-  json.version = version;
-  // package-lock.json repeats the root version in packages[""].
-  const lockRoot = json.packages?.[''];
-  if (lockRoot) lockRoot.version = version;
-  writeFileSync(resolve(root, file), JSON.stringify(json, null, 2) + '\n');
-}
-
-git('commit', '--quiet', '-m', `Bump ${target} to ${version}`, '--', ...files);
-git('tag', '-a', tag, '-m', `${target} ${version}`);
-git('push', '--atomic', 'origin', 'main', tag);
-console.log(`${target} ${old} -> ${version}, pushed main and ${tag}.`);
+const summary = bumps.map(({ target, version }) => `${target} to ${version}`).join(', ');
+git('commit', '--quiet', '-m', `Bump ${summary}`, '--', ...targets.flatMap((t) => FILES[t]));
+git('push', 'origin', 'main');
+for (const { target, old, version } of bumps) console.log(`${target} ${old} -> ${version}`);
+console.log('Pushed main: CI releases and tags once every check passed.');

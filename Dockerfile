@@ -6,9 +6,12 @@
 #   wasm -> oracle-check -> site -> dist/ (the static site). Any failing step
 #   (WASM build, WASM vs official references, lint, Angular build) stops the build.
 #
-# npm package (what CI publishes on engine-v* tags):
+# npm package (what CI publishes):
 #   docker build --target engine-pkg --output pkg .
 #   wasm -> oracle-check -> engine-pack -> pkg/<name>-<version>.tgz
+#
+# Both from one build (CI): docker build --target release --output . .
+#   -> dist/ and pkg/
 #
 # Development images (docker-compose.yml), the repository bind-mounted at /work:
 #   flang  : Fortran -> WASM toolchain
@@ -117,6 +120,10 @@ COPY --from=wasm /work/build/wasm build/wasm
 # Only the site is kept: this COPY makes the oracle check a required step.
 COPY --from=oracle-check /oracle-ok /tmp/
 RUN npm run check && npm run build
+
+FROM scratch AS release
+COPY --from=site /work/build/web/browser /dist/
+COPY --from=engine-pack /work/build/pkg/ /pkg/
 
 FROM scratch AS dist
 COPY --from=site /work/build/web/browser /

@@ -97,8 +97,10 @@ docker compose run --rm web scripts/assemble-package.sh format   # @lepara/forma
 ```
 
 The release build checks the WASM engine against the official references and
-lints before building. CI runs the same two first commands; releases (below)
-deploy `dist/` to GitHub Pages or publish the engine to npm.
+lints before building. CI builds the site and the npm package at once
+(`docker build --target release --output . .`, into `dist/` and `pkg/`), then
+runs the browser tests and, beside them, the native checks; releases (below)
+deploy `dist/` to GitHub Pages or publish `pkg/` to npm.
 
 Generated files live in a Docker volume (`docker compose down -v` deletes it).
 
@@ -119,11 +121,16 @@ Review changed outputs and pinned differences before committing them.
 From an up-to-date `main`, on the host (Node 24+, for your git credentials):
 
 ```sh
-npm run bump:web      # app version, tag web-v<version>; deploys to Pages
-npm run bump:engine   # packages/engine, tag engine-v<version>; publishes to npm
+npm run bump:web            # app version: deploys to Pages
+npm run bump:engine         # packages/engine: publishes to npm
+npm run bump -- web engine  # both, in one commit and one CI run
 ```
 
-Both bump the patch version: add `-- minor` or `-- major` for the others.
+They bump the patch version: add `minor` or `major` (`npm run bump:web -- minor`)
+for the others. The script commits and pushes `main`. Once every check of that
+run passed, CI deploys or publishes each version that has no tag yet, then tags
+it `web-v<version>` or `engine-v<version>`. If a check fails, nothing is
+released: fix it on `main`, and the next run releases the same version.
 
 ## Layout
 

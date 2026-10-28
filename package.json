@@ -18,6 +18,7 @@
     "check:staged": "lint-staged",
     "prepare": "husky",
     "test": "playwright test -c tests",
+    "bump": "node scripts/bump.ts",
     "bump:web": "node scripts/bump.ts web",
     "bump:engine": "node scripts/bump.ts engine"
   },

@@ -3,39 +3,70 @@ name: CI
 on:
   push:
     branches: [main]
-    # Releases, pushed by scripts/bump.ts: web-v<version> deploys GitHub Pages
-    # (deploy job), engine-v<version> publishes packages/engine to npm
-    # (release job). Pushes to main only build and test.
-    tags: ['web-v*', 'engine-v*']
   pull_request:
 
 permissions:
   contents: read
 
+# One run of main at a time: a run sees the tags of the releases before it.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   build:
-    # A bump pushes main and its tag together: the tag run builds the same commit.
-    if: github.ref_type == 'tag' || !startsWith(github.event.head_commit.message, 'Bump ')
     runs-on: ubuntu-24.04
+    outputs:
+      web: ${{ steps.unreleased.outputs.web }}
+      engine: ${{ steps.unreleased.outputs.engine }}
     steps:
       - uses: actions/checkout@v7
+      # Releases, bumped by scripts/bump.ts: a version of main without its tag
+      # (web-v<version>, engine-v<version>) is deployed or published, then
+      # tagged, once every check passed.
+      - id: unreleased
+        if: github.event_name == 'push'
+        run: |
+          tags=$(git ls-remote --tags origin)
+          for target in web engine; do
+            file=$([ $target = web ] && echo package.json || echo packages/engine/package.json)
+            version=$(node -p "require('./$file').version")
+            grep -q "refs/tags/$target-v$version$" <<< "$tags" || echo "$target=$version" >> "$GITHUB_OUTPUT"
+          done
       # Not the default builder: docker compose below keeps the plain one.
       - id: buildx
         uses: docker/setup-buildx-action@v4
         with:
           use: false
-      # The GitHub Actions cache skips the WASM compile and the oracle check
-      # when the engine has not changed.
-      - name: Build (WASM, oracle check, lint, Angular)
+      # The site (dist/) and the npm package (pkg/) of one build. The GitHub
+      # Actions cache skips the WASM compile and the oracle check when the
+      # engine has not changed.
+      - name: Build (WASM, oracle check, lint, Angular, package)
         uses: docker/build-push-action@v7
         with:
           builder: ${{ steps.buildx.outputs.name }}
           context: .
-          outputs: type=local,dest=dist
+          target: release
+          outputs: type=local,dest=.
           cache-from: type=gha
           cache-to: type=gha,mode=max
       - name: Browser tests
         run: docker compose run --rm -e ORACLE_ALL=1 web sh -c 'npm ci && npm test'
+      - if: steps.unreleased.outputs.web
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+      - if: steps.unreleased.outputs.engine
+        uses: actions/upload-artifact@v7
+        with:
+          name: engine-package
+          path: pkg
+
+  # The native Fortran checks, beside the build: they need neither dist/ nor the WASM.
+  native:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
       # The patched source on the official toolchain: only the pinned patch effects.
       - name: Patched engine, native
         run: docker compose run --rm oracle node scripts/check-patched-native.ts
@@ -45,34 +76,36 @@ jobs:
         run: docker compose run --rm oracle node scripts/check-format-native.ts
       - name: Geometry preprocessor, native oracle
         run: docker compose run --rm oracle node scripts/check-preprocessor-native.ts
-      - uses: actions/upload-pages-artifact@v5
-        with:
-          path: dist
 
-  # Requires Settings > Pages > Source: GitHub Actions, and web-v* tags allowed
-  # in Settings > Environments > github-pages.
+  # Requires Settings > Pages > Source: GitHub Actions, and main allowed in
+  # Settings > Environments > github-pages.
   deploy:
-    if: startsWith(github.ref, 'refs/tags/web-v')
-    needs: build
+    if: needs.build.outputs.web
+    needs: [build, native]
     runs-on: ubuntu-24.04
     permissions:
+      contents: write # the tag
       pages: write
       id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
+      - uses: actions/checkout@v7
       - id: deploy
         uses: actions/deploy-pages@v5
+      - run: git tag "$TAG" && git push origin "$TAG"
+        env:
+          TAG: web-v${{ needs.build.outputs.web }}
 
   # Publishes packages/engine to npm through trusted publishing (OIDC, no
   # token): requires the trusted publisher set on npmjs.com for this workflow.
   release:
-    if: startsWith(github.ref, 'refs/tags/engine-v')
-    needs: build
+    if: needs.build.outputs.engine
+    needs: [build, native]
     runs-on: ubuntu-24.04
     permissions:
-      contents: read
+      contents: write # the tag
       id-token: write # npm trusted publishing + provenance
     steps:
       - uses: actions/checkout@v7
@@ -81,20 +114,11 @@ jobs:
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
-      - name: Check the tag matches the package version
-        run: |
-          VERSION=$(node -p "require('./packages/engine/package.json').version")
-          [ "$GITHUB_REF_NAME" = "engine-v$VERSION" ] \
-            || { echo "tag $GITHUB_REF_NAME, package version $VERSION"; exit 1; }
-      - id: buildx
-        uses: docker/setup-buildx-action@v4
-      # Reuses the build job's cache: the WASM is not compiled again.
-      - name: Build, oracle check, pack and check the package
-        uses: docker/build-push-action@v7
+      - uses: actions/download-artifact@v8
         with:
-          builder: ${{ steps.buildx.outputs.name }}
-          context: .
-          target: engine-pkg
-          outputs: type=local,dest=pkg
-          cache-from: type=gha
+          name: engine-package
+          path: pkg
       - run: npm publish ./pkg/*.tgz --access public
+      - run: git tag "$TAG" && git push origin "$TAG"
+        env:
+          TAG: engine-v${{ needs.build.outputs.engine }}
