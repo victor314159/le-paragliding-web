@@ -6,11 +6,13 @@ import type {
   LongRodGroup,
   NoseRodGroup,
   RodCurve,
+  ShapingGroup,
   SharkNoseGroup,
 } from '@lepara/format';
 import { ribPoint, type Point3 } from '@lepara/geometry';
 import { finite, type Point } from './geometry.ts';
 import { wingModel, type PreviewModel } from './model.ts';
+import { SURFACE_COLORS } from './patterns.ts';
 import { contourPoint, ribProfile, type ProfileSections } from './profile.ts';
 import { arcPoints, PreviewDrawing, valueLabel, type PreviewContext } from './scene.ts';
 
@@ -322,6 +324,60 @@ export function rodsModel(
   return model;
 }
 
+/** A zone of influence of section 29, between two points of the airfoil (from 1, from the TE). */
+export interface ShapingZone {
+  readonly zone: number;
+  readonly surface: 'upper' | 'lower';
+  readonly from: number;
+  readonly to: number;
+}
+
+/** A cut of section 29: the cut `index` of its surface, at a point of the airfoil. */
+export interface ShapingCutPoint {
+  readonly surface: 'upper' | 'lower';
+  readonly index: number;
+  readonly point: number;
+}
+
+/**
+ * The zones of influence and cut points of `group` as the engine sums them
+ * (§29) on an airfoil whose extrados ends at point `extrados` and intrados
+ * begins at point `intrados`: zone 1 (upper start to cut 1), 2 (upper cut 2
+ * start to cut 2), 3 (last upper cut to the extrados end), 5 (intrados
+ * start to the lower cut) and 6 (lower cut to its end). The engine replaces
+ * the start of zone 1 with the airfoil's second-to-last point (§6), which
+ * empties it: it is left out.
+ */
+export function shapingZones(group: ShapingGroup, extrados: number, intrados: number) {
+  const zones: ShapingZone[] = [];
+  const cuts: ShapingCutPoint[] = [];
+  const [first, second] = group.upper.cuts;
+  if (first) {
+    cuts.push({ surface: 'upper', index: 0, point: first.end });
+    if (second) {
+      zones.push({ zone: 2, surface: 'upper', from: second.start, to: second.end });
+      cuts.push({ surface: 'upper', index: 1, point: second.end });
+    }
+    zones.push({ zone: 3, surface: 'upper', from: (second ?? first).end, to: extrados });
+  }
+  const lower = group.lower.cuts[0];
+  if (lower) {
+    zones.push({ zone: 5, surface: 'lower', from: intrados, to: lower.start });
+    zones.push({ zone: 6, surface: 'lower', from: lower.start, to: lower.end });
+    cuts.push({ surface: 'lower', index: 0, point: lower.start });
+  }
+  const valid = (point: number) => Number.isInteger(point) && point >= 1;
+  return {
+    zones: zones.filter((z) => valid(z.from) && valid(z.to) && z.from < z.to),
+    cuts: cuts.filter((c) => valid(c.point)),
+  };
+}
+
+/** The points of a profile, from 1, where its extrados ends and its intrados begins. */
+function shapingBounds({ parts }: Profile) {
+  return [parts.extrados.length, parts.extrados.length + parts.inlet.length - 1] as const;
+}
+
 export function shapingScene(context: PreviewContext<ProfileSections | 'shaping'>) {
   const { design, rib, selected, active, surface, view } = context;
   const shaping = design.shaping;
@@ -329,7 +385,9 @@ export function shapingScene(context: PreviewContext<ProfileSections | 'shaping'
   const profile = ribProfile(design, context.airfoils, rib);
   const d = new PreviewDrawing(
     `Shaping cuts · rib ${rib + 1} · group ${group?.group ?? '—'}`,
-    'Input profile · Colored segments: influence zones · Dots: cut points · Depth coefficients label the inputs; final 3D shape requires the engine.',
+    'Input profile · Colored segments: zones of influence as the engine sums them · Dots: cut ' +
+      'points · The engine empties zone 1 (its start is replaced), so the first upper cut ' +
+      'draws on the nose side only. The shaping changes the cut panels, not the 3D wing.',
   );
   d.path(profile.points, 'profile');
   d.frame([
@@ -340,34 +398,114 @@ export function shapingScene(context: PreviewContext<ProfileSections | 'shaping'
   else if (shaping.mode === 2)
     d.label([0.5, 0.16], 'Legacy mode: the engine ignores the entered cut-point positions');
   else if (group) {
-    for (const key of ['upper', 'lower'] as const) {
-      if (view !== 'both' && view !== key) continue;
-      group[key].cuts.forEach((cut, i) => {
-        if (
-          !finite(cut.start) ||
-          !finite(cut.end) ||
-          !Number.isInteger(cut.start) ||
-          !Number.isInteger(cut.end)
-        )
-          return;
-        const a = cut.start - 1,
-          b = cut.end - 1;
-        if (!profile.points[a] || !profile.points[b]) return;
-        const chosen = key === surface && i === active;
+    const { zones, cuts } = shapingZones(group, ...shapingBounds(profile));
+    for (const zone of zones) {
+      if (view !== 'both' && view !== zone.surface) continue;
+      const points = profile.points.slice(zone.from - 1, zone.to);
+      if (points.length > 1)
         d.path(
-          profile.points.slice(Math.min(a, b), Math.max(a, b) + 1),
-          key === 'upper' ? 'influence-upper' : 'influence-lower',
-          chosen,
-          `${key} cut ${i + 1} · depth ${valueLabel(cut.depth)}`,
+          points,
+          zone.surface === 'upper' ? 'influence-upper' : 'influence-lower',
+          false,
+          `Zone ${zone.zone}`,
         );
-        const p = profile.points[key === 'upper' ? b : a];
-        d.dot(p, chosen ? 0.009 : 0.006, `${key} cut ${i + 1}`, chosen);
-        d.label(
-          [p[0], p[1] + (key === 'upper' ? -0.035 : 0.045)],
-          `${key === 'upper' ? 'U' : 'L'}${i + 1} · k=${valueLabel(cut.depth)}`,
-        );
-      });
+    }
+    for (const cut of cuts) {
+      if (view !== 'both' && view !== cut.surface) continue;
+      const p = profile.points[cut.point - 1];
+      if (!p) continue;
+      const depth = group[cut.surface].cuts[cut.index].depth;
+      const chosen = cut.surface === surface && cut.index === active;
+      d.dot(p, chosen ? 0.009 : 0.006, `${cut.surface} cut ${cut.index + 1}`, chosen);
+      d.label(
+        [p[0], p[1] + (cut.surface === 'upper' ? -0.035 : 0.045)],
+        `${cut.surface === 'upper' ? 'U' : 'L'}${cut.index + 1} · k=${valueLabel(depth)}`,
+      );
     }
   } else d.label([0.5, 0.16], 'Add a shaping group to locate its cuts');
   return d.finish();
+}
+
+/**
+ * Section 29: the wing in 3D, its skin straight between ribs, with the cuts
+ * of each panel drawn across it and their zones of influence tinted, as the
+ * engine takes them: a panel those of its outer rib's group, the group the
+ * number of a rib's group designates (§8.6); both halves, the cut `active`
+ * of surface `surface` in group `selected` highlighted.
+ */
+export function shapingModel(
+  design: Pick<LepDesign, ProfileSections | 'shaping'>,
+  airfoils: ReadonlyMap<string, LepAirfoil>,
+  selected: number,
+  surface: 'upper' | 'lower',
+  active: number,
+): PreviewModel {
+  const model = wingModel(design, airfoils);
+  model.title = 'Wing 3D model · 3D shaping cuts';
+  model.camera = [0.25, -1, 0.35];
+  const { shaping } = design;
+  const note =
+    'The 3D shaping changes the cut panels (arcs on the cut edges), not the 3D wing: ' +
+    'the engine leaves it out of its 3D model too.';
+  if (shaping.mode !== 1) {
+    model.note = `${shaping.mode === 0 ? '3D shaping is disabled.' : 'Legacy mode: the engine ignores the cut points.'} ${note} ${model.note}`;
+    return model;
+  }
+  const ribs = design.geometry.ribs;
+  // The group number of each rib, the last group that names it.
+  const numbers = ribs.map(() => 0);
+  for (const group of shaping.groups)
+    for (let i = Math.max(group.firstRib, 1); i <= Math.min(group.lastRib, ribs.length); i++)
+      numbers[i - 1] = group.group;
+  const profiles = ribs.map((_, index) => ribProfile(design, airfoils, index));
+  /** Point `point` (from 1) of rib `index`; -1 is rib 1 mirrored. */
+  const at = (index: number, point: number): Point3 | undefined => {
+    const p = profiles[Math.max(index, 0)]?.points[point - 1];
+    const q = p && ribPoint(design, Math.max(index, 0), p);
+    return q && (index < 0 ? [-q[0], q[1], q[2]] : q);
+  };
+  const sides = [mirror, (p: Point3) => p];
+  ribs.forEach((_, outer) => {
+    const group = shaping.groups[numbers[outer] - 1];
+    if (!group) return;
+    const { zones, cuts } = shapingZones(group, ...shapingBounds(profiles[outer]));
+    for (const zone of zones) {
+      const rows = [outer - 1, outer].map((index) => {
+        const row: Point3[] = [];
+        for (let point = zone.from; point <= zone.to; point++) {
+          const p = at(index, point);
+          if (p) row.push(p);
+        }
+        return row;
+      });
+      const width = zone.to - zone.from + 1;
+      if (rows.every((row) => row.length === width))
+        for (const side of sides)
+          model.surfaces.push({
+            rows: rows.map((row) => row.map(side)),
+            kind: 'skin',
+            color: SURFACE_COLORS[zone.surface === 'upper' ? 'extrados' : 'intrados'],
+          });
+    }
+    for (const cut of cuts) {
+      const [a, b] = [at(outer - 1, cut.point), at(outer, cut.point)];
+      if (a && b)
+        for (const side of sides)
+          model.lines.push({
+            points: [side(a), side(b)],
+            kind: 'shaping-cut',
+            selected:
+              group === shaping.groups[selected] && cut.surface === surface && cut.index === active,
+          });
+    }
+  });
+  model.legend = [
+    { text: 'Extrados zones', color: SURFACE_COLORS.extrados },
+    { text: 'Intrados zones', color: SURFACE_COLORS.intrados },
+  ];
+  model.note =
+    'The cuts across each panel and their zones of influence, as the engine sums them: a ' +
+    "panel takes its outer rib's group; zone 1 is empty, the engine replacing its start. " +
+    `${note} ${model.note}`;
+  return model;
 }

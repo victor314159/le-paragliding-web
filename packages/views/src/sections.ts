@@ -8,6 +8,7 @@ import {
   additionalPointsScene,
   rodsModel,
   rodsScene,
+  shapingModel,
   shapingScene,
 } from './rods.ts';
 import type { PreviewContext, PreviewScene } from './scene.ts';
@@ -196,13 +197,11 @@ export const SECTION_SCENES: ReadonlyMap<number, SectionScene> = new Map([
   [
     29,
     {
-      views: [
-        ['both', 'Both'],
-        ['upper', 'Extrados'],
-        ['lower', 'Intrados'],
-      ],
+      views: [['both', 'Both'], ['upper', 'Extrados'], ['lower', 'Intrados'], MODEL_VIEW],
       ribs: always,
       draw: shapingScene,
+      model: (c: PreviewContext) =>
+        shapingModel(c.design, c.airfoils, c.selected, c.surface, c.active),
     },
   ],
   [

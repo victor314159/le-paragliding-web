@@ -60,7 +60,8 @@ the anchors), `colorsModel` (sections 15 and 16, the color regions and
 cuts, or the rib marks, on the skin), `additionalPointsModel` (section
 17, the points on every rib, without the skin), `rodsModel` (section 21,
 the rods on the ribs of their groups, without the skin), `ventsModel`
-(section 26, the air inlets open or closed by the vents), `wingTipModel` (section 27).
+(section 26, the air inlets open or closed by the vents), `wingTipModel` (section 27), `shapingModel` (section 29, the cuts and
+their zones of influence on the skin).
 `preDataModel(result)` draws the wing pre-data.txt generates on a generic airfoil, without the rest of the design.
 
 ## Build and test
