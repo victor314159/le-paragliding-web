@@ -34,15 +34,38 @@ import { EditorState } from './editor-state';
   `,
   styleUrl: './preview-layout.css',
   styles: `
+    /* The model spans the whole figure, under its caption, legend and note. */
+    figure {
+      display: grid;
+      grid-template-rows: auto auto minmax(56px, 1fr) auto;
+    }
     .viewport {
-      flex: 1;
-      height: 0;
-      min-height: 56px;
-      margin-block: 4px;
+      position: relative;
+      grid-area: 1 / 1 / -1 / 1;
       overflow: hidden;
     }
     .viewport ::ng-deep canvas {
-      display: block;
+      position: absolute;
+      inset: 0;
+    }
+    figcaption,
+    .legend,
+    p {
+      z-index: 1;
+      grid-column: 1;
+      pointer-events: none;
+      text-shadow:
+        0 0 2px var(--mat-sys-surface-container-low),
+        0 0 4px var(--mat-sys-surface-container-low);
+    }
+    figcaption {
+      grid-row: 1;
+    }
+    .legend {
+      grid-row: 2;
+    }
+    p {
+      grid-row: 4;
     }
   `,
 })
