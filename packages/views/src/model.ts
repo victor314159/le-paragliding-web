@@ -1,4 +1,4 @@
-import type { LepAirfoil, LepDesign, SkinTensionPoint } from '@lepara/format';
+import type { LepAirfoil, LepDesign, SkinTensionGroup, SkinTensionPoint } from '@lepara/format';
 import type { GeometryResult } from '@lepara/preprocessor';
 import { GENERIC_AIRFOIL } from './generic-airfoil.ts';
 import { finite, holeOutline, mirrored, type Point } from './geometry.ts';
@@ -414,6 +414,30 @@ export function wingModel(
   );
 }
 
+/** The overwidths of each rib (from 0) under section 31: its group's, the last that names it. */
+function groupOverwidths(groups: readonly SkinTensionGroup[]) {
+  const last = [...groups].reverse();
+  return (index: number) =>
+    last.find((g) => g.firstRib <= index + 1 && index + 1 <= g.lastRib)?.points;
+}
+
+/**
+ * Section 5: the wing in 3D, its skin ballooned as the engine does: by
+ * these overwidths, or, when section 31 is active, by its groups, which
+ * replace them.
+ */
+export function tensionModel(
+  design: Pick<LepDesign, ProfileSections | 'skinTension' | 'skinTensionGroups'>,
+  airfoils: ReadonlyMap<string, LepAirfoil>,
+): PreviewModel {
+  const groups = design.skinTensionGroups;
+  if (groups.mode === 0)
+    return wingModel(design, airfoils, { overwidths: design.skinTension.points });
+  const model = wingModel(design, airfoils, { overwidths: groupOverwidths(groups.groups) });
+  model.note = `Section 31 is active and replaces these overwidths: each panel edge ballooned by its rib's group there. ${model.note}`;
+  return model;
+}
+
 /**
  * Section 31: the wing in 3D, its skin ballooned by the overwidths of the
  * groups, as the engine adds them (§8.2): on each panel edge those of the
@@ -428,18 +452,13 @@ export function tensionGroupsModel(
 ): PreviewModel {
   const tension = design.skinTensionGroups;
   if (tension.mode === 0) {
-    const model = wingModel(design, airfoils, { overwidths: design.skinTension.points });
+    const model = tensionModel(design, airfoils);
     model.note = `Skin tension groups are disabled: section 5's overwidths. ${model.note}`;
     return model;
   }
-  const groups = tension.groups;
-  /** The group of rib `index` (from 0), the last that names it. */
-  const last = [...groups].reverse();
-  const groupOf = (index: number) =>
-    last.find((g) => g.firstRib <= index + 1 && index + 1 <= g.lastRib);
-  const group = groups[selected];
+  const group = tension.groups[selected];
   const model = wingModel(design, airfoils, {
-    overwidths: (index) => groupOf(index)?.points,
+    overwidths: groupOverwidths(tension.groups),
     // The last rib may be the virtual one past the tip, nribss + 1.
     ribs: (index) =>
       !!group &&
@@ -449,8 +468,7 @@ export function tensionGroupsModel(
   model.title = `Wing 3D model · skin tension group ${group?.group ?? '—'}`;
   model.note =
     "Each panel edge ballooned by its rib's group; the selected group's first and last ribs " +
-    'highlighted; ' +
-    'ribs in no group without overwidth. ' +
+    'highlighted; ribs in no group without overwidth. ' +
     model.note;
   return model;
 }
