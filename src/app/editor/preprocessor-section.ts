@@ -68,8 +68,8 @@ const STATUS: Readonly<Record<PreprocessorStatus, string>> = {
       </div>
       <p class="mat-text-on-surface-variant">
         Apply replaces the cells and rib positions of section 1 with those the parameters generate,
-        and keeps its other rib columns. Fit sets the area, aspect ratio, taper, sweep, tip angle
-        and cells of Auto to those of section 1, and keeps its other settings.
+        and keeps its other rib columns. Fit sets the area, aspect ratio, taper, sweep and cells of
+        Auto to those of section 1, and its other settings to follow it.
       </p>
       <!-- Always one line, the cell count changed or not: the controls below stay in place. -->
       <p class="mat-text-on-surface-variant">
@@ -443,7 +443,7 @@ export class PreprocessorSection {
     confirmGeometry(this.dialogs, this.injector, {
       title: 'Fit to section 1?',
       message:
-        'Fitting sets the area, aspect ratio, taper, sweep, tip angle and cells of Auto to ' +
+        'Fitting sets the area, aspect ratio, taper, sweep and cells of Auto to ' +
         'those of section 1, and its other settings to follow its cells, vault and edges: ' +
         'the parameters it gives may not generate section 1 exactly.' +
         (losses.length

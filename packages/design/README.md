@@ -27,13 +27,16 @@ design fits. Inputs are readonly and are never mutated.
 
 ## Shape
 
-A `WingShape` of ten settings (flat area and aspect ratio, tip chord, sweep,
-edge roundness, vault tip angle and curl, cells and their uniformity) sets
-every parameter of pre-data.txt. `fromShape(shape, base)` gives elliptic
-edges without corrections, four vault arcs and cells proportional to chord,
-rounded to 0.01, with the flat area of the shape; it keeps the name and
-correction starts of `base`. `shapeOf(input, result)` reads the shape of
-valid parameters, clamped to `SHAPE_LIMITS`; `SHAPE_DEFAULTS` is that of the
+A `WingShape` of thirteen settings (flat area and aspect ratio, tip chord,
+sweep, edge roundness, the leading edge's tip drop and its start, vault tip
+angle, curl and center arc, cells and their uniformity) sets every parameter of
+pre-data.txt. `fromShape(shape, base)` gives elliptic edges, the leading
+edge with a square first correction taking the drop's share of its tip
+recession, four vault arcs and cells proportional to chord, rounded to 0.01,
+with the flat area of the shape; it keeps the name and the unused correction
+starts and exponents of `base`. `shapeOf(input, result)` reads the shape of
+valid parameters, clamped to `SHAPE_LIMITS` but for the rounding of
+parameters set at a limit; `SHAPE_DEFAULTS` is that of the
 documented example. `shapeLosses(shape, input)` lists the parts of the
 parameters that the shape replaces: none when they are a shape's within
 rounding, vault arcs being compared by length and angle.
@@ -50,9 +53,14 @@ columns of existing rows stay, and new rows take the preprocessor's washin
 settings, with no rotation in an 11-column table.
 `isGeneratedGeometry(design, result)` tells whether section 1 has that rib
 table, within the rounding. `fitShape(shape, design)` sets the settings of
-`shapeOfRibs` from section 1, and searches the others (cell uniformity, tip
-curl, edge roundness) for the least distance to its rib columns; without a
-valid table or vault, it keeps them. `newPreData(design)` gives
+`shapeOfRibs` from section 1, fits the leading edge's roundness, drop and
+start together to its normalized edge, and the vault's tip angle, curl and
+center arc together to its ribs along the arcs, both without generating
+them; it then searches the others (cell uniformity, trailing edge
+roundness) for the least distance to its rib columns. Each part needs its
+columns: without a valid planform it keeps them all, without the whole vault
+the vault's, and without a cell count within the limits the cells' and
+trailing edge's. `newPreData(design)` gives
 the parameters of a new pre-data.txt: `SHAPE_DEFAULTS`, with the wing name of
 section 1.
 

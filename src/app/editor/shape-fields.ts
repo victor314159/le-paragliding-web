@@ -14,7 +14,7 @@ const percent = (value: number) => `${Math.round(value * 100)}%`;
 const LOSSES: Readonly<Record<ShapePart, (input: PreprocessorInput) => string>> = {
   halfSpan: () => 'the half span, out of range',
   leadingEdge: ({ leadingEdge: le }) =>
-    le.correction1 || le.correction2 ? 'the leading edge corrections' : 'the leading edge',
+    le.correction2 ? 'the second leading edge correction' : 'the leading edge',
   trailingEdge: ({ trailingEdge: te }) =>
     te.correction ? 'the trailing edge correction' : 'the trailing edge',
   vault: ({ vault }) => (vault.mode === 1 ? 'the ellipse vault' : 'the vault arcs'),
@@ -182,6 +182,20 @@ export class ShapeFields {
           format: percent,
         },
         {
+          key: 'leadingEdgeDrop',
+          label: 'Leading edge tip drop',
+          hint: 'The share of its recession at the tip taken from the drop start: a straighter edge and a sharper tip.',
+          step: 0.01,
+          format: percent,
+        },
+        {
+          key: 'leadingEdgeDropStart',
+          label: 'Tip drop start',
+          hint: 'Of the half span.',
+          step: 0.01,
+          format: percent,
+        },
+        {
           key: 'trailingEdgeRoundness',
           label: 'Trailing edge roundness',
           hint: 'From a flat curve to a tip square to the span.',
@@ -205,6 +219,13 @@ export class ShapeFields {
           key: 'tipCurl',
           label: 'Tip curl',
           hint: 'The share of that angle in the tip arc: a flatter center and a sharper tip.',
+          step: 0.01,
+          format: percent,
+        },
+        {
+          key: 'centerArc',
+          label: 'Center arc',
+          hint: "The share of the other arcs' angle in the central arc: a rounder center.",
           step: 0.01,
           format: percent,
         },

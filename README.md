@@ -21,8 +21,8 @@ created in Auto, with a default shape to tune. The editor shows whether the
 rib table of section 1 is the one they generate, rounded as
 `geometry-out.txt`. **Apply to section 1** replaces that table and keeps the
 other rib columns; **Fit to section 1** sets the area, aspect ratio, taper,
-sweep, tip angle and cells of Auto to those of the table, as for an imported
-wing, and its other settings to follow the table's cells, vault and edges.
+sweep and cells of Auto to those of the table, as for an imported wing, and
+its other settings to follow the table's cells, vault and edges.
 Both first show section 1 and what it becomes superposed, with their spans,
 areas and aspect ratios at Wing scale. Remove the file from the list of input
 files. Focus a parameter group to highlight its edge, correction or

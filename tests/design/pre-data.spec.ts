@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 import {
   GENERATED_COLUMNS,
   SHAPE_DEFAULTS,
@@ -89,7 +90,10 @@ test('fitting a rib table that a shape generates gives that shape back', () => {
     ...SHAPE_DEFAULTS,
     leadingEdgeRoundness: 0.9,
     trailingEdgeRoundness: 0.5,
+    leadingEdgeDrop: 0.15,
+    leadingEdgeDropStart: 0.75,
     tipCurl: 0.25,
+    centerArc: 0.35,
     cellUniformity: 0.4,
   };
   const generated = ok(generateGeometry(fromShape(shape, PREPROCESSOR_EXAMPLE)));
@@ -100,16 +104,44 @@ test('fitting a rib table that a shape generates gives that shape back', () => {
   }
 });
 
-test('without its vault, fitting keeps the settings a rib table does not give', () => {
+test('fitting the Swoop 2 table gives the leading edge of its pre-data.txt, and follows its vault', () => {
+  const swoop = ok(parseLep(readFileSync('oracle/designs/swoop2/leparagliding.txt', 'utf8')));
+  const fitted = fitShape(SHAPE_DEFAULTS, swoop);
+  // Its pre-data.txt: a1 641.67, b1 182.31, x1 435.03, c01 17.44, ex1 2 for a half span of 618.5.
+  expect(fitted.leadingEdgeRoundness).toBeCloseTo(0.964, 2);
+  expect(fitted.leadingEdgeDrop).toBeCloseTo(0.115, 2);
+  expect(fitted.leadingEdgeDropStart).toBeCloseTo(0.703, 2);
+  const { ribs } = ok(generateGeometry(fromShape(fitted, PREPROCESSOR_EXAMPLE)));
+  for (const [i, rib] of ribs.entries())
+    expect(Math.abs(rib.yLE - swoop.geometry.ribs[i].yLE), `rib ${i + 1}`).toBeLessThan(0.5);
+  // The official preprocessor drops a vault arc segment there (patch 001): with the patch, its
+  // own arcs are 1.9 cm (rms) and 4.9 cm at the tip from its table.
+  const vault = ribs.map((rib, i) => {
+    const { xp, z } = swoop.geometry.ribs[i];
+    return (rib.xp - xp) ** 2 + (rib.z - z) ** 2;
+  });
+  expect(Math.sqrt(vault.reduce((sum, d) => sum + d, 0) / vault.length)).toBeLessThan(1.2);
+});
+
+test('without its vault, fitting keeps the vault settings and fits the others', () => {
   const d = design();
   const applied = applyGeometry(d, ok(generateGeometry(withCells(44))));
   const ribs = applied.ribs.map((rib, i) => (i === 1 ? { ...rib, z: Number.NaN } : rib));
-  const fitted = fitShape({ ...SHAPE_DEFAULTS, tipCurl: 0.5 }, { geometry: { ...applied, ribs } });
+  const shape = { ...SHAPE_DEFAULTS, tipCurl: 0.5 };
+  const fitted = fitShape(shape, { geometry: { ...applied, ribs } });
   expect(fitted).toEqual({
-    ...SHAPE_DEFAULTS,
+    ...fitShape(shape, { geometry: applied }),
+    tipAngle: shapeOfRibs(ribs, 44).tipAngle,
     tipCurl: 0.5,
-    ...shapeOfRibs(ribs, 44),
+    centerArc: SHAPE_DEFAULTS.centerArc,
   });
+  expect(fitted.leadingEdgeDrop).not.toBe(SHAPE_DEFAULTS.leadingEdgeDrop);
+});
+
+test('without a valid planform, fitting keeps the settings', () => {
+  const { geometry } = design();
+  const ribs = geometry.ribs.map((rib, i) => (i === 1 ? { ...rib, yLE: Number.NaN } : rib));
+  expect(fitShape(SHAPE_DEFAULTS, { geometry: { ...geometry, ribs } })).toEqual(SHAPE_DEFAULTS);
 });
 
 test('a new pre-data.txt has the default shape and the wing name of section 1', () => {

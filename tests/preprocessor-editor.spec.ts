@@ -578,7 +578,7 @@ test('Auto lists what its shape replaces before tuning, and keeps the inactive m
   await mode(page, 'Auto').click();
   await expect(
     page.getByText(
-      'it replaces the leading edge corrections, the trailing edge correction, and the vault arcs.',
+      'it replaces the leading edge, the trailing edge correction, and the vault arcs.',
     ),
   ).toBeVisible();
   const taper = page.getByRole('slider', { name: 'Tip chord' });
@@ -594,7 +594,7 @@ test('Auto lists what its shape replaces before tuning, and keeps the inactive m
   await taper.press('ArrowRight');
   await expect(page.getByText('it replaces')).toHaveCount(0);
   await mode(page, 'Manual').click();
-  await expect(field(page, 'First tip correction · c01 (cm)')).toHaveValue('0');
+  await expect(field(page, 'Tip correction · c0 (cm)')).toHaveValue('0');
   await choose(page, 'Vault shape', '1');
   await expect(field(page, 'Vault horizontal radius · a1 (cm)')).toHaveValue('450');
 });
@@ -618,7 +618,10 @@ test('Fit sets the settings of section 1, and the others to follow its table, in
   for (const key of [
     'taper',
     'tipCurl',
+    'centerArc',
     'leadingEdgeRoundness',
+    'leadingEdgeDrop',
+    'leadingEdgeDropStart',
     'trailingEdgeRoundness',
     'cellUniformity',
   ] as const)
@@ -634,7 +637,7 @@ test('Fit compares section 1 with the fitted shape, and asks before replacing pa
   await expect(mode(page, 'Manual')).toBeChecked();
   await button(page, 'Fit to section 1').click();
   const dialog = page.getByRole('dialog', { name: 'Fit to section 1?' });
-  await expect(dialog).toContainText('it replaces the leading edge corrections');
+  await expect(dialog).toContainText('it replaces the leading edge, the trailing edge correction');
   await dialog.getByRole('radio', { name: 'Front' }).click();
   await expect(
     dialog.getByRole('img', { name: 'Wing front view · section 1 and fitted' }),
@@ -642,10 +645,10 @@ test('Fit compares section 1 with the fitted shape, and asks before replacing pa
   await dialog.getByRole('button', { name: 'Cancel' }).click();
   await expect(dialog).toHaveCount(0);
   await expect(mode(page, 'Manual')).toBeChecked();
-  await expect(field(page, 'First tip correction · c01 (cm)')).not.toHaveValue('0');
+  await expect(field(page, 'Tip correction · c0 (cm)')).not.toHaveValue('0');
   await confirmed(page, 'Fit to section 1', 'Fit');
   await expect(mode(page, 'Auto')).toBeChecked();
   await expect(page.getByText('it replaces')).toHaveCount(0);
   await mode(page, 'Manual').click();
-  await expect(field(page, 'First tip correction · c01 (cm)')).toHaveValue('0');
+  await expect(field(page, 'Tip correction · c0 (cm)')).toHaveValue('0');
 });

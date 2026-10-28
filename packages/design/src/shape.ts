@@ -10,8 +10,9 @@ import {
 } from '@lepara/preprocessor';
 
 /**
- * A few settings that set every parameter of pre-data.txt: elliptic edges
- * without corrections, four vault arcs and cells proportional to chord.
+ * A few settings that set every parameter of pre-data.txt: elliptic edges,
+ * the leading edge with a tip drop, four vault arcs and cells proportional
+ * to chord.
  */
 export type WingShape = {
   /** Flat area (m²) and aspect ratio. */
@@ -24,9 +25,17 @@ export type WingShape = {
   /** Half span over the edge's ellipse radius: 1 gives a vertical tangent at the tip. */
   readonly leadingEdgeRoundness: number;
   readonly trailingEdgeRoundness: number;
+  /**
+   * The share of the leading edge's recession at the tip that its first
+   * correction takes, square from a share of the half span.
+   */
+  readonly leadingEdgeDrop: number;
+  readonly leadingEdgeDropStart: number;
   /** Total vault angle (deg), and the share of it in the tip arc. */
   readonly tipAngle: number;
   readonly tipCurl: number;
+  /** The share of the other arcs' angle in the central arc. */
+  readonly centerArc: number;
   readonly cells: number;
   /** The distribution coefficient: 0 for widths proportional to chord, 1 for uniform ones. */
   readonly cellUniformity: number;
@@ -40,8 +49,11 @@ export const SHAPE_LIMITS: Readonly<Record<keyof WingShape, readonly [number, nu
   sweep: [0.05, 0.95],
   leadingEdgeRoundness: [0.4, 0.98],
   trailingEdgeRoundness: [0.4, 0.98],
+  leadingEdgeDrop: [0, 0.4],
+  leadingEdgeDropStart: [0.4, 0.9],
   tipAngle: [40, 120],
   tipCurl: [0.1, 0.7],
+  centerArc: [0.1, 0.6],
   cells: [10, 99],
   cellUniformity: [0, 1],
 };
@@ -54,8 +66,11 @@ export const SHAPE_DEFAULTS: WingShape = {
   sweep: 0.72,
   leadingEdgeRoundness: 0.81,
   trailingEdgeRoundness: 0.64,
+  leadingEdgeDrop: 0.32,
+  leadingEdgeDropStart: 0.65,
   tipAngle: 90,
   tipCurl: 0.39,
+  centerArc: 0.28,
   cells: 50,
   cellUniformity: 0.7,
 };
@@ -63,18 +78,46 @@ export const SHAPE_DEFAULTS: WingShape = {
 /** A part of the parameters that a shape can replace. */
 export type ShapePart = Exclude<keyof PreprocessorInput, 'name'>;
 
-/** Shares of the vault length per arc, and of the inner angle per inner arc, as in the 1.6 example. */
+/**
+ * Shares of the vault length per arc, and of the angle of the two middle
+ * arcs per middle arc, as in the 1.6 example.
+ */
 const ARC_LENGTHS = [0.35, 0.33, 0.21, 0.11] as const;
-const INNER_ANGLES = [0.28, 0.37, 0.35] as const;
+const MIDDLE_ANGLES = [0.37 / 0.72, 0.35 / 0.72] as const;
+
+/** The vault arcs of `shape`, by their share of the vault length and their angle (deg). */
+export function vaultArcs(
+  shape: Pick<WingShape, 'tipAngle' | 'tipCurl' | 'centerArc'>,
+): { length: number; angle: number }[] {
+  const inner = (1 - shape.tipCurl) * shape.tipAngle;
+  const middle = (1 - shape.centerArc) * inner;
+  return [
+    shape.centerArc * inner,
+    MIDDLE_ANGLES[0] * middle,
+    MIDDLE_ANGLES[1] * middle,
+    shape.tipCurl * shape.tipAngle,
+  ].map((angle, i) => ({ length: ARC_LENGTHS[i], angle }));
+}
 
 /** An edge ellipse's recession at the tip, over its vertical radius. */
-const depth = (roundness: number) => 1 - Math.sqrt(1 - roundness ** 2);
+export const depth = (roundness: number) => 1 - Math.sqrt(1 - roundness ** 2);
 /** To 0.01 cm or degree, as the documented example. */
 const round = (value: number) => Math.round(value * 100) / 100;
-const clamp = (key: keyof WingShape, value: number) =>
+export const clamp = (key: keyof WingShape, value: number) =>
   Math.min(SHAPE_LIMITS[key][1], Math.max(SHAPE_LIMITS[key][0], value));
+/**
+ * `value` clamped, but past a limit by the rounding of the parameters only:
+ * the shape of parameters set at a limit reads back as the same parameters.
+ */
+const read = (key: keyof WingShape, value: number) => {
+  const [min, max] = SHAPE_LIMITS[key];
+  return Math.abs(clamp(key, value) - value) <= 1e-3 * (max - min) ? value : clamp(key, value);
+};
 
-/** The shape of valid parameters, clamped to the limits; the ones it cannot express keep a default. */
+/**
+ * The shape of valid parameters, clamped to the limits but for rounding; the
+ * ones it cannot express keep a default.
+ */
 export function shapeOf(input: PreprocessorInput, result: GeometryResult): WingShape {
   const { leadingEdge: le, trailingEdge: te, vault, distribution: d } = input;
   const chord = le.b + te.b - te.offset;
@@ -85,16 +128,19 @@ export function shapeOf(input: PreprocessorInput, result: GeometryResult): WingS
   const arcs = vault.mode === 2 ? vault.arcs : undefined;
   const tipAngle = arcs?.reduce((sum, arc) => sum + arc.angle, 0) ?? result.ribs.at(-1)!.beta;
   return {
-    area: clamp('area', result.metrics.flatArea),
-    aspectRatio: clamp('aspectRatio', result.metrics.flatAspectRatio),
-    taper: clamp('taper', (tipTE - tipLE) / chord),
-    sweep: clamp('sweep', loss > 0 ? tipLE / loss : 0.5),
-    leadingEdgeRoundness: clamp('leadingEdgeRoundness', input.halfSpan / le.a),
-    trailingEdgeRoundness: clamp('trailingEdgeRoundness', input.halfSpan / te.a),
-    tipAngle: clamp('tipAngle', tipAngle),
-    tipCurl: clamp('tipCurl', arcs ? arcs[3].angle / tipAngle : 0.4),
-    cells: clamp('cells', cellCount(d)),
-    cellUniformity: clamp(
+    area: read('area', result.metrics.flatArea),
+    aspectRatio: read('aspectRatio', result.metrics.flatAspectRatio),
+    taper: read('taper', (tipTE - tipLE) / chord),
+    sweep: read('sweep', loss > 0 ? tipLE / loss : 0.5),
+    leadingEdgeRoundness: read('leadingEdgeRoundness', input.halfSpan / le.a),
+    trailingEdgeRoundness: read('trailingEdgeRoundness', input.halfSpan / te.a),
+    leadingEdgeDrop: read('leadingEdgeDrop', tipLE > 0 ? le.correction1 / tipLE : 0),
+    leadingEdgeDropStart: read('leadingEdgeDropStart', le.x1 / input.halfSpan),
+    tipAngle: read('tipAngle', tipAngle),
+    tipCurl: read('tipCurl', arcs ? arcs[3].angle / tipAngle : 0.4),
+    centerArc: read('centerArc', arcs ? arcs[0].angle / (tipAngle - arcs[3].angle) : 0.28),
+    cells: read('cells', cellCount(d)),
+    cellUniformity: read(
       'cellUniformity',
       d.mode === 2 || d.mode === 3 ? d.coefficient : d.mode === 1 ? 1 : 0.7,
     ),
@@ -137,21 +183,26 @@ export function shapeOfRibs(
   };
 }
 
-/** The parameters of `shape`, rounded, with the name and correction starts of `base`. */
+/**
+ * The parameters of `shape`, rounded, with the name and the unused correction
+ * starts and exponents of `base`.
+ */
 export function fromShape(shape: WingShape, base: PreprocessorInput): PreprocessorInput {
   const halfSpan = round(50 * Math.sqrt(shape.area * shape.aspectRatio));
-  const arc = (i: number) => {
-    const angle = round(
-      shape.tipAngle * (i < 3 ? (1 - shape.tipCurl) * INNER_ANGLES[i] : shape.tipCurl),
-    );
-    return { radius: round((ARC_LENGTHS[i] * halfSpan) / ((angle * Math.PI) / 180)), angle };
-  };
+  const [a0, a1, a2, a3] = vaultArcs(shape).map(({ length, angle }) => ({
+    radius: round((length * halfSpan) / ((round(angle) * Math.PI) / 180)),
+    angle: round(angle),
+  }));
   // `r` rounds the final parameters, after the chord is found without rounding.
   const withChord = (chord: number, r = (value: number) => value): PreprocessorInput => {
     const loss = (1 - shape.taper) * chord;
-    const leB = r((shape.sweep * loss) / depth(shape.leadingEdgeRoundness));
+    // The tip drop takes its share of the leading edge's recession, rounded, and the ellipse the rest.
+    const tipLE = shape.sweep * loss;
+    const drop = r(shape.leadingEdgeDrop * tipLE);
+    const leB = r((tipLE - drop) / depth(shape.leadingEdgeRoundness));
     const teB = r(((1 - shape.sweep) * loss) / depth(shape.trailingEdgeRoundness));
     const start = (x: number) => r(Math.min(x, halfSpan / 2));
+    const x1 = r(shape.leadingEdgeDropStart * halfSpan);
     return {
       name: base.name,
       halfSpan,
@@ -159,9 +210,11 @@ export function fromShape(shape: WingShape, base: PreprocessorInput): Preprocess
         ...base.leadingEdge,
         a: r(halfSpan / shape.leadingEdgeRoundness),
         b: leB,
-        x1: start(base.leadingEdge.x1),
-        x2: start(base.leadingEdge.x2),
-        correction1: 0,
+        x1,
+        // The second correction is unused: its start only has to follow the first.
+        x2: base.leadingEdge.x2 >= x1 && base.leadingEdge.x2 < halfSpan ? base.leadingEdge.x2 : x1,
+        correction1: drop,
+        exponent1: 2,
         correction2: 0,
       },
       trailingEdge: {
@@ -172,7 +225,7 @@ export function fromShape(shape: WingShape, base: PreprocessorInput): Preprocess
         correction: 0,
         offset: r(leB + teB - chord),
       },
-      vault: { mode: 2, arcs: [arc(0), arc(1), arc(2), arc(3)] },
+      vault: { mode: 2, arcs: [a0, a1, a2, a3] },
       distribution: { mode: 3, cells: shape.cells, coefficient: shape.cellUniformity },
     };
   };

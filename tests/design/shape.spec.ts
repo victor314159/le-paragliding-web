@@ -19,8 +19,11 @@ test('a shape sets parameters that give it back, with its flat area', () => {
     sweep: 0.7,
     leadingEdgeRoundness: 0.8,
     trailingEdgeRoundness: 0.6,
+    leadingEdgeDrop: 0.2,
+    leadingEdgeDropStart: 0.6,
     tipAngle: 88,
     tipCurl: 0.4,
+    centerArc: 0.35,
     cells: 47,
     cellUniformity: 0.6,
   };
@@ -93,8 +96,11 @@ test('chained setting changes, as when dragging sliders, are read back without l
     sweep: 0.01,
     leadingEdgeRoundness: 0.01,
     trailingEdgeRoundness: 0.01,
+    leadingEdgeDrop: 0.01,
+    leadingEdgeDropStart: 0.01,
     tipAngle: 1,
     tipCurl: 0.01,
+    centerArc: 0.01,
     cells: 1,
     cellUniformity: 0.01,
   };

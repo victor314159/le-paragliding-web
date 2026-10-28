@@ -1,13 +1,22 @@
 // pre-data.txt and section 1: the rib table that the native user copies from
 // geometry-out.txt into leparagliding.txt.
-import type { LepDesign } from '@lepara/format';
+import type { LepDesign, RibGeometry } from '@lepara/format';
 import {
   PREPROCESSOR_EXAMPLE,
   generateGeometry,
   type GeometryResult,
   type PreprocessorInput,
 } from '@lepara/preprocessor';
-import { SHAPE_DEFAULTS, SHAPE_LIMITS, fromShape, shapeOfRibs, type WingShape } from './shape.ts';
+import {
+  SHAPE_DEFAULTS,
+  SHAPE_LIMITS,
+  clamp,
+  depth,
+  fromShape,
+  shapeOfRibs,
+  vaultArcs,
+  type WingShape,
+} from './shape.ts';
 
 /** The rib columns the preprocessor generates; applying it keeps the others. */
 export const GENERATED_COLUMNS = ['number', 'x', 'yLE', 'yTE', 'xp', 'z', 'beta'] as const;
@@ -63,13 +72,12 @@ export function isGeneratedGeometry(
 type RibColumn = 'x' | 'yLE' | 'yTE' | 'xp' | 'z';
 
 /**
- * The settings a rib table does not give, each with the columns it moves
- * most: cells first, since the others are compared rib by rib.
+ * The settings a rib table does not give, but the leading edge's and the
+ * vault's, each with the columns it moves most: cells first, since the
+ * others are compared rib by rib.
  */
 const FITTED: readonly [keyof WingShape, readonly RibColumn[]][] = [
   ['cellUniformity', ['x']],
-  ['tipCurl', ['xp', 'z']],
-  ['leadingEdgeRoundness', ['yLE']],
   ['trailingEdgeRoundness', ['yTE']],
 ];
 /** The roundness moves the chords, which the cells follow: a second round settles them. */
@@ -98,20 +106,100 @@ function minimize(key: keyof WingShape, error: (value: number) => number): numbe
 }
 
 /**
+ * The leading edge settings closest to a rib table's edge. Over the half span
+ * and the recession at the tip, the edge depends on them alone, and on the
+ * drop linearly: least squares give the drop of each roundness and start.
+ * None without a recession at the tip.
+ */
+function fitLeadingEdge(ribs: readonly Pick<RibGeometry, 'x' | 'yLE'>[]): Partial<WingShape> {
+  const [center, tip] = [ribs[0], ribs.at(-1)!];
+  const tipLE = tip.yLE - center.yLE;
+  if (!(tipLE > 0) || !(tip.x > 0)) return {};
+  const points = ribs.map((rib) => [rib.x / tip.x, (rib.yLE - center.yLE) / tipLE] as const);
+  /** The drop of a roundness and start, and its error: the recession is ellipse + drop·(curve − ellipse). */
+  const fit = (roundness: number, start: number) => {
+    const at = points.map(([t, recession]) => {
+      const ellipse = (1 - Math.sqrt(1 - (roundness * t) ** 2)) / depth(roundness);
+      const curve = t > start ? ((t - start) / (1 - start)) ** 2 : 0;
+      return { offset: recession - ellipse, slope: curve - ellipse };
+    });
+    const sum = (f: (point: (typeof at)[number]) => number) =>
+      at.reduce((total, point) => total + f(point), 0);
+    const den = sum((p) => p.slope ** 2);
+    const drop = clamp('leadingEdgeDrop', den > 0 ? sum((p) => p.offset * p.slope) / den : 0);
+    return { drop, error: sum((p) => (p.offset - drop * p.slope) ** 2) };
+  };
+  const roundnessAt = (start: number) =>
+    minimize('leadingEdgeRoundness', (roundness) => fit(roundness, start).error);
+  const start = minimize('leadingEdgeDropStart', (s) => fit(roundnessAt(s), s).error);
+  const roundness = roundnessAt(start);
+  return {
+    leadingEdgeRoundness: roundness,
+    leadingEdgeDrop: fit(roundness, start).drop,
+    leadingEdgeDropStart: start,
+  };
+}
+
+/**
+ * The vault settings closest to a rib table's vault. Over the half span, the
+ * vault depends on them alone, and each rib is at its x along the arcs: its
+ * position follows from the angle it reaches there.
+ */
+function fitVault(ribs: readonly Pick<RibGeometry, 'x' | 'xp' | 'z'>[]): Partial<WingShape> {
+  const span = ribs.at(-1)!.x;
+  if (!(span > 0)) return {};
+  const error = (vault: Pick<WingShape, 'tipAngle' | 'tipCurl' | 'centerArc'>) => {
+    const arcs = vaultArcs(vault).map(({ length, angle }) => ({
+      length,
+      angle: (angle * Math.PI) / 180,
+    }));
+    return ribs.reduce((sum, rib) => {
+      // An arc from inclination a to b over a length l, of radius l / (b - a).
+      let [xp, z, at, inclination] = [0, 0, rib.x / span, 0];
+      for (const arc of arcs) {
+        const length = Math.min(at, arc.length);
+        const next = inclination + (arc.angle * length) / arc.length;
+        const radius = arc.length / arc.angle;
+        xp += radius * (Math.sin(next) - Math.sin(inclination));
+        z += radius * (Math.cos(inclination) - Math.cos(next));
+        [at, inclination] = [at - length, next];
+      }
+      return sum + (xp - rib.xp / span) ** 2 + (z - rib.z / span) ** 2;
+    }, 0);
+  };
+  const centerAt = (tipAngle: number, tipCurl: number) =>
+    minimize('centerArc', (centerArc) => error({ tipAngle, tipCurl, centerArc }));
+  const curlAt = (tipAngle: number) =>
+    minimize('tipCurl', (tipCurl) =>
+      error({ tipAngle, tipCurl, centerArc: centerAt(tipAngle, tipCurl) }),
+    );
+  const tipAngle = minimize('tipAngle', (angle) => {
+    const tipCurl = curlAt(angle);
+    return error({ tipAngle: angle, tipCurl, centerArc: centerAt(angle, tipCurl) });
+  });
+  const tipCurl = curlAt(tipAngle);
+  return { tipAngle, tipCurl, centerArc: centerAt(tipAngle, tipCurl) };
+}
+
+/**
  * `shape` with the settings the rib table of section 1 gives, and the
  * others set to follow its cells, vault and edges as closely as they can.
- * Without a valid table, its whole vault or its cell count within the
- * limits, the others stay.
+ * Each part needs its columns: without a valid planform the others stay,
+ * without its whole vault the vault's, and without its cell count within the
+ * limits the cells' and trailing edge's.
  */
 export function fitShape(shape: WingShape, design: Pick<LepDesign, 'geometry'>): WingShape {
   const { ribs, cells } = design.geometry;
   const given = shapeOfRibs(ribs, cells);
-  let fitted: WingShape = { ...shape, ...given };
-  if (
-    given.cells !== cells ||
-    !ribs.every((rib) => Number.isFinite(rib.xp) && Number.isFinite(rib.z))
-  )
-    return fitted;
+  if (given.area === undefined) return { ...shape, ...given };
+  let fitted: WingShape = {
+    ...shape,
+    ...given,
+    ...fitLeadingEdge(ribs),
+    ...(ribs.every((rib) => Number.isFinite(rib.xp) && Number.isFinite(rib.z)) && fitVault(ribs)),
+  };
+  // The others are compared with the ribs Auto generates: the same count.
+  if (given.cells !== cells) return fitted;
   /** The squared distance of the `columns` the shape generates to those of the table. */
   const error = (candidate: WingShape, columns: readonly RibColumn[]) => {
     const result = generateGeometry(fromShape(candidate, PREPROCESSOR_EXAMPLE));
