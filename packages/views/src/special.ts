@@ -1,11 +1,13 @@
 import type { HvrHoleRow, LepAirfoil, LepDesign } from '@lepara/format';
-import { ribPoint, type Point3 } from '@lepara/geometry';
+import { ribPoint, vRibs, type LineSections, type Point3 } from '@lepara/geometry';
 import { finite, type Point } from './geometry.ts';
 import { wingModel, type PreviewModel } from './model.ts';
 import { SURFACE_COLORS } from './patterns.ts';
 import { contourPoint, ribProfile, type ProfileSections } from './profile.ts';
 import { profileSegment } from './rods.ts';
 import { arcPoints, ellipsePoints, PreviewDrawing, type PreviewContext } from './scene.ts';
+import { reinforcementModel } from './structure.ts';
+import { distance, dot, lerp3, sub, unit, type Vector } from './vector.ts';
 
 export function ventBoundary(type: number, parameters: readonly number[]): Point[][] {
   const top: Point[] = [
@@ -433,4 +435,126 @@ export function hvrHolesScene(context: PreviewContext<ProfileSections | 'hvrHole
       ? ' Types 6/16: the engine uses center/count for the width ratio; the entered width is overridden.'
       : ' Types 5/15: the engine places holes at anchors; the hole-count field is unused.';
   return scene;
+}
+
+/** The point of `points` at fractional index `s`. */
+function pointAt(points: readonly Point3[], s: number): Point3 {
+  const i = Math.min(Math.max(Math.floor(s), 0), points.length - 2);
+  return lerp3(points[i], points[i + 1], s - i);
+}
+
+/** The fractional index of the point of `points` nearest `p`. */
+function nearestIndex(points: readonly Point3[], p: Point3): number {
+  let best = { s: 0, distance: Infinity };
+  for (let i = 0; i + 1 < points.length; i++) {
+    const d = sub(points[i + 1], points[i]);
+    const t = Math.min(Math.max(dot(sub(p, points[i]), d) / (dot(d, d) || 1), 0), 1);
+    const gap = distance(pointAt(points, i + t), p);
+    if (gap < best.distance) best = { s: i + t, distance: gap };
+  }
+  return best.s;
+}
+
+/**
+ * An ellipse in 3D about `center`, its semi-axis `a` towards `across` and
+ * `b` along `along`, made perpendicular to it.
+ */
+function ellipse3(center: Point3, across: Vector, along: Vector, a: number, b: number): Point3[] {
+  const u = unit(across);
+  const v = unit(sub(along, lerp3([0, 0, 0], u, dot(along, u))));
+  return Array.from({ length: 41 }, (_, k): Point3 => {
+    const theta = (2 * Math.PI * k) / 40;
+    const [x, y] = [a * Math.cos(theta), b * Math.sin(theta)];
+    return [
+      center[0] + x * u[0] + y * v[0],
+      center[1] + x * u[1] + y * v[1],
+      center[2] + x * u[2] + y * v[2],
+    ];
+  });
+}
+
+/** The row of section 38 the engine keeps for the V-rib types `types`: the last drawn one. */
+function activeHoleRow(rows: readonly HvrHoleRow[], types: readonly number[]) {
+  let index = -1;
+  rows.forEach((row, i) => {
+    if (types.includes(row.type) && row.drawn > 0) index = i;
+  });
+  return index;
+}
+
+/**
+ * Section 38: the V and VH ribs of section 12 in 3D, with the holes the
+ * engine cuts in them, from the last drawn row of types 5/15 and 6/16
+ * (§16): on each type 5 V-rib, one at each anchor of its rib, `center` of
+ * the way across from it, `height` and `width` % of that local height; on
+ * each type 6, `holes` of them evenly along it, `center` of the way across,
+ * `height` % across and `center / holes` of its length along. The engine
+ * draws them on the V-ribs laid flat: here in each V-rib's own directions.
+ * The row `selected` highlighted, if it is the one kept.
+ */
+export function hvrHolesModel(
+  design: Pick<LepDesign, ProfileSections | LineSections | 'hvRibs' | 'hvrHoles'>,
+  airfoils: ReadonlyMap<string, LepAirfoil>,
+  selected: number,
+): PreviewModel {
+  const model = reinforcementModel(design, airfoils);
+  model.title = 'Wing 3D model · HVR holes';
+  const holes = design.hvrHoles;
+  const rows = holes.mode === 0 ? [] : holes.rows;
+  const [five, six] = [activeHoleRow(rows, [5, 15]), activeHoleRow(rows, [6, 16])];
+  const outlines: { points: Point3[]; row: number }[] = [];
+  for (const rib of vRibs(design, airfoils)) {
+    const [a, b] = rib.edges;
+    if (rib.type === 5 && rows[five]) {
+      const { height, width, center } = rows[five];
+      const index = rib.ribs[0] - 1;
+      for (const anchor of ribProfile(design, airfoils, index).anchors) {
+        if (anchor.name === 'F') continue;
+        const point = ribPoint(design, index, [anchor.x, anchor.y]);
+        if (!point) continue;
+        const s = nearestIndex(a, point);
+        const [p, q] = [pointAt(a, s), pointAt(b, s)];
+        const [h, middle] = [distance(p, q), lerp3(p, q, center)];
+        const along = sub(
+          pointAt(a, Math.min(s + 1, a.length - 1)),
+          pointAt(a, Math.max(s - 1, 0)),
+        );
+        outlines.push({
+          points: ellipse3(middle, sub(q, p), along, (height * h) / 200, (width * h) / 200),
+          row: five,
+        });
+      }
+    }
+    if (rib.type === 6 && rows[six]) {
+      const { holes: count, height, center } = rows[six];
+      const n = Math.trunc(count);
+      const last = a.length - 1;
+      const mid = (s: number) => lerp3(pointAt(a, s), pointAt(b, s), 0.5);
+      const length = distance(mid(last), mid(0));
+      for (let k = 1; k <= n; k++) {
+        const s = (last * k) / (n + 1);
+        const [p, q] = [pointAt(a, s), pointAt(b, s)];
+        const [h, middle] = [distance(p, q), lerp3(p, q, center)];
+        outlines.push({
+          points: ellipse3(
+            middle,
+            sub(q, p),
+            sub(mid(last), mid(0)),
+            (h * height) / 200,
+            (length * center) / n / 2,
+          ),
+          row: six,
+        });
+      }
+    }
+  }
+  for (const { points, row } of outlines)
+    for (const side of [([x, y, z]: Point3): Point3 => [-x, y, z], (p: Point3) => p])
+      model.lines.push({ points: points.map(side), kind: 'hole', selected: row === selected });
+  model.note =
+    'The holes of the type 5 and 6 V-ribs, from the last drawn row of each, as the engine ' +
+    "cuts them on the V-ribs laid flat, here in each V-rib's own directions; the selected row " +
+    'highlighted if it is the one kept. Type 9 (miniribs) in the 2D view only. ' +
+    model.note;
+  return model;
 }
