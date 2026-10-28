@@ -172,26 +172,43 @@ export class PreviewScene {
     this.scene.background = new THREE.Color(colors.background);
     for (const selected of [false, true]) {
       const kind = (item: { kind: string }) => (item.kind === 'selected') === selected;
-      const positions: number[] = [];
-      const indices: number[] = [];
-      for (const fill of model.fills.filter(kind)) {
-        const start = positions.length / 3;
-        const { vertices, faces } = triangulate(fill.points, fill.holes);
-        for (const point of vertices) positions.push(...point);
-        for (const face of faces) indices.push(...face.map((i) => start + i));
-      }
-      for (const { rows } of model.surfaces.filter(kind)) {
-        const width = rows[0].length;
-        const start = positions.length / 3;
-        for (const row of rows) for (const point of row) positions.push(...point);
-        for (let r = 1; r < rows.length; r++)
-          for (let k = 1; k < width; k++) {
-            const a = start + (r - 1) * width + k - 1;
-            const b = a + width;
-            indices.push(a, b, a + 1, a + 1, b, b + 1);
-          }
-      }
-      if (indices.length) {
+      // The skin, or the selected surfaces, then each color drawn over the skin.
+      const groups = selected
+        ? [
+            {
+              color: undefined,
+              fills: model.fills.filter(kind),
+              surfaces: model.surfaces.filter(kind),
+            },
+          ]
+        : [undefined, ...new Set(model.surfaces.flatMap((s) => (s.color ? [s.color] : [])))].map(
+            (color) => ({
+              color,
+              fills: color ? [] : model.fills.filter(kind),
+              surfaces: model.surfaces.filter((s) => kind(s) && s.color === color),
+            }),
+          );
+      for (const { color, fills, surfaces } of groups) {
+        const positions: number[] = [];
+        const indices: number[] = [];
+        for (const fill of fills) {
+          const start = positions.length / 3;
+          const { vertices, faces } = triangulate(fill.points, fill.holes);
+          for (const point of vertices) positions.push(...point);
+          for (const face of faces) indices.push(...face.map((i) => start + i));
+        }
+        for (const { rows } of surfaces) {
+          const width = rows[0].length;
+          const start = positions.length / 3;
+          for (const row of rows) for (const point of row) positions.push(...point);
+          for (let r = 1; r < rows.length; r++)
+            for (let k = 1; k < width; k++) {
+              const a = start + (r - 1) * width + k - 1;
+              const b = a + width;
+              indices.push(a, b, a + 1, a + 1, b, b + 1);
+            }
+        }
+        if (!indices.length) continue;
         const geometry = new THREE.BufferGeometry();
         geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
         geometry.setIndex(indices);
@@ -206,14 +223,15 @@ export class PreviewScene {
                 opacity: 0.6,
                 depthTest: false,
               })
-            : // Pushed back, so that the ribs on its edges stay visible.
+            : // The skin pushed back, so that the ribs on its edges stay visible, and the
+              // colors pulled forward, over it.
               new THREE.MeshStandardMaterial({
-                color: colors.skin,
+                color: color ?? colors.skin,
                 side: THREE.DoubleSide,
                 roughness: 0.8,
                 polygonOffset: true,
-                polygonOffsetFactor: 1,
-                polygonOffsetUnits: 1,
+                polygonOffsetFactor: color ? -1 : 1,
+                polygonOffsetUnits: color ? -1 : 1,
               }),
         );
         mesh.renderOrder = selected ? 1 : 0;

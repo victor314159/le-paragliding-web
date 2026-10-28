@@ -46,6 +46,8 @@ export function colorPlanform(geometry: Geometry, colors: Colors) {
             point(right, cut.right),
             point(left, cut.left),
           ],
+          from: borders[i],
+          to: cut,
           band: i,
         }));
     const points = [point(left, 0), point(right, 0), point(right, 100), point(left, 100)];

@@ -1,3 +1,4 @@
+export * from './colors.ts';
 export * from './geometry.ts';
 export * from './lines.ts';
 export * from './model.ts';

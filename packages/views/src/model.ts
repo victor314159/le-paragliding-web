@@ -9,14 +9,15 @@ import type { PreviewScene } from './scene.ts';
 
 /**
  * A 3D drawing in the engine's absolute coordinates (Z down). `surfaces`
- * are grids whose consecutive rows are joined, `fills` planar outlines,
+ * are grids whose consecutive rows are joined, those with a `color` drawn
+ * over the skin in it, `fills` planar outlines,
  * concave or not, with `holes`, and `dots` points; `kind` and `color` style them as in
  * `PreviewScene`.
  */
 export interface PreviewModel {
   title: string;
   note: string;
-  surfaces: { rows: Point3[][]; kind: string }[];
+  surfaces: { rows: Point3[][]; kind: string; color?: string }[];
   fills: { points: Point3[]; holes?: Point3[][]; kind: string }[];
   dots: { point: Point3; kind: string; selected: boolean; color?: string }[];
   lines: { points: Point3[]; kind: string; selected: boolean; color?: string }[];
