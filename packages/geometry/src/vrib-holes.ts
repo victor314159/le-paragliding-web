@@ -100,6 +100,26 @@ function nearest(points: readonly Point3[], p: Point3): number {
   return best.s;
 }
 
+/** The length of `points` from fractional index `s` to their last point. */
+function lengthFromLast<P extends readonly number[]>(points: readonly P[], s: number) {
+  const distance = (p: P, q: P) => Math.hypot(...p.map((value, k) => value - q[k]));
+  let length = distance(at(points, s), points[Math.min(Math.floor(s) + 1, points.length - 1)]);
+  for (let j = Math.floor(s) + 1; j + 1 < points.length; j++)
+    length += distance(points[j], points[j + 1]);
+  return length;
+}
+
+/** The fractional index `length` along `points` from their last point, as the engine walks it. */
+function fromLast(points: readonly Point[], length: number) {
+  let walked = 0;
+  for (let j = points.length - 1; j > 0; j--) {
+    const step = Math.hypot(points[j][0] - points[j - 1][0], points[j][1] - points[j - 1][1]);
+    if (walked + step >= length) return j - (length - walked) / (step || 1);
+    walked += step;
+  }
+  return 0;
+}
+
 /**
  * The holes of section 38 in the V-ribs of types 5 and 6 (right half
  * wing), as the engine cuts them, from the last row with holes of types
@@ -129,7 +149,8 @@ export function vRibHoles(
       const flat = upright(flatten(...edges));
       const [anchored, other] = left ? [flat.right, flat.left] : [flat.left, flat.right];
       const holes = intradosAnchors(design, airfoils, rib.ribs[0]).map((anchor): FlatHole => {
-        const s = nearest(a, anchor);
+        // As far from the last point along the flat edge as along the edge in space.
+        const s = fromLast(anchored, lengthFromLast(a, nearest(a, anchor)));
         const point = at(anchored, s);
         const past = other[Math.min(Math.floor(s) + 1, other.length - 1)];
         const h = left ? point[0] - past[0] : past[0] - point[0];

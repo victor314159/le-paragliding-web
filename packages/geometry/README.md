@@ -107,6 +107,7 @@ BHL7-22, whose printed centers are not its lines'. The V and VH ribs are
 compared with the engine's `lep-3d.dxf`, which starts with them: its
 reference is committed as a hash only, so their test runs the engine
 (`build/engine/`), on a few cases, or on every example and the variants of
-section 12 with `ORACLE_ALL=1`. The holes of the V-ribs are
-compared, by their semi-axes, with the ellipses the engine draws in
-`leparagliding.dxf` for Swoop2, the one example with such holes.
+section 12 with `ORACLE_ALL=1`. The holes of the V-ribs are compared, by
+their place in their V-ribs laid flat and their semi-axes, with the ellipses
+the engine draws in `leparagliding.dxf` for Swoop2, the one example with
+such holes.
