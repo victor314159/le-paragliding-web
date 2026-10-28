@@ -342,7 +342,8 @@ function overwidthAt(points: readonly SkinTensionPoint[], { surface, position }:
 /**
  * The wing of a design in 3D, both halves: each rib's airfoil placed as the
  * engine places it, the skin straight between ribs or ballooned by
- * `overwidths` (section 5), and, with `anchors`, the anchor rows; the rib
+ * `overwidths` (section 5), open at the inlets of open cells, or of every
+ * cell without `inlets`, and, with `anchors`, the anchor rows; the rib
  * `row` highlighted.
  */
 export function wingModel(
@@ -352,7 +353,13 @@ export function wingModel(
     row = -1,
     anchors = false,
     overwidths,
-  }: { row?: number; anchors?: boolean; overwidths?: readonly SkinTensionPoint[] } = {},
+    inlets = true,
+  }: {
+    row?: number;
+    anchors?: boolean;
+    overwidths?: readonly SkinTensionPoint[];
+    inlets?: boolean;
+  } = {},
 ): PreviewModel {
   const single = design.geometry.paragliderType === 'ss';
   const half = design.geometry.ribs.flatMap((_, index) => {
@@ -364,7 +371,9 @@ export function wingModel(
     const { extrados, inlet, intrados } = profile.parts;
     // A single skin has no intrados, the engine meshing none (§21.10, 21.13).
     const parts = single ? [extrados, inlet] : [extrados, inlet, intrados];
-    return placedRib(index, profile.points, place, parts, profile.open === 1, points) ?? [];
+    return (
+      placedRib(index, profile.points, place, parts, profile.open === 1 || !inlets, points) ?? []
+    );
   });
   return assemble(
     half,
