@@ -59,7 +59,8 @@ and the H straps among the ribs, without the skin, with the lines that reach
 the anchors), `colorsModel` (sections 15 and 16, the color regions and
 cuts, or the rib marks, on the skin), `additionalPointsModel` (section
 17, the points on every rib, without the skin), `rodsModel` (section 21,
-the rods on the ribs of their groups, without the skin).
+the rods on the ribs of their groups, without the skin), `ventsModel`
+(section 26, the vents on the air inlets).
 `preDataModel(result)` draws the wing pre-data.txt generates on a generic airfoil, without the rest of the design.
 
 ## Build and test

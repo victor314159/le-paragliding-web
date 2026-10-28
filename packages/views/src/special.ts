@@ -1,5 +1,7 @@
-import type { HvrHoleRow, LepDesign } from '@lepara/format';
+import type { HvrHoleRow, LepAirfoil, LepDesign } from '@lepara/format';
+import { ribPoint, type Point3 } from '@lepara/geometry';
 import { finite, type Point } from './geometry.ts';
+import { wingModel, type PreviewModel } from './model.ts';
 import { contourPoint, ribProfile, type ProfileSections } from './profile.ts';
 import { profileSegment } from './rods.ts';
 import { arcPoints, ellipsePoints, PreviewDrawing, type PreviewContext } from './scene.ts';
@@ -77,6 +79,77 @@ export function ventsScene({ design, selected }: PreviewContext<'glueVents'>) {
   const scene = d.finish();
   if (vents.mode === 0) scene.note += ' Special glue vents are disabled; classic inlet shown.';
   return scene;
+}
+
+const mirror = ([x, y, z]: Point3): Point3 => [-x, y, z];
+
+/**
+ * Section 26: the wing in 3D with the vent of each cell drawn on its air
+ * inlet, as the engine draws them on the planform (§5.1): row i the cell
+ * between ribs i − 1 and i (rib 0 is rib 1 mirrored), across from rib to
+ * rib and from the extrados end of the inlet to its intrados end, in % of
+ * chord; both halves, the row `selected` highlighted.
+ */
+export function ventsModel(
+  design: Pick<LepDesign, ProfileSections | 'glueVents'>,
+  airfoils: ReadonlyMap<string, LepAirfoil>,
+  selected: number,
+): PreviewModel {
+  const model = wingModel(design, airfoils, { row: selected });
+  model.title = 'Wing 3D model · air inlets';
+  model.camera = [0.25, -1, 0.35];
+  const vents = design.glueVents;
+  /** The point at `v` % of rib `index`'s inlet, from its extrados end; -1 is the axis. */
+  const inletPoint = (index: number, v: number): Point3 | undefined => {
+    if (index < 0) {
+      const p = inletPoint(0, v);
+      return p && [-p[0], p[1], p[2]];
+    }
+    const { inlet } = ribProfile(design, airfoils, index).parts;
+    if (inlet.length < 2) return undefined;
+    const [from, to] = [inlet[0][0], inlet[inlet.length - 1][0]];
+    const p = contourPoint(inlet, from + ((to - from) * v) / 100);
+    return p && ribPoint(design, index, p);
+  };
+  const place = (cell: number, [u, v]: Point): Point3 | undefined => {
+    const [a, b] = [inletPoint(cell - 1, v), inletPoint(cell, v)];
+    const t = u / 100;
+    return a && b && [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+  };
+  design.geometry.ribs.forEach((_, cell) => {
+    const row = vents.mode === 0 ? undefined : vents.ribs[cell];
+    const type = vents.mode === 0 ? 0 : row?.type;
+    if (!finite(type)) return;
+    const frame: Point[] = [
+      [0, 0],
+      [100, 0],
+      [100, 100],
+      [0, 100],
+      [0, 0],
+    ];
+    for (const [points, kind] of [
+      [frame, 'baseline'],
+      ...ventBoundary(type, row?.parameters ?? []).map((points) => [points, 'vent'] as const),
+    ] as const) {
+      const placed = points.flatMap((p) => {
+        const point = place(cell, p);
+        return point ? [point] : [];
+      });
+      if (placed.length !== points.length) continue;
+      for (const side of [mirror, (p: Point3) => p])
+        model.lines.push({
+          points: placed.map(side),
+          kind,
+          selected: kind === 'vent' && cell === selected,
+        });
+    }
+  });
+  model.note =
+    'The vent of each cell on its air inlet, as the engine draws them on the planform: ' +
+    'across from rib to rib and down the inlet in % of chord; the selected cell highlighted' +
+    (vents.mode === 0 ? '. Special glue vents are disabled: classic inlets. ' : '. ') +
+    model.note;
+  return model;
 }
 
 /** The same final-cell edge-angle and parabola formulas as the 3.29 planform drawing. */
