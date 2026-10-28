@@ -1,5 +1,7 @@
-import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import type * as Engine from '../../packages/engine/src/node.ts';
 import designIndex from '../../oracle/designs/index.json' with { type: 'json' };
 import {
   parseAirfoil,
@@ -13,6 +15,18 @@ import {
 export const DESIGNS = designIndex.map((design) => design.id);
 export const DAT_FIXTURE = 'tests/format/fixtures/dat-airfoil';
 
+// build/engine/ (scripts/assemble-engine.sh), or its copy in the release
+// build dist/engine/ where it was not assembled (CI).
+const ENGINE = ['build/engine/node.js', 'dist/engine/node.js'].find((path) => existsSync(path));
+export const engine = () => {
+  if (!ENGINE) {
+    throw new Error(
+      'No engine: run scripts/assemble-engine.sh (build/engine/) or docker build --output dist .',
+    );
+  }
+  return import(pathToFileURL(resolve(ENGINE)).href) as Promise<typeof Engine>;
+};
+
 /** The files of a design directory, by name. */
 export function designFiles(dir: string): Map<string, string> {
   return new Map(readdirSync(dir).map((name) => [name, readFileSync(join(dir, name), 'utf8')]));
@@ -23,11 +37,11 @@ export function ok<T>(result: Result<T>): T {
   return result.value;
 }
 
-/** A design directory read into a project. */
-export function project(dir: string): LepProject {
+/** A design directory, or its `files`, read into a project. */
+export function project(dir: string, files = designFiles(dir)): LepProject {
   const airfoils = new Map<string, LepAirfoil>();
   let design: LepDesign | undefined;
-  for (const [name, text] of designFiles(dir)) {
+  for (const [name, text] of files) {
     if (name === 'leparagliding.txt') design = ok(parseLep(text));
     else airfoils.set(name, ok(parseAirfoil(name, text)));
   }

@@ -3,26 +3,10 @@
 // the examples, the .dat fixture and the variants of variants.ts (reader
 // branches and list-directed forms the examples do not use). Each run uses a
 // fresh engine in its own worker_threads Worker.
-import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { expect, test } from '@playwright/test';
-import type * as Engine from '../../packages/engine/src/node.ts';
 import { parseAirfoil, parseLep, writeAirfoil, writeLep } from '../../packages/format/src/index.ts';
-import { DAT_FIXTURE, DESIGNS, designFiles, ok } from './helpers.ts';
+import { DAT_FIXTURE, DESIGNS, designFiles, engine, ok } from './helpers.ts';
 import { VARIANTS, variantFiles } from './variants.ts';
-
-// build/engine/ (scripts/assemble-engine.sh), or its copy in the release
-// build dist/engine/ where it was not assembled (CI).
-const ENGINE = ['build/engine/node.js', 'dist/engine/node.js'].find((path) => existsSync(path));
-const engine = () => {
-  if (!ENGINE) {
-    throw new Error(
-      'No engine: run scripts/assemble-engine.sh (build/engine/) or docker build --output dist .',
-    );
-  }
-  return import(pathToFileURL(resolve(ENGINE)).href) as Promise<typeof Engine>;
-};
 
 const encoder = new TextEncoder();
 

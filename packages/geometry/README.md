@@ -3,7 +3,8 @@
 The 3D geometry of LEparagliding 3.29 designs as its engine computes it, in
 its coordinates at Wing scale (X′ along the span, Y along the chord, Z
 down), from the typed design of [`@lepara/format`](../format/README.md):
-the ribs, the trim estimate, the suspension lines and the brakes. A port of
+the ribs, the trim estimate, the suspension lines, the brakes and the V and VH
+ribs. A port of
 parts of the engine, quirks included, checked against its outputs. No other
 runtime dependency and no file access; runs in browsers, Workers and Node.
 GPL-3.0-only.
@@ -63,6 +64,25 @@ their rib by the brake distribution of section 10, and a fractional anchor
 rib (8.4) takes its anchor between two ribs, in place as the engine does, so
 that later paths on these ribs take the moved anchors.
 
+## V and VH ribs
+
+`vRibs(design, airfoils)` gives the V and VH ribs of section 12 as the
+engine draws them in its 3D model (§16): each between two ribs, as two
+edges of matching points (21, 121 for type 5), joined point to point. Types
+11 to 16, in % of chord, are converted into 1 to 6 by the chords the engine
+has read, before the wing tip; H straps (type 1) are not in the 3D model.
+`hStraps(design, airfoils)` gives them as the engine computes them before
+laying them flat in its 2D drawing: on each rib, the band of intrados about
+its anchor that types 2 to 4 take too. Nothing the engine writes in 3D
+checks them.
+The engine keeps the edges in arrays by rib and anchor row from row to row,
+and the port does too: a type 5 is drawn on the last anchor row of its rib
+when its neighbours have as many rows, and a type 6 that does not go to the
+next rib takes the edge last kept there. As in the engine, a type 3 in % of
+chord (column 9 at 1) keeps its widths in cm, unscaled, the section being
+read twice, and the profile point nearest the far end of a band is left out
+of its polyline.
+
 ## Build and test
 
 ```sh
@@ -73,4 +93,8 @@ docker compose run --rm web npm test -- geometry
 The tests compare the ribs, trim and every line and brake of the example
 designs with the engine's `lep-out.txt` in `oracle/reference/`: lengths and
 centers to 0.01 cm, but only the lengths of the lines of the single-skin
-BHL7-22, whose printed centers are not its lines'.
+BHL7-22, whose printed centers are not its lines'. The V and VH ribs are
+compared with the engine's `lep-3d.dxf`, which starts with them: its
+reference is committed as a hash only, so their test runs the engine
+(`build/engine/`), on a few cases, or on every example and the variants of
+section 12 with `ORACLE_ALL=1`.

@@ -11,7 +11,8 @@ import { wingModel, type PreviewModel } from './model.ts';
 import { ANCHOR_COLORS } from './profile.ts';
 
 const mirror = ([x, y, z]: Point3): Point3 => [-x, y, z];
-const planColor = (plan: number) => ANCHOR_COLORS[(plan - 1) % (ANCHOR_COLORS.length - 1)];
+/** The color of line plan `plan` (from 1): those of the anchor rows A to E, in turn. */
+export const planColor = (plan: number) => ANCHOR_COLORS[(plan - 1) % (ANCHOR_COLORS.length - 1)];
 /** The brakes take the color of the F row of anchors. */
 const BRAKE_COLOR = ANCHOR_COLORS[5];
 
