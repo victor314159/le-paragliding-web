@@ -22,6 +22,7 @@ import { markTypeScene, sewingMarksScene, sewingScene } from './sewing.ts';
 import {
   hvrHolesModel,
   hvrHolesScene,
+  miniribsModel,
   ventsModel,
   ventsScene,
   wingTipModel,
@@ -77,7 +78,14 @@ const colorsSection = (upper: boolean): SectionScene => ({
  */
 export const SECTION_SCENES: ReadonlyMap<number, SectionScene> = new Map([
   [1, { views: [...WING_VIEWS, MODEL_VIEW], draw: geometryScene, model: wingRowModel(false) }],
-  [2, { views: [...RIB_VIEWS, MODEL_VIEW], draw: ribRow(false), model: wingRowModel(false) }],
+  [
+    2,
+    {
+      views: [...RIB_VIEWS, MODEL_VIEW],
+      draw: ribRow(false),
+      model: (c: PreviewContext) => miniribsModel(c.design, c.airfoils, c.selected),
+    },
+  ],
   [3, { views: [...RIB_VIEWS, MODEL_VIEW], draw: ribRow(true), model: wingRowModel(true) }],
   [
     4,
