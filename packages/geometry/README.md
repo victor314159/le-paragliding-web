@@ -73,8 +73,8 @@ edges of matching points (21, 121 for type 5), joined point to point. Types
 has read, before the wing tip; H straps (type 1) are not in the 3D model.
 `hStraps(design, airfoils)` gives them as the engine computes them before
 laying them flat in its 2D drawing: on each rib, the band of intrados about
-its anchor that types 2 to 4 take too. Nothing the engine writes in 3D
-checks them.
+its anchor that types 2 to 4 take too. They are compared with the engine's
+2D drawing of them laid flat.
 The engine keeps the edges in arrays by rib and anchor row from row to row,
 and the port does too: a type 5 is drawn on the last anchor row of its rib
 when its neighbours have as many rows, and a type 6 that does not go to the
@@ -110,4 +110,6 @@ reference is committed as a hash only, so their test runs the engine
 section 12 with `ORACLE_ALL=1`. The holes of the V-ribs are compared, by
 their place in their V-ribs laid flat and their semi-axes, with the ellipses
 the engine draws in `leparagliding.dxf` for Swoop2, the one example with
-such holes.
+such holes. The H straps are compared, laid flat, with the engine's drawing
+of them in the same file, by the vectors from their first row to their last
+along each edge, which its tension does not change.
