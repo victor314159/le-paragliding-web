@@ -1,6 +1,6 @@
 import { colorsModel } from './colors.ts';
 import { brakeDistributionScene, networkScene, ramificationScene } from './lines.ts';
-import { holesModel, wingModel, type PreviewModel } from './model.ts';
+import { holesModel, tensionGroupsModel, wingModel, type PreviewModel } from './model.ts';
 import { colorsScene, tensionScene } from './patterns.ts';
 import { holesScene, ribScene, thicknessScene } from './ribs.ts';
 import {
@@ -213,6 +213,13 @@ export const SECTION_SCENES: ReadonlyMap<number, SectionScene> = new Map([
       model: wingRowModel(false),
     },
   ],
-  [31, { views: TENSION_VIEWS, draw: (c: PreviewContext) => tensionScene(c, true) }],
+  [
+    31,
+    {
+      views: [...TENSION_VIEWS, MODEL_VIEW],
+      draw: (c: PreviewContext) => tensionScene(c, true),
+      model: (c: PreviewContext) => tensionGroupsModel(c.design, c.airfoils, c.selected),
+    },
+  ],
   [38, { views: [], ribs: always, draw: hvrHolesScene }],
 ]);
