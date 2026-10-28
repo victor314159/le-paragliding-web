@@ -83,6 +83,16 @@ chord (column 9 at 1) keeps its widths in cm, unscaled, the section being
 read twice, and the profile point nearest the far end of a band is left out
 of its polyline.
 
+`vRibHoles(design, airfoils)` gives the holes of section 38 in the V-ribs
+of types 5 and 6, as the engine cuts them on the V-ribs laid flat
+(`flatten`, its `flatt`: row after row, each quadrilateral of the same
+sides and diagonal), from the last row of each type with holes: type 5
+turned along its edge on the anchor rib, a hole at each anchor sized by
+the distance across in x to the other edge, as the engine measures it;
+type 6 holes evenly along it (`vhholes`). `flatToRib` and `ribAt` carry a
+flat point onto the V-rib, row by row. A hole may overflow its V-rib, as
+the engine's do.
+
 ## Build and test
 
 ```sh
@@ -97,4 +107,6 @@ BHL7-22, whose printed centers are not its lines'. The V and VH ribs are
 compared with the engine's `lep-3d.dxf`, which starts with them: its
 reference is committed as a hash only, so their test runs the engine
 (`build/engine/`), on a few cases, or on every example and the variants of
-section 12 with `ORACLE_ALL=1`.
+section 12 with `ORACLE_ALL=1`. The holes of the V-ribs are
+compared, by their semi-axes, with the ellipses the engine draws in
+`leparagliding.dxf` for Swoop2, the one example with such holes.

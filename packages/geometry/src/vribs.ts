@@ -324,6 +324,25 @@ function columns(design: Pick<LepDesign, 'geometry' | 'hvRibs'>) {
 }
 
 /**
+ * The suspension anchors of rib number `rib` on its intrados, at Wing
+ * scale, where type 5 takes them (§16.3.2.5): the anchor rows of section
+ * 3, without the brake.
+ */
+export function intradosAnchors(
+  design: Pick<LepDesign, VRibSections>,
+  airfoils: ReadonlyMap<string, LepAirfoil>,
+  rib: number,
+): Point3[] {
+  const c = contour(design, airfoils, rib);
+  const count = design.anchors[rib - 1]?.count ?? 0;
+  return (design.anchors[rib - 1]?.positions ?? []).slice(0, Math.min(count, 5)).flatMap((x) => {
+    const point = lower(c, (c.chord * x) / 100);
+    const placed = point && ribPoint(design, rib - 1, [x / 100, -point.v / c.chord]);
+    return placed ? [placed] : [];
+  });
+}
+
+/**
  * The V and VH ribs of section 12 at Wing scale, right half wing, as the
  * engine draws them in its 3D model (§16): types 2 to 5 about the rib of
  * the row, on the sides its columns 5 and 6 choose, type 6 from a rib to
