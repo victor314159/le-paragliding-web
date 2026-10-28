@@ -23,7 +23,6 @@ import {
   hvrHolesModel,
   hvrHolesScene,
   miniribsModel,
-  withMiniribs,
   ventsModel,
   ventsScene,
   wingTipModel,
@@ -78,7 +77,16 @@ const colorsSection = (upper: boolean): SectionScene => ({
  * group, row...) and `active` the one focused in it (point, cut, hole...).
  */
 export const SECTION_SCENES: ReadonlyMap<number, SectionScene> = new Map([
-  [1, { views: [...WING_VIEWS, MODEL_VIEW], draw: geometryScene, model: wingRowModel(false) }],
+  [
+    1,
+    {
+      views: [...WING_VIEWS, MODEL_VIEW],
+      draw: geometryScene,
+      // The miniribs come with the airfoils, in section 2.
+      model: (c: PreviewContext) =>
+        wingModel(c.design, c.airfoils, { row: c.selected, miniribs: false }),
+    },
+  ],
   [
     2,
     {
@@ -105,8 +113,7 @@ export const SECTION_SCENES: ReadonlyMap<number, SectionScene> = new Map([
     {
       views: [...TENSION_VIEWS, MODEL_VIEW],
       draw: (c: PreviewContext) => tensionScene(c, false),
-      model: (c: PreviewContext) =>
-        withMiniribs(tensionModel(c.design, c.airfoils), c.design, c.airfoils),
+      model: (c: PreviewContext) => tensionModel(c.design, c.airfoils),
     },
   ],
   [
@@ -240,8 +247,7 @@ export const SECTION_SCENES: ReadonlyMap<number, SectionScene> = new Map([
     {
       views: [...TENSION_VIEWS, MODEL_VIEW],
       draw: (c: PreviewContext) => tensionScene(c, true),
-      model: (c: PreviewContext) =>
-        withMiniribs(tensionGroupsModel(c.design, c.airfoils, c.selected), c.design, c.airfoils),
+      model: (c: PreviewContext) => tensionGroupsModel(c.design, c.airfoils, c.selected),
     },
   ],
   [

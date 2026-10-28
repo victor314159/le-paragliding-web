@@ -52,23 +52,25 @@ A `PreviewModel` is a 3D drawing, at Wing scale in the engine's coordinates
 colored over it, planar fills with holes, lines and dots. A section with one
 gives it as the `model` of its `SECTION_SCENES` entry, for its `MODEL_VIEW`
 view: `wingModel` (sections 1 to 3 and 30, the skin open at the inlets of
-open cells), `tensionModel` (section 5, the skin ballooned as the engine
-does: by section 5, or by the groups of section 31 when active),
-`tensionGroupsModel` (section 31, the skin ballooned by each rib's group),
-`holesModel` (section 4), `trimModel` (section 8, beside its `trimScene`),
-`linesModel` (sections 9 to 11, the lines and brakes), `reinforcementModel`
-(section 12, the V and VH ribs and the H straps among the ribs, without the
-skin, with the lines that reach the anchors), `colorsModel` (sections 15 and
-16, the color regions and cuts, or the rib marks, on the skin),
-`additionalPointsModel` (section 17, the points on every rib, without the
-skin), `rodsModel` (section 21, the rods on the ribs of their groups,
-without the skin), `ventsModel` (section 26, the air inlets open or closed
-by the vents), `wingTipModel` (section 27), `shapingModel` (section 29, the
-cuts and their zones of influence on the skin), `hvrHolesModel` (section 38,
-the holes of the type 5 and 6 V-ribs and of the miniribs cut out),
-`miniribsModel` (section 2, the miniribs, which the engine leaves out of its
-3D model, midway across their cells). `preDataModel(result)` draws the wing
-pre-data.txt generates on a generic airfoil, without the rest of the design.
+open cells; from section 2 on, with the miniribs, `placedMiniribs`, which
+the engine leaves out of its 3D model, midway across their cells),
+`tensionModel` (section 5, the skin ballooned as the engine does: by section
+5, or by the groups of section 31 when active), `tensionGroupsModel`
+(section 31, the skin ballooned by each rib's group), `holesModel` (section
+4), `trimModel` (section 8, beside its `trimScene`), `linesModel` (sections
+9 to 11, the lines and brakes), `reinforcementModel` (section 12, the V and
+VH ribs and the H straps among the ribs, without the skin, with the lines
+that reach the anchors), `colorsModel` (sections 15 and 16, the color
+regions and cuts, or the rib marks, on the skin), `additionalPointsModel`
+(section 17, the points on every rib, without the skin), `rodsModel`
+(section 21, the rods on the ribs of their groups, without the skin),
+`ventsModel` (section 26, the air inlets open or closed by the vents),
+`wingTipModel` (section 27), `shapingModel` (section 29, the cuts and their
+zones of influence on the skin), `hvrHolesModel` (section 38, the holes of
+the type 5 and 6 V-ribs and of the miniribs cut out), `miniribsModel`
+(section 2, the selected row's minirib filled). `preDataModel(result)` draws
+the wing pre-data.txt generates on a generic airfoil, without the rest of
+the design.
 
 ## Build and test
 
