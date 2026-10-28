@@ -13,7 +13,7 @@ import {
 
 // scripts/check-wasm-oracle.ts checks every design in Node with the same
 // lepara.wasm; here one design covers the browser path (worker, UI, links,
-// download). ORACLE_ALL=1 runs every design.
+// download). ORACLE_ALL=1 (CI) runs every design.
 const designs =
   process.env['ORACLE_ALL'] === '1' ? designIndex.map((design) => design.id) : ['gnuA7-26'];
 
