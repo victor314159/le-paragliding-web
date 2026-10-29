@@ -145,9 +145,10 @@ export function ventsModel(
   design: Pick<LepDesign, ProfileSections | 'glueVents'>,
   airfoils: ReadonlyMap<string, LepAirfoil>,
   selected: number,
+  layer?: PreviewModel,
 ): PreviewModel {
   const vents = design.glueVents;
-  const model = wingModel(design, airfoils, { row: selected, inlets: vents.mode === 0 });
+  const model = layer ?? wingModel(design, airfoils, { row: selected, inlets: vents.mode === 0 });
   model.title = 'Wing 3D model · air inlets';
   model.camera = [0.25, -1, 0.35];
   if (vents.mode === 0) {
@@ -591,21 +592,37 @@ export function hvrHolesModel(
   design: Pick<LepDesign, ProfileSections | LineSections | 'hvRibs' | 'hvrHoles'>,
   airfoils: ReadonlyMap<string, LepAirfoil>,
   selected: number,
+  layer?: PreviewModel,
 ): PreviewModel {
   // The V-ribs with holes by the first points of their edges.
   const key = ([a, b]: VRib['edges']) => `${a[0].join()}/${b[0].join()}`;
   const holed = new Map(vRibHoles(design, airfoils).map((vrib) => [key(vrib.rib.edges), vrib]));
-  const model = reinforcementModel(design, airfoils, -1, (rib) => {
-    const vrib = holed.get(key(rib.edges));
-    return vrib && cutGrids(vrib).map((grid) => grid.map((row) => row.map((p) => ribAt(vrib, p))));
-  });
+  const model = reinforcementModel(
+    design,
+    airfoils,
+    -1,
+    (rib) => {
+      const vrib = holed.get(key(rib.edges));
+      return (
+        vrib && cutGrids(vrib).map((grid) => grid.map((row) => row.map((p) => ribAt(vrib, p))))
+      );
+    },
+    layer,
+  );
   model.title = 'Wing 3D model · HVR holes';
+  // Own the minirib contours here as well as their fills, including when drawing a layer.
+  model.lines = model.lines.filter((line) => line.kind !== 'minirib');
   for (const minirib of miniribHoles(design, airfoils))
     for (const side of [mirror, (p: Point3) => p]) {
       model.fills.push({
         points: minirib.outline.map(side),
         holes: minirib.holes.map(({ points }) => points.map(side)),
         kind: 'skin',
+      });
+      model.lines.push({
+        points: [...minirib.outline, minirib.outline[0]].map(side),
+        kind: 'minirib',
+        selected: false,
       });
       for (const { points, row } of minirib.holes)
         model.lines.push({

@@ -10,8 +10,9 @@ import type {
   SharkNoseGroup,
 } from '@lepara/format';
 import { ribPoint, type Point3 } from '@lepara/geometry';
-import { finite, type Point } from './geometry.ts';
-import { wingModel, type PreviewModel } from './model.ts';
+import { finite, tubeSurface, type Point } from './geometry.ts';
+import { skinCut } from './skin.ts';
+import { wingModel, type PreviewModel, type SkinPanel } from './model.ts';
 import { SURFACE_COLORS } from './patterns.ts';
 import { contourPoint, profileSegment, ribProfile, type ProfileSections } from './profile.ts';
 import { arcPoints, PreviewDrawing, valueLabel, type PreviewContext } from './scene.ts';
@@ -230,6 +231,8 @@ export function additionalPointsScene(context: PreviewContext<ProfileSections | 
 }
 
 const mirror = ([x, y, z]: Point3): Point3 => [-x, y, z];
+/** Rods drawn round: the color of nylon. */
+const ROD_COLOR = '#8b8063';
 
 /**
  * Section 17: the ribs of the wing, without its skin, with the additional
@@ -242,8 +245,9 @@ export function additionalPointsModel(
   airfoils: ReadonlyMap<string, LepAirfoil>,
   rib: number,
   selected: number,
+  layer?: PreviewModel,
 ): PreviewModel {
-  const model = wingModel(design, airfoils, { row: rib });
+  const model = layer ?? wingModel(design, airfoils, { row: rib });
   model.surfaces = [];
   design.ribPoints.forEach(([x, y], i) => {
     if (!finite(x) || !finite(y)) return;
@@ -278,8 +282,11 @@ export function rodsModel(
   rib: number,
   bloc: number,
   selected: number,
+  layer?: PreviewModel,
+  /** Render circular rods from their width in mm, at this visual scale; zero keeps center lines. */
+  thicknessScale = 0,
 ): PreviewModel {
-  const model = wingModel(design, airfoils, { row: rib });
+  const model = layer ?? wingModel(design, airfoils, { row: rib });
   model.surfaces = [];
   const { joncs } = design;
   const blocs =
@@ -296,12 +303,18 @@ export function rodsModel(
             return point ? [point] : [];
           });
           if (points.length > 1)
-            for (const side of [mirror, (p: Point3) => p])
-              model.lines.push({
-                points: points.map(side),
-                kind: 'rod',
-                selected: b === (joncs.mode === 1 ? 0 : bloc) && g === selected,
-              });
+            for (const side of [mirror, (p: Point3) => p]) {
+              const chosen = b === (joncs.mode === 1 ? 0 : bloc) && g === selected;
+              const rows = tubeSurface(
+                points.map(side),
+                (rod.group.pocket.rodWidth * thicknessScale) / 10,
+              );
+              if (rows)
+                model.surfaces.push(
+                  chosen ? { rows, kind: 'selected' } : { rows, kind: 'rod', color: ROD_COLOR },
+                );
+              else model.lines.push({ points: points.map(side), kind: 'rod', selected: chosen });
+            }
         }
     }),
   );
@@ -436,8 +449,10 @@ export function shapingModel(
   selected: number,
   surface: 'upper' | 'lower',
   active: number,
+  layer?: PreviewModel,
+  skinPanels?: readonly SkinPanel[],
 ): PreviewModel {
-  const model = wingModel(design, airfoils);
+  const model = layer ?? wingModel(design, airfoils);
   model.title = 'Wing 3D model · 3D shaping cuts';
   model.camera = [0.25, -1, 0.35];
   const { shaping } = design;
@@ -486,10 +501,22 @@ export function shapingModel(
     }
     for (const cut of cuts) {
       const [a, b] = [at(outer - 1, cut.point), at(outer, cut.point)];
-      if (a && b)
+      const skin = skinPanels?.find(
+        (p) =>
+          p.cell === outer && p.surface === (cut.surface === 'upper' ? 'extrados' : 'intrados'),
+      );
+      const left = profiles[Math.max(outer - 1, 0)].points[cut.point - 1];
+      const right = profiles[outer].points[cut.point - 1];
+      const segments =
+        skin && left && right
+          ? skinCut(skin, { left: 100 * (1 - left[0]), right: 100 * (1 - right[0]) })
+          : a && b
+            ? [[a, b]]
+            : [];
+      for (const points of segments)
         for (const side of sides)
           model.lines.push({
-            points: [side(a), side(b)],
+            points: points.map(side),
             kind: 'shaping-cut',
             selected:
               group === shaping.groups[selected] && cut.surface === surface && cut.index === active,

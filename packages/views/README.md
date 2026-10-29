@@ -4,7 +4,8 @@ Drawings of LEparagliding 3.29 designs: every preview of the parameter
 editor, as plain scenes and standalone SVG. Typed by
 [`@lepara/format`](../format/README.md) and
 [`@lepara/preprocessor`](../preprocessor/README.md); its runtime
-dependencies are [`@lepara/design`](../design/README.md), for the metrics of
+dependencies are [`@lepara/format`](../format/README.md), for the default line types,
+[`@lepara/design`](../design/README.md), for the metrics of
 section 1, and [`@lepara/geometry`](../geometry/README.md), for the 3D
 geometry of the engine. No file access; runs in browsers, Workers and Node. GPL-3.0-only.
 
@@ -72,6 +73,11 @@ the type 5 and 6 V-ribs and of the miniribs cut out), `miniribsModel`
 the wing pre-data.txt generates on a generic airfoil, without the rest of
 the design.
 
+`wingOverviewLayers` assembles the draft in independently visible layers.
+Panel colors and cuts follow the exact skin facets, including ballooning and
+minirib pinches. `wingOverviewModel` combines the chosen layers without mutating
+them and tags the skin and its markings for the renderer's cutaway.
+
 ## Build and test
 
 ```sh
@@ -79,6 +85,6 @@ docker compose run --rm web scripts/assemble-package.sh views   # -> build/views
 docker compose run --rm web npm test -- views
 ```
 
-`build/views/` imports `@lepara/design` and `@lepara/geometry` by name: the
+`build/views/` imports `@lepara/format`, `@lepara/design` and `@lepara/geometry` by name: the
 script assembles them and their dependencies too, and links them in
 `build/node_modules/`.

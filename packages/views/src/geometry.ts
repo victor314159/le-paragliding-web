@@ -1,4 +1,55 @@
+import type { Point3 } from '@lepara/geometry';
+
 export type Point = readonly [number, number];
+
+/** Circular tube around a polyline; points and diameter use the same units. */
+export function tubeSurface(points: readonly Point3[], diameter: number): Point3[][] | undefined {
+  if (!Number.isFinite(diameter) || diameter <= 0) return undefined;
+  return sweptSurface(
+    points,
+    Array.from({ length: 13 }, (_, k): Point => {
+      const angle = (k * Math.PI) / 6;
+      return [(diameter / 2) * Math.cos(angle), (diameter / 2) * Math.sin(angle)];
+    }),
+  );
+}
+
+/**
+ * A cross section swept along a polyline, a row per point: its (u, v) offsets
+ * in a frame perpendicular to the polyline, carried along it without twist.
+ */
+export function sweptSurface(
+  points: readonly Point3[],
+  section: readonly Point[],
+): Point3[][] | undefined {
+  // Repeated contour endpoints must not create zero-length tangents.
+  const path = points.filter((p, i) => !i || p.some((v, axis) => v !== points[i - 1][axis]));
+  if (path.length < 2) return undefined;
+  let normal: number[] | undefined;
+  return path.map((point, i) => {
+    const before = path[Math.max(0, i - 1)],
+      after = path[Math.min(path.length - 1, i + 1)];
+    let tangent = after.map((v, axis) => v - before[axis]);
+    let length = Math.hypot(...tangent);
+    if (!length) {
+      tangent = point.map((v, axis) => v - before[axis]);
+      length = Math.hypot(...tangent);
+    }
+    const [x, y, z] = tangent.map((v) => v / length);
+    const along = normal ? normal[0] * x + normal[1] * y + normal[2] * z : 0;
+    let u = normal?.map((v, axis) => v - along * [x, y, z][axis]);
+    if (!u || Math.hypot(...u) < 1e-8) u = Math.abs(z) < 0.9 ? [-y, x, 0] : [0, -z, y];
+    const norm = Math.hypot(...u);
+    const frame = u.map((v) => v / norm);
+    normal = frame;
+    const [a, b, c] = frame;
+    const binormal = [y * c - z * b, z * a - x * c, x * b - y * a];
+    return section.map(([u, v]): Point3 => {
+      const at = (axis: number) => point[axis] + frame[axis] * u + binormal[axis] * v;
+      return [at(0), at(1), at(2)];
+    });
+  });
+}
 export const finite = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value);
 

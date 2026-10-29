@@ -72,6 +72,9 @@ export class PreviewScene {
   private viewFrom?: { x: number; y: number; z: number };
   /** Half extents of the model on screen at zoom 1, in camera units. */
   private fit = { width: 1, height: 1 };
+  private skinCoverage = 100;
+  private cutaway: PreviewModel['cutaway'];
+  private readonly skinCutUniforms = { edge: { value: 0 }, feather: { value: 1 } };
 
   constructor(
     private readonly container: HTMLElement,
@@ -169,53 +172,55 @@ export class PreviewScene {
    */
   loadModel(model: PreviewModel, colors: ModelColors, fit: boolean): void {
     this.clear();
+    this.cutaway = model.cutaway;
+    this.updateSkinCut();
     this.scene.background = new THREE.Color(colors.background);
-    for (const selected of [false, true]) {
-      const kind = (item: { kind: string }) => (item.kind === 'selected') === selected;
-      // The skin, or the selected surfaces, then each color drawn over the skin.
-      const groups = selected
-        ? [
-            {
-              color: undefined,
-              fills: model.fills.filter(kind),
-              surfaces: model.surfaces.filter(kind),
-            },
-          ]
-        : [undefined, ...new Set(model.surfaces.flatMap((s) => (s.color ? [s.color] : [])))].map(
-            (color) => ({
-              color,
-              fills: color ? [] : model.fills.filter(kind),
-              surfaces: model.surfaces.filter((s) => kind(s) && s.color === color),
-            }),
-          );
-      for (const { color, fills, surfaces } of groups) {
-        const positions: number[] = [];
-        const indices: number[] = [];
-        for (const fill of fills) {
-          const start = positions.length / 3;
-          const { vertices, faces } = triangulate(fill.points, fill.holes);
-          for (const point of vertices) positions.push(...point);
-          for (const face of faces) indices.push(...face.map((i) => start + i));
-        }
-        for (const { rows } of surfaces) {
-          const width = rows[0].length;
-          const start = positions.length / 3;
-          for (const row of rows) for (const point of row) positions.push(...point);
-          for (let r = 1; r < rows.length; r++)
-            for (let k = 1; k < width; k++) {
-              const a = start + (r - 1) * width + k - 1;
-              const b = a + width;
-              indices.push(a, b, a + 1, a + 1, b, b + 1);
-            }
-        }
-        if (!indices.length) continue;
-        const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-        geometry.setIndex(indices);
-        geometry.computeVertexNormals();
-        const mesh = new THREE.Mesh(
-          geometry,
-          selected
+    for (const selected of [false, true])
+      for (const cutaway of [false, true]) {
+        const kind = (item: { kind: string; cutaway?: boolean }) =>
+          (item.kind === 'selected') === selected && !!item.cutaway === cutaway;
+        // The skin, or the selected surfaces, then each color drawn over the skin.
+        const groups = selected
+          ? [
+              {
+                color: undefined,
+                fills: model.fills.filter(kind),
+                surfaces: model.surfaces.filter(kind),
+              },
+            ]
+          : [undefined, ...new Set(model.surfaces.flatMap((s) => (s.color ? [s.color] : [])))].map(
+              (color) => ({
+                color,
+                fills: color ? [] : model.fills.filter(kind),
+                surfaces: model.surfaces.filter((s) => kind(s) && s.color === color),
+              }),
+            );
+        for (const { color, fills, surfaces } of groups) {
+          const positions: number[] = [];
+          const indices: number[] = [];
+          for (const fill of fills) {
+            const start = positions.length / 3;
+            const { vertices, faces } = triangulate(fill.points, fill.holes);
+            for (const point of vertices) positions.push(...point);
+            for (const face of faces) indices.push(...face.map((i) => start + i));
+          }
+          for (const { rows } of surfaces) {
+            const width = rows[0].length;
+            const start = positions.length / 3;
+            for (const row of rows) for (const point of row) positions.push(...point);
+            for (let r = 1; r < rows.length; r++)
+              for (let k = 1; k < width; k++) {
+                const a = start + (r - 1) * width + k - 1;
+                const b = a + width;
+                indices.push(a, b, a + 1, a + 1, b, b + 1);
+              }
+          }
+          if (!indices.length) continue;
+          const geometry = new THREE.BufferGeometry();
+          geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+          geometry.setIndex(indices);
+          geometry.computeVertexNormals();
+          const material = selected
             ? new THREE.MeshBasicMaterial({
                 color: colors.selected,
                 side: THREE.DoubleSide,
@@ -232,84 +237,151 @@ export class PreviewScene {
                 polygonOffset: true,
                 polygonOffsetFactor: color ? -1 : 1,
                 polygonOffsetUnits: color ? -1 : 1,
-              }),
-        );
-        mesh.renderOrder = selected ? 1 : 0;
-        this.model.add(mesh);
-      }
-      const segments: number[] = [];
-      const segmentColors: number[] = [];
-      const color = new THREE.Color();
-      for (const line of model.lines.filter((l) => l.selected === selected)) {
-        color.set(line.color ?? (selected ? colors.selected : colors.line));
-        for (let i = 1; i < line.points.length; i++) {
-          segments.push(...line.points[i - 1], ...line.points[i]);
-          segmentColors.push(color.r, color.g, color.b, color.r, color.g, color.b);
+              });
+          let materials: THREE.Material | THREE.Material[] = material;
+          if (cutaway && !selected) {
+            // Fully covered fabric writes depth like any opaque surface. Only the
+            // feather blends, so camera sorting cannot erase colors behind the skin.
+            const opaque = material.clone();
+            this.applySkinCut(opaque, true, 'opaque');
+            this.applySkinCut(material, true, 'feather');
+            geometry.addGroup(0, indices.length, 0);
+            geometry.addGroup(0, indices.length, 1);
+            materials = [opaque, material];
+          } else this.applySkinCut(material, cutaway);
+          const mesh = new THREE.Mesh(geometry, materials);
+          // Coplanar colored patches must blend after the neutral fabric at the cut.
+          mesh.renderOrder = cutaway ? (color ? 2 : 1) : selected ? 1 : 0;
+          this.model.add(mesh);
+        }
+        const segments: number[] = [];
+        const segmentColors: number[] = [];
+        const color = new THREE.Color();
+        for (const line of model.lines.filter(
+          (l) => l.selected === selected && !!l.cutaway === cutaway,
+        )) {
+          color.set(line.color ?? (selected ? colors.selected : colors.line));
+          for (let i = 1; i < line.points.length; i++) {
+            segments.push(...line.points[i - 1], ...line.points[i]);
+            segmentColors.push(color.r, color.g, color.b, color.r, color.g, color.b);
+          }
+        }
+        if (segments.length && selected) {
+          // WebGL lines are a pixel wide: the selected ones are wide lines, in pixels, of
+          // quads that the model's mirrored Z turns over.
+          const material = new LineMaterial({
+            vertexColors: true,
+            linewidth: 2.5,
+            depthTest: false,
+            side: THREE.DoubleSide,
+          });
+          material.resolution.set(this.container.clientWidth, this.container.clientHeight);
+          this.wide.push(material);
+          const lines = new LineSegments2(
+            new LineSegmentsGeometry().setPositions(segments).setColors(segmentColors),
+            material,
+          );
+          lines.renderOrder = 2;
+          this.model.add(lines);
+        } else if (segments.length) {
+          const geometry = new THREE.BufferGeometry();
+          geometry.setAttribute('position', new THREE.Float32BufferAttribute(segments, 3));
+          geometry.setAttribute('color', new THREE.Float32BufferAttribute(segmentColors, 3));
+          const material = new THREE.LineBasicMaterial({ vertexColors: true });
+          this.applySkinCut(material, cutaway);
+          const lines = new THREE.LineSegments(geometry, material);
+          lines.renderOrder = cutaway ? 2 : 0;
+          this.model.add(lines);
+        }
+        const dots = model.dots.filter((d) => d.selected === selected && !!d.cutaway === cutaway);
+        if (dots.length) {
+          const geometry = new THREE.BufferGeometry();
+          geometry.setAttribute(
+            'position',
+            new THREE.Float32BufferAttribute(
+              dots.flatMap((d) => d.point),
+              3,
+            ),
+          );
+          geometry.setAttribute(
+            'color',
+            new THREE.Float32BufferAttribute(
+              dots.flatMap((d) => color.set(d.color ?? colors.line).toArray()),
+              3,
+            ),
+          );
+          const points = new THREE.Points(
+            geometry,
+            // Round dots of a constant size on screen, the selected rib's larger.
+            new THREE.PointsMaterial({
+              size: selected ? 9 : 5,
+              sizeAttenuation: false,
+              vertexColors: true,
+              map: this.disc(),
+              alphaTest: 0.5,
+              depthTest: !selected,
+            }),
+          );
+          this.applySkinCut(points.material, cutaway);
+          points.renderOrder = selected || cutaway ? 3 : 0;
+          this.model.add(points);
         }
       }
-      if (segments.length && selected) {
-        // WebGL lines are a pixel wide: the selected ones are wide lines, in pixels, of
-        // quads that the model's mirrored Z turns over.
-        const material = new LineMaterial({
-          vertexColors: true,
-          linewidth: 2.5,
-          depthTest: false,
-          side: THREE.DoubleSide,
-        });
-        material.resolution.set(this.container.clientWidth, this.container.clientHeight);
-        this.wide.push(material);
-        const lines = new LineSegments2(
-          new LineSegmentsGeometry().setPositions(segments).setColors(segmentColors),
-          material,
-        );
-        lines.renderOrder = 2;
-        this.model.add(lines);
-      } else if (segments.length) {
-        const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute('position', new THREE.Float32BufferAttribute(segments, 3));
-        geometry.setAttribute('color', new THREE.Float32BufferAttribute(segmentColors, 3));
-        this.model.add(
-          new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ vertexColors: true })),
-        );
-      }
-      const dots = model.dots.filter((d) => d.selected === selected);
-      if (dots.length) {
-        const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute(
-          'position',
-          new THREE.Float32BufferAttribute(
-            dots.flatMap((d) => d.point),
-            3,
-          ),
-        );
-        geometry.setAttribute(
-          'color',
-          new THREE.Float32BufferAttribute(
-            dots.flatMap((d) => color.set(d.color ?? colors.line).toArray()),
-            3,
-          ),
-        );
-        const points = new THREE.Points(
-          geometry,
-          // Round dots of a constant size on screen, the selected rib's larger.
-          new THREE.PointsMaterial({
-            size: selected ? 9 : 5,
-            sizeAttenuation: false,
-            vertexColors: true,
-            map: this.disc(),
-            alphaTest: 0.5,
-            depthTest: !selected,
-          }),
-        );
-        points.renderOrder = selected ? 3 : 0;
-        this.model.add(points);
-      }
-    }
     // Like the engine's DXFs, models are in Z-down coordinates.
     this.model.scale.z = -1;
     this.viewFrom = model.camera && { x: model.camera[0], y: model.camera[1], z: -model.camera[2] };
     if (fit && this.model.children.length) this.reset();
     else this.render();
+  }
+
+  /** Move only the skin's dissolved cut edge; its internals and the camera are unchanged. */
+  setSkinCoverage(value: number): void {
+    this.skinCoverage = Math.min(100, Math.max(0, value));
+    this.updateSkinCut();
+    this.render();
+  }
+
+  private updateSkinCut(): void {
+    if (!this.cutaway) return;
+    const { min, max, feather } = this.cutaway;
+    this.skinCutUniforms.edge.value = min + ((max - min + feather) * this.skinCoverage) / 100;
+    this.skinCutUniforms.feather.value = feather;
+  }
+
+  /** Smooth transparency falloff across the cut plane. */
+  private applySkinCut(
+    material: THREE.Material,
+    enabled: boolean,
+    pass: 'opaque' | 'feather' | 'all' = 'all',
+  ): void {
+    if (!enabled || !this.cutaway) return;
+    material.transparent = pass !== 'opaque';
+    material.depthWrite = pass === 'opaque';
+    material.customProgramCacheKey = () => `skin-cutaway-${pass}`;
+    material.onBeforeCompile = (shader) => {
+      shader.uniforms['uSkinEdge'] = this.skinCutUniforms.edge;
+      shader.uniforms['uSkinFeather'] = this.skinCutUniforms.feather;
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', '#include <common>\nvarying float vSkinX;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvSkinX = position.x;');
+      shader.fragmentShader = shader.fragmentShader
+        .replace(
+          '#include <common>',
+          `#include <common>
+          varying float vSkinX;
+          uniform float uSkinEdge;
+          uniform float uSkinFeather;`,
+        )
+        .replace(
+          '#include <alphatest_fragment>',
+          `
+          ${pass === 'opaque' ? 'if (vSkinX > uSkinEdge - uSkinFeather) discard;' : ''}
+          ${pass === 'feather' ? 'if (vSkinX <= uSkinEdge - uSkinFeather) discard;' : ''}
+          diffuseColor.a *= 1.0 - smoothstep(uSkinEdge - uSkinFeather, uSkinEdge, vSkinX);
+          if (diffuseColor.a < 0.001) discard;
+          #include <alphatest_fragment>`,
+        );
+    };
   }
 
   /** A white disc, the shape of the dots of a model. */
