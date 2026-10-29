@@ -40,7 +40,7 @@ function errorMessage(error: unknown, fallback: string): string {
 /** The editable input files of the selected design, with drafts per source. */
 @Injectable({ providedIn: 'root' })
 export class DesignFilesService {
-  readonly sourceId = signal(DESIGNS[0].id);
+  readonly sourceId = signal('A8');
   readonly selected = computed(() => DESIGNS.find((design) => design.id === this.sourceId()));
   readonly files = signal<InputFile[]>([]);
   readonly loading = signal(false);
