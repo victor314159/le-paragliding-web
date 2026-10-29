@@ -94,7 +94,7 @@ export class DesignInput implements OnInit {
   protected readonly sources = [
     ...DESIGNS.map((design) => ({
       id: design.id,
-      label: `${design.wing} — LEparagliding ${design.program} · ${design.cells} cells`,
+      label: `${design.wing} · ${design.cells} cells`,
     })),
     { id: 'custom', label: 'My files' },
   ];
@@ -134,7 +134,7 @@ export class DesignInput implements OnInit {
   });
 
   /** Opens the parameter editor, on `selection` if given: a section or an airfoil. */
-  protected async editParameters(selection?: Selection): Promise<void> {
+  async editParameters(selection?: Selection, overview = false): Promise<void> {
     const { DesignEditor } = await import('../editor/design-editor');
     const { project, reading } = this.inputs.reading();
     if (this.locked() || this.dialog.openDialogs.length || !project) return;
@@ -142,6 +142,7 @@ export class DesignInput implements OnInit {
       project,
       reading,
       selection,
+      overview,
       preData: this.inputs.preDataReading(),
     };
     this.dialog
@@ -150,7 +151,7 @@ export class DesignInput implements OnInit {
         data,
         disableClose: true,
         ariaLabel: `Edit parameters · ${DESIGN_FILE}`,
-        autoFocus: '#editor-section-title',
+        autoFocus: overview ? '.overview-toggle' : '#editor-section-title',
       })
       .afterClosed()
       .subscribe((result: DesignEditorResult | undefined) => {

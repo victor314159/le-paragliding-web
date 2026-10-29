@@ -19,9 +19,15 @@
         </mat-select>
         <mat-hint>{{ sourceHint() }}</mat-hint>
       </mat-form-field>
-      <button matButton="outlined" type="button" [disabled]="locked()" (click)="chooseImport()">
+      <button
+        matIconButton
+        type="button"
+        aria-label="Import files"
+        matTooltip="Import files"
+        [disabled]="locked()"
+        (click)="chooseImport()"
+      >
         <mat-icon svgIcon="upload" />
-        Import files
       </button>
     </div>
 

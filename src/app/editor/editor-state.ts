@@ -37,6 +37,8 @@ export interface DesignEditorData {
   readonly reading: readonly Diagnostic[];
   /** The section or file shown first: section 1 by default. */
   readonly selection?: Selection;
+  /** Open directly on the assembled 3D preview. */
+  readonly overview?: boolean;
   /** The reading of pre-data.txt, if the project has it. */
   readonly preData?: Result<PreprocessorInput>;
 }
@@ -163,7 +165,7 @@ export class EditorState {
   });
   /** The navigation is open, on narrow screens. */
   readonly navOpen = signal(false);
-  readonly overviewOpen = signal(false);
+  readonly overviewOpen = signal(this.data.overview ?? false);
   readonly previewCollapsed = signal(false);
   /** The height set by dragging the preview divider; null for the default. */
   readonly previewHeight = signal<number | null>(null);

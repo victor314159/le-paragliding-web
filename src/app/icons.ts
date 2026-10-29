@@ -18,6 +18,9 @@ import fitScreen from '@material-symbols/svg-400/outlined/fit_screen.svg' with {
 import history from '@material-symbols/svg-400/outlined/history.svg' with { loader: 'text' };
 import lightMode from '@material-symbols/svg-400/outlined/light_mode.svg' with { loader: 'text' };
 import moreVert from '@material-symbols/svg-400/outlined/more_vert.svg' with { loader: 'text' };
+import openInFull from '@material-symbols/svg-400/outlined/open_in_full.svg' with {
+  loader: 'text',
+};
 import restartAlt from '@material-symbols/svg-400/outlined/restart_alt.svg' with { loader: 'text' };
 import terminal from '@material-symbols/svg-400/outlined/terminal.svg' with { loader: 'text' };
 import tune from '@material-symbols/svg-400/outlined/tune.svg' with { loader: 'text' };
@@ -41,6 +44,7 @@ const ICONS = {
   history,
   light_mode: lightMode,
   more_vert: moreVert,
+  open_in_full: openInFull,
   restart_alt: restartAlt,
   terminal,
   tune,

@@ -10,7 +10,7 @@ import { ScenePreview } from './scene-preview';
   imports: [ModelPreview, ScenePreview],
   template: `
     @if (model(); as model) {
-      <app-model-preview [model]="model" />
+      <app-model-preview [model]="model" [fitRequest]="editor.previewFitRequest()" />
     } @else {
       <app-scene-preview [scene]="scene()">
         @if (definition()?.ribs?.(context().view) && ribs().length) {
@@ -62,7 +62,7 @@ import { ScenePreview } from './scene-preview';
 })
 export class SectionPreview {
   readonly view = input.required<string>();
-  private readonly editor = inject(EditorState);
+  protected readonly editor = inject(EditorState);
   protected readonly section = computed(() => Number(this.editor.selection()));
   protected readonly definition = computed(() => SECTION_SCENES.get(this.section()));
   private readonly selection = computed(() => {

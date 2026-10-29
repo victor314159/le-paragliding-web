@@ -1,8 +1,11 @@
 :host {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 8px;
   padding: 8px 16px 16px;
+}
+.disclaimer {
+  align-self: flex-start;
 }
 .actions,
 .status,

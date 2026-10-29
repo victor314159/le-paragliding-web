@@ -75,6 +75,7 @@ test('missing engine and input files show recoverable errors', async ({ page }) 
   await page.getByRole('button', { name: 'Compute design' }).click();
   await expect(page.getByTestId('compute-status')).toHaveAttribute('data-state', 'error');
   await expect(page.getByRole('alert')).toContainText('Could not load the engine');
+  await expect(page.getByRole('log')).toBeVisible();
   await expectReady(page);
   await page.unroute(missingEngine);
 
@@ -114,7 +115,9 @@ test('the workspace fits a narrow screen and supports keyboard navigation', asyn
   // acknowledged, so it is only part of the tab order once enabled.
   await acknowledge(page);
   await expect(page.getByRole('heading', { name: 'Input', exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Log', exact: true })).toBeVisible();
+  await expect(page.getByRole('log')).toBeHidden();
+  await page.getByText('Show log ·', { exact: false }).click();
+  await expect(page.getByRole('log')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
   await page.getByRole('combobox', { name: 'Input source', exact: true }).focus();
   await page.keyboard.press('Tab');
@@ -154,29 +157,39 @@ test('the workspace fits a narrow screen and supports keyboard navigation', asyn
   await expect(page.getByRole('button', { name: 'Compute design' })).toBeFocused();
 });
 
-test('the first checkbox click opens a collapsed disclaimer before accepting', async ({ page }) => {
+test('the disclaimer dialog gates acknowledgement and preserves the workspace layout', async ({
+  page,
+}) => {
   await page.goto('/');
-  const disclaimer = page.getByRole('button', { name: 'Safety disclaimer', exact: true });
-  const checkbox = page.getByRole('checkbox');
-  const compute = page.getByRole('button', { name: 'Compute design', exact: true });
-  await expect(disclaimer).toHaveAttribute('aria-expanded', 'false');
+  const checkbox = page.getByRole('checkbox', { includeHidden: true });
+  const compute = page.getByRole('button', {
+    name: 'Compute design',
+    exact: true,
+    includeHidden: true,
+  });
+  const dialog = page.getByRole('dialog', { name: 'Safety disclaimer', exact: true });
+  const workspace = await page.locator('.workspace').boundingBox();
   await checkbox.click();
-  await expect(disclaimer).toHaveAttribute('aria-expanded', 'true');
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText(
+    'They must not be used as the sole basis for building or flying a wing.',
+  );
+  await expect(checkbox).not.toBeChecked();
+  await expect(compute).toBeDisabled();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await expect(checkbox).toBeFocused();
   await expect(checkbox).not.toBeChecked();
   await expect(compute).toBeDisabled();
 
-  await checkbox.focus();
   await page.keyboard.press('Space');
   await expect(checkbox).toBeChecked();
   await expect(compute).toBeEnabled();
+  expect(await page.locator('.workspace').boundingBox()).toEqual(workspace);
 
-  await disclaimer.click();
-  await checkbox.uncheck();
-  await expect(checkbox).not.toBeChecked();
-  await expect(compute).toBeDisabled();
-
-  await disclaimer.click();
-  await checkbox.check();
+  await page.getByRole('button', { name: 'Safety disclaimer', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Close', exact: true }).click();
   await expect(checkbox).toBeChecked();
-  await expect(compute).toBeEnabled();
+  await checkbox.uncheck();
+  await expect(compute).toBeDisabled();
 });

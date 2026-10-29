@@ -64,7 +64,7 @@ test('eight examples open with their values and a no-op Save preserves their byt
   await openExample(page, 'swoop2');
   for (const [index, entry] of designIndex.entries()) {
     if (index) {
-      await source(page, `${entry.wing} — LEparagliding ${entry.program} · ${entry.cells} cells`);
+      await source(page, `${entry.wing} · ${entry.cells} cells`);
     }
     const bytes = await readFile(`oracle/designs/${entry.id}/leparagliding.txt`);
     const design = ok(parseLep(bytes.toString()));
@@ -384,7 +384,7 @@ test('Save survives ZIP export and import, colors reach DXF, results invalidate 
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByTestId('compute-status')).toHaveAttribute('data-state', 'idle');
   await expect(page.getByRole('heading', { name: 'Generated files' })).toHaveCount(0);
-  await source(page, 'Swoop2 — LEparagliding 3.29 · 50 cells');
+  await source(page, 'Swoop2 · 50 cells');
   await page.getByRole('button', { name: 'Actions for leparagliding.txt', exact: true }).click();
   await page.getByRole('menuitem', { name: 'Restore original', exact: true }).click();
   expect(await downloadFile(page)).toEqual(original);

@@ -50,7 +50,7 @@ test.use({ trace: 'off' });
 async function pickDesign(page: Page, id: string): Promise<void> {
   const design = designIndex.find((entry) => entry.id === id);
   if (!design) throw new Error(`Unknown design ${id}`);
-  const line = `${design.wing} — LEparagliding ${design.program} · ${design.cells} cells`;
+  const line = `${design.wing} · ${design.cells} cells`;
   await page.getByRole('combobox', { name: 'Input source', exact: true }).click();
   await page.getByRole('option', { name: line, exact: true }).click();
 }
@@ -73,6 +73,8 @@ test('Chromium Worker matches the references up to pinned differences', async ({
       await expect(page.getByRole('heading', { name: 'Generated files' })).toHaveCount(0);
       await expect(page.getByTestId('compute-status')).toHaveAttribute('data-state', 'running');
 
+      if (!(await page.getByRole('log').isVisible()))
+        await page.getByText('Show log ·', { exact: false }).click();
       // The first real Fortran output reaches the page before main returns.
       await expect(page.getByTestId('log-line').first()).toBeVisible();
       await expect(page.getByTestId('compute-status')).toHaveAttribute('data-state', 'running');

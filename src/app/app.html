@@ -4,10 +4,12 @@
   <app-intro />
 
   <div class="workspace">
-    <app-design-input>
+    <app-design-input #input>
       <app-compute-controls />
     </app-design-input>
-    <app-execution-log />
+    @defer (on immediate) {
+      <app-wing-preview (expand)="input.editParameters(undefined, true)" />
+    }
   </div>
 
   <!-- Results load in their own chunk, fetched while the browser is idle. -->

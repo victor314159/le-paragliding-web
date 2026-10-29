@@ -40,7 +40,7 @@ test('editing, cancelling, switching sources and restoring keep the correct file
   const original = await readFile('oracle/designs/A8/leparagliding.txt');
   await page.goto('/');
   await expect(page.getByRole('combobox', { name: 'Input source', exact: true })).toHaveText(
-    'A8 test — LEparagliding 3.25 · 33 cells',
+    'A8 test · 33 cells',
   );
   await editText(page, 'leparagliding.txt');
   const area = page.getByRole('textbox', { name: 'Content of leparagliding.txt', exact: true });
@@ -53,7 +53,7 @@ test('editing, cancelling, switching sources and restoring keep the correct file
   await expect(page.getByText('Modified', { exact: true })).toBeVisible();
   await source(page, 'My files');
   await expect(page.getByTestId('input-file-row')).toHaveCount(0);
-  await source(page, 'A8 test — LEparagliding 3.25 · 33 cells');
+  await source(page, 'A8 test · 33 cells');
   expect(await downloadFile(page, 'leparagliding.txt')).toEqual(Buffer.from(edited));
   await page.getByRole('button', { name: 'Actions for leparagliding.txt', exact: true }).click();
   await page.getByRole('menuitem', { name: 'Restore original', exact: true }).click();
@@ -119,6 +119,7 @@ test('personal inputs use their own airfoil names and results are cleared when e
   await importFiles(page, [{ name: 'leparagliding.txt', mimeType: 'text/plain', buffer: main }]);
   await expect(page.getByRole('alert')).toContainText('personal.txt');
   await page.getByRole('button', { name: 'Safety disclaimer', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click();
   await page.getByRole('checkbox').check();
   await expect(page.getByRole('button', { name: 'Compute design' })).toBeDisabled();
   await importFiles(page, [{ name: 'personal.txt', mimeType: 'text/plain', buffer: foil }]);
@@ -126,6 +127,7 @@ test('personal inputs use their own airfoil names and results are cleared when e
   await acknowledge(page);
   await page.getByRole('button', { name: 'Compute design' }).click();
   await expect(page.getByTestId('compute-status')).toHaveAttribute('data-state', 'running');
+  await page.getByText('Show log ·', { exact: false }).click();
   await expect(page.getByRole('log')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Import files', exact: true })).toBeDisabled();
   await expect(page.getByTestId('compute-status')).toHaveAttribute('data-state', 'done', {
@@ -168,4 +170,64 @@ test('replacing preserves the input name and a failed import keeps the current d
   await page.getByRole('button', { name: 'Dismiss', exact: true }).click();
   expect(await downloadFile(page, 'leparagliding.txt')).toEqual(replacement);
   await acknowledge(page);
+});
+
+test('the main wing preview follows inputs and expands directly into the 3D editor', async ({
+  page,
+}) => {
+  await page.goto('/');
+  const preview = page.locator('app-wing-preview');
+  await expect(preview.getByRole('img', { name: 'Wing 3D model' })).toBeVisible();
+  const inputBounds = await page.locator('app-design-input').boundingBox();
+  const previewBounds = await preview.boundingBox();
+  expect(previewBounds!.width / inputBounds!.width).toBeCloseTo(2, 1);
+  await expect(page.getByTestId('compute-status')).toHaveAttribute('data-state', 'idle');
+  await expect(page.getByRole('log')).toBeHidden();
+
+  await source(page, 'Swoop2 · 50 cells');
+  await expect(preview.locator('figcaption')).toHaveText('Swoop2');
+  await page.getByRole('button', { name: 'Expand 3D preview' }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('heading', { name: 'Wing overview' })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Show editor', exact: true })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Show editor', exact: true }).click();
+  await expect(dialog.getByRole('heading', { name: '1 · Geometry', exact: true })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+
+  await source(page, 'My files');
+  await expect(preview.getByText('Load a readable design to preview the wing.')).toBeVisible();
+  await expect(preview.getByRole('button', { name: 'Expand 3D preview' })).toBeDisabled();
+});
+
+for (const [width, height] of [
+  [1366, 768],
+  [1440, 900],
+]) {
+  test(`the initial workspace fits a ${width}×${height} desktop window`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    await page.goto('/');
+    await expect(page.locator('app-wing-preview canvas')).toBeVisible();
+    await expect(page.getByTestId('compute-status')).toHaveAttribute('data-state', 'idle');
+    const dimensions = await page.evaluate(() => ({
+      width: document.documentElement.scrollWidth,
+      height: document.documentElement.scrollHeight,
+    }));
+    expect(dimensions).toEqual({ width, height });
+    await expect(page.getByRole('button', { name: 'Compute design' })).toBeVisible();
+  });
+}
+
+test('returning to a cached wing restores its initial framing', async ({ page }) => {
+  await page.goto('/');
+  const preview = page.locator('app-wing-preview');
+  const canvas = preview.locator('canvas');
+  await expect(canvas).toBeVisible();
+  const initial = await canvas.screenshot();
+
+  await source(page, 'Swoop2 · 50 cells');
+  await expect(preview.locator('figcaption')).toHaveText('Swoop2');
+  await canvas.screenshot();
+  await source(page, 'A8 test · 33 cells');
+  await expect(preview.locator('figcaption')).toHaveText('A8 test');
+  await expect.poll(async () => (await canvas.screenshot()).equals(initial)).toBe(true);
 });

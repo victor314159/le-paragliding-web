@@ -13,7 +13,6 @@ import type { PreviewModel } from '@lepara/views';
 import type { PreviewScene } from '../results/preview-scene';
 import { ThemeService } from '../shared/theme.service';
 import { themeColor } from '../shared/theme-color';
-import { EditorState } from './editor-state';
 
 /** A 3D model of @lepara/views, orbiting, kept in view while it changes until fitted again. */
 @Component({
@@ -30,7 +29,9 @@ import { EditorState } from './editor-state';
       }
       <div class="model-controls"><ng-content /></div>
       <div #viewport class="viewport"></div>
-      <p>{{ model().note }}</p>
+      @if (model().note) {
+        <p>{{ model().note }}</p>
+      }
     </figure>
   `,
   styleUrl: './preview-layout.css',
@@ -79,8 +80,7 @@ export class ModelPreview {
   readonly model = input.required<PreviewModel>();
   readonly skinCoverage = input(100);
   /** A standalone viewer can fit independently of the section preview dock. */
-  readonly fitRequest = input<number>();
-  private readonly editor = inject(EditorState);
+  readonly fitRequest = input(0);
   private readonly theme = inject(ThemeService);
   private readonly viewport = viewChild.required<ElementRef<HTMLDivElement>>('viewport');
   private readonly viewer = signal<PreviewScene | undefined>(undefined);
@@ -105,7 +105,7 @@ export class ModelPreview {
     effect(() => {
       const viewer = this.viewer();
       const model = this.model();
-      const fit = this.fitRequest() ?? this.editor.previewFitRequest();
+      const fit = this.fitRequest();
       this.theme.scheme();
       if (!viewer) return;
       const color = (token: string) => themeColor(this.viewport().nativeElement, token);

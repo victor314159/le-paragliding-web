@@ -141,7 +141,7 @@ const BUTTON_LABELS_LENGTH = 28;
       } @else if (section() === preDataFile) {
         @let model = view() === modelView ? generatedModel() : undefined;
         @if (model) {
-          <app-model-preview [model]="model" />
+          <app-model-preview [model]="model" [fitRequest]="editor.previewFitRequest()" />
         } @else if (generated(); as scene) {
           <app-scene-preview [scene]="scene" />
         } @else {
