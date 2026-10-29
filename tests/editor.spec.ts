@@ -4,7 +4,7 @@ import JSZip from 'jszip';
 import designIndex from '../oracle/designs/index.json' with { type: 'json' };
 import { parseAirfoil, parseLep, SECTIONS, writeLep } from '../packages/format/src/index.ts';
 import { ok } from './format/helpers';
-import { acknowledge, editText } from './helpers';
+import { acknowledge, editText, openExample } from './helpers';
 
 // Fetching a full generated DXF into a trace would make it unnecessarily large.
 test.use({ trace: 'off' });
@@ -14,6 +14,9 @@ const opener = (page: Page) =>
 async function source(page: Page, name: string): Promise<void> {
   await page.getByRole('combobox', { name: 'Input source', exact: true }).click();
   await page.getByRole('option', { name, exact: true }).click();
+  await expect(page.getByRole('listbox')).toHaveCount(0);
+  await expect(page.getByRole('combobox', { name: 'Input source', exact: true })).toHaveText(name);
+  await expect(page.getByRole('combobox', { name: 'Input source', exact: true })).toBeEnabled();
 }
 
 /** Picks the option of a mat-select by its value, the start of its label. */
@@ -57,22 +60,15 @@ async function replaceMain(page: Page, text: string): Promise<void> {
 test('eight examples open with their values and a no-op Save preserves their bytes', async ({
   page,
 }) => {
-  const loaded = (id: string) =>
-    page.waitForResponse((response) =>
-      response.url().endsWith(`/examples/${id}/leparagliding.txt`),
-    );
-  // The first example loads with the page; the others when selected.
-  let loading = loaded(designIndex[0].id);
-  await page.goto('/');
+  // Start from the Swoop2 fixture, then select each of the other examples.
+  await openExample(page, 'swoop2');
   for (const [index, entry] of designIndex.entries()) {
     if (index) {
-      loading = loaded(entry.id);
       await source(page, `${entry.wing} — LEparagliding ${entry.program} · ${entry.cells} cells`);
     }
     const bytes = await readFile(`oracle/designs/${entry.id}/leparagliding.txt`);
     const design = ok(parseLep(bytes.toString()));
     // The opener stays disabled while the example loads.
-    await loading;
     await expect(opener(page)).toBeEnabled();
     await opener(page).focus();
     await page.keyboard.press('Enter');
@@ -120,7 +116,7 @@ test('eight examples open with their values and a no-op Save preserves their byt
 test('Cancel, close and Escape confirm dirty drafts and preserve original bytes', async ({
   page,
 }) => {
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   const original = await downloadFile(page);
   await opener(page).click();
   await expect(page.getByRole('dialog')).toBeVisible();
@@ -150,7 +146,7 @@ test('text that is not a number keeps the section, and empty and hidden fields s
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   await opener(page).click();
   await section(page, '6 · Sewing allowances');
   const rib = page.getByRole('textbox', { name: 'Rib edges (mm)', exact: true });
@@ -201,7 +197,7 @@ test('text that is not a number keeps the section, and empty and hidden fields s
 });
 
 test('an unreadable airfoil links to text editing and does not block Save', async ({ page }) => {
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   await editText(page, 'gnuReflex.txt');
   await page
     .getByRole('textbox', { name: 'Content of gnuReflex.txt', exact: true })
@@ -229,7 +225,7 @@ test('the airfoil form edits points and counts, previews them and rewrites only 
   const original = await readFile('oracle/designs/swoop2/gnuReflex.txt', 'utf8');
   const airfoil = ok(parseAirfoil('gnuReflex.txt', original));
   if (airfoil.format !== 'txt') throw new Error('gnuReflex.txt is a .txt airfoil');
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   const design = await downloadFile(page);
   // Its own button opens the editor on the airfoil.
   await page.getByRole('button', { name: 'Edit parameters of gnuReflex.txt', exact: true }).click();
@@ -286,7 +282,7 @@ test('input errors block compute and parameter editing while warnings allow comp
 }) => {
   const original = await readFile('oracle/designs/swoop2/leparagliding.txt', 'utf8');
   const design = ok(parseLep(original));
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   await acknowledge(page);
   await replaceMain(page, 'unreadable design');
   await expect(opener(page)).toBeDisabled();
@@ -307,7 +303,7 @@ test('Save survives ZIP export and import, colors reach DXF, results invalidate 
 }) => {
   const original = await readFile('oracle/designs/swoop2/leparagliding.txt');
   const foil = await readFile('oracle/designs/swoop2/gnuReflex.txt');
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   // This example overrides plan colors via Section 37. Exercise Section 24's
   // actual engine behavior with colors by plan (1341 = 0).
   await replaceMain(page, original.toString().replace(/^1341\s+1\b/m, '1341    0'));
@@ -398,7 +394,7 @@ test('Save survives ZIP export and import, colors reach DXF, results invalidate 
 test('all 37 sections have forms and navigation preserves the original file', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   const original = await downloadFile(page);
   await opener(page).click();
   for (const { number, title } of SECTIONS) {
@@ -425,7 +421,7 @@ test('all 37 sections have forms and navigation preserves the original file', as
 
 test('nested lists, text and mode changes save through the new section forms', async ({ page }) => {
   const initial = ok(parseLep(await readFile('oracle/designs/swoop2/leparagliding.txt', 'utf8')));
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   await replaceMain(page, ok(writeLep({ ...initial, holes: [] })));
   await opener(page).click();
   await section(page, '1 · Geometry');
@@ -475,7 +471,7 @@ test('nested lists, text and mode changes save through the new section forms', a
 test('special parameter codes preserve numeric, text and transition values across navigation', async ({
   page,
 }) => {
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   await opener(page).click();
   await section(page, '37 · Special parameters');
   await choose(page, 'Special parameters mode', '1');
@@ -510,7 +506,7 @@ test('collection errors stay visible and structural edits cannot discard unparse
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   await opener(page).click();
   await section(page, '17 · Additional rib points');
   await page.getByRole('button', { name: 'Add point', exact: true }).click();
@@ -539,7 +535,7 @@ test('collection errors stay visible and structural edits cannot discard unparse
 test('rod variants, panel cuts and HVR dependent fields keep edits when their modes change', async ({
   page,
 }) => {
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   await opener(page).click();
   await section(page, '21 · Nylon rods');
   await choose(page, 'Nylon rods mode', '2');
@@ -619,7 +615,7 @@ test('enabling an unused section parses its initially empty numbers and saves th
   page,
 }) => {
   const original = ok(parseLep(await readFile('oracle/designs/swoop2/leparagliding.txt', 'utf8')));
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   await replaceMain(page, ok(writeLep({ ...original, xflr5: { mode: 0 } })));
   await opener(page).click();
   await section(page, '36 · XFLR5 analysis');
@@ -645,7 +641,7 @@ test('a constraint from another section leads to the section containing its fiel
   page,
 }) => {
   const original = ok(parseLep(await readFile('oracle/designs/swoop2/leparagliding.txt', 'utf8')));
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   await replaceMain(
     page,
     ok(
@@ -675,7 +671,7 @@ test('a constraint from another section leads to the section containing its fiel
 test('rib tables compare many rows at once and the active row drives the live preview', async ({
   page,
 }) => {
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   await opener(page).click();
   await section(page, '3 · Anchor points');
   const table = page.getByRole('table', { name: 'Anchor positions', exact: true });
@@ -703,7 +699,7 @@ test('only one nested path is expanded and Show reopens the path containing an e
   page,
 }) => {
   const original = ok(parseLep(await readFile('oracle/designs/swoop2/leparagliding.txt', 'utf8')));
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   await opener(page).click();
   await section(page, '9 · Suspension lines');
   await expect(page.getByRole('textbox', { name: 'Branching levels', exact: true })).toHaveCount(1);
@@ -740,7 +736,7 @@ test('Mylar and line type tables preserve mode-dependent values, reveal errors a
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   await opener(page).click();
   await section(page, '22 · Nose mylars');
   await choose(page, 'Nose mylars mode', '1');
@@ -798,7 +794,7 @@ test('wide tables scroll inside the editor on mobile and cells retain numeric pa
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   await opener(page).click();
   await section(page, '1 · Geometry');
   const region = page.getByRole('region', { name: 'Rib geometry', exact: true });
@@ -813,7 +809,7 @@ test('wide tables scroll inside the editor on mobile and cells retain numeric pa
 });
 
 test('geometry previews follow edited coordinates and focus in both views', async ({ page }) => {
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   await opener(page).click();
   await section(page, '1 · Geometry');
   const row = page
@@ -851,7 +847,7 @@ test('hole previews follow the group, rib, active hole and live dimensions on mo
 }) => {
   const initial = ok(parseLep(await readFile('oracle/designs/swoop2/leparagliding.txt', 'utf8')));
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   await replaceMain(
     page,
     ok(
@@ -920,7 +916,7 @@ for (const viewport of [
 ]) {
   test(`previews stay docked while fields scroll at ${viewport.width}px`, async ({ page }) => {
     await page.setViewportSize(viewport);
-    await page.goto('/');
+    await openExample(page, 'swoop2');
     await opener(page).click();
     for (const name of [
       '1 · Geometry',
@@ -975,7 +971,7 @@ test('view and collapse controls preserve unparsed fields and their state across
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   await opener(page).click();
   await section(page, '1 · Geometry');
   const row = page
@@ -1017,7 +1013,7 @@ test('view and collapse controls preserve unparsed fields and their state across
 });
 
 test('the docked preview follows the hole group opened by Show on an error', async ({ page }) => {
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   await opener(page).click();
   await section(page, '4 · Lightening holes');
   await page.getByRole('combobox', { name: 'Select hole group', exact: true }).click();
@@ -1043,7 +1039,7 @@ test('the docked preview follows the hole group opened by Show on an error', asy
 test('anchor and hole previews share whole-wing views and detailed profile context', async ({
   page,
 }) => {
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   await opener(page).click();
   await section(page, '3 · Anchor points');
   const plan = page.getByRole('img', { name: 'Wing planform with anchor positions', exact: true });
@@ -1089,7 +1085,7 @@ for (const viewport of [
     page,
   }) => {
     await page.setViewportSize(viewport);
-    await page.goto('/');
+    await openExample(page, 'swoop2');
     await opener(page).click();
     const svg = page.locator('#section-preview svg');
     const expectFitted = async () => {
@@ -1137,7 +1133,7 @@ for (const viewport of [
 }
 
 test('preview wheel zoom, pan and fit do not change the design', async ({ page }) => {
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   await opener(page).click();
   await section(page, '3 · Anchor points');
   const svg = page.getByRole('img', { name: 'Wing planform with anchor positions', exact: true });
@@ -1170,7 +1166,7 @@ for (const touch of [false, true]) {
     page,
   }) => {
     await page.setViewportSize(touch ? { width: 390, height: 844 } : { width: 1440, height: 1000 });
-    await page.goto('/');
+    await openExample(page, 'swoop2');
     await opener(page).click();
     await section(page, '3 · Anchor points');
     const panel = page.locator('app-editor-preview');
@@ -1222,7 +1218,7 @@ for (const touch of [false, true]) {
 test('thickness previews compare original and modified profiles, including zero thickness and disabled mode', async ({
   page,
 }) => {
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   await opener(page).click();
   await section(page, '30 · Airfoil thickness modification');
   await choose(page, 'Thickness mode', '1');
@@ -1260,7 +1256,7 @@ test('color previews follow panel cuts, active rows and rib mark modes on both s
   page,
 }) => {
   const initial = ok(parseLep(await readFile('oracle/designs/swoop2/leparagliding.txt', 'utf8')));
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   await replaceMain(
     page,
     ok(
@@ -1335,7 +1331,7 @@ test('skin tension previews follow live points and selected groups while keeping
   );
   if (initialDesign.skinTensionGroups.mode !== 1) throw new Error('Expected active tension groups');
   const first = initialDesign.skinTensionGroups.groups[0];
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   await replaceMain(
     page,
     ok(
@@ -1400,7 +1396,7 @@ test('skin tension previews follow live points and selected groups while keeping
 test('seam and mark previews follow dimensions, selected rows and print or laser forms', async ({
   page,
 }) => {
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   await opener(page).click();
   await section(page, '6 · Sewing allowances');
   const svg = page.locator('app-section-preview svg');
@@ -1437,7 +1433,7 @@ test('seam and mark previews follow dimensions, selected rows and print or laser
 test('connection, distribution and ramification previews track plans, paths and distances', async ({
   page,
 }) => {
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   await opener(page).click();
   await section(page, '9 · Suspension lines');
   const svg = page.locator('app-section-preview svg');
@@ -1472,7 +1468,7 @@ test('connection, distribution and ramification previews track plans, paths and 
 test('reinforcements and additional points follow selected records and incomplete edits', async ({
   page,
 }) => {
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   await opener(page).click();
   await section(page, '12 · H, V and VH ribs');
   const svg = page.locator('app-section-preview svg');
@@ -1503,7 +1499,7 @@ test('HVR table scrolls on mobile and preserves diagonal parameters through type
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   await opener(page).click();
   await section(page, '12 · H, V and VH ribs');
   const table = page.getByRole('table', { name: 'H, V and VH ribs', exact: true });
@@ -1536,7 +1532,7 @@ test('rods and shaping previews follow groups, rib choice, pockets and influence
   page,
 }) => {
   const initial = ok(parseLep(await readFile('oracle/designs/swoop2/leparagliding.txt', 'utf8')));
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   await replaceMain(
     page,
     ok(
@@ -1608,7 +1604,7 @@ test('rods and shaping previews follow groups, rib choice, pockets and influence
 test('inlet, wingtip and HVR hole previews follow each mode and the engine column meanings', async ({
   page,
 }) => {
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   await opener(page).click();
   const svg = page.locator('app-section-preview svg');
   await section(page, '26 · Glue vents');

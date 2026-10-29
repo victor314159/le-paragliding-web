@@ -88,7 +88,7 @@ test('missing engine and input files show recoverable errors', async ({ page }) 
   await expectReady(page);
   await page.unroute(missingWasm);
 
-  const [design] = designIndex;
+  const design = designIndex.find(({ id }) => id === 'A8')!;
   const [airfoil] = design.airfoils;
   const missingInput = `**/examples/${design.id}/${airfoil}`;
   await page.route(missingInput, (route) => route.fulfill({ status: 404, body: 'Missing input' }));

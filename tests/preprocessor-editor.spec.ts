@@ -28,7 +28,7 @@ import {
   toPreprocessorInput,
 } from '../src/app/editor/preprocessor-draft.ts';
 import { lep, ok } from './format/helpers';
-import { editText } from './helpers';
+import { editText, openExample } from './helpers';
 import { withCells } from './preprocessor/cases.ts';
 
 test('the form keeps the inactive modes and leaves out the zero of a central rib', () => {
@@ -197,7 +197,7 @@ async function exportZip(page: Page): Promise<JSZip> {
 test('without pre-data.txt, it is created in Auto with the default shape without changing the table', async ({
   page,
 }) => {
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   const original = await download(page, 'leparagliding.txt');
   const { geometry } = ok(parseLep(original));
   const created = newPreData({ geometry });
@@ -249,7 +249,7 @@ test('without pre-data.txt, it is created in Auto with the default shape without
 test('applying the parameters replaces the table, which stays editable and is recognized', async ({
   page,
 }) => {
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   const original = await download(page, 'leparagliding.txt');
   const preData = await importPreData(page, PREPROCESSOR_EXAMPLE);
   await open(page);
@@ -294,7 +294,7 @@ test('applying the parameters replaces the table, which stays editable and is re
 test('applying keeps the other columns; invalid parameters cannot be applied and block Save', async ({
   page,
 }) => {
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   const source = ok(parseLep(await download(page, 'leparagliding.txt')));
   const design = {
     ...source,
@@ -347,7 +347,7 @@ test('applying keeps the other columns; invalid parameters cannot be applied and
 });
 
 test('an unreadable pre-data.txt is edited as text and never replaced', async ({ page }) => {
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   await importFile(page, 'pre-data.txt', Buffer.from('broken parameters'));
   await expect(button(page, 'Edit parameters of pre-data.txt')).toBeDisabled();
   await open(page);
@@ -364,7 +364,7 @@ test('an unreadable pre-data.txt is edited as text and never replaced', async ({
 });
 
 test('invalid parameters are read and corrected in the form', async ({ page }) => {
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   const text = ok(writePreData(PREPROCESSOR_EXAMPLE)).replace('ex1= 2', 'ex1= 0');
   await importFile(page, 'pre-data.txt', Buffer.from(text));
   await expect(button(page, 'Edit parameters of pre-data.txt')).toBeEnabled();
@@ -378,7 +378,7 @@ test('invalid parameters are read and corrected in the form', async ({ page }) =
 });
 
 test('an exported ZIP opens with the table in sync', async ({ page }) => {
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   await importPreData(page, PREPROCESSOR_EXAMPLE);
   await open(page);
   await apply(page);
@@ -394,7 +394,7 @@ test('an exported ZIP opens with the table in sync', async ({ page }) => {
 test('vault modes and explicit widths keep their values; Show reaches their errors', async ({
   page,
 }) => {
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   await importPreData(page, PREPROCESSOR_EXAMPLE);
   await open(page);
   await choose(page, 'Vault shape', '1');
@@ -423,7 +423,7 @@ test('vault modes and explicit widths keep their values; Show reaches their erro
 test('changing the cell count resizes the table; other sections are corrected before saving', async ({
   page,
 }) => {
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   await editText(page, 'leparagliding.txt');
   await field(page, 'Content of leparagliding.txt').fill(lep());
   await button(page, 'Apply changes').click();
@@ -455,7 +455,7 @@ test('changing the cell count resizes the table; other sections are corrected be
 test('focusing parameters highlights their geometry without changing the view or the draft', async ({
   page,
 }) => {
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   await importPreData(page, PREPROCESSOR_EXAMPLE);
   await open(page);
   const preview = page.locator('app-editor-preview');
@@ -494,7 +494,7 @@ for (const center of ['rib', 'cell'] as const) {
   test(`explicit widths select the same cell in both views, with a central ${center}`, async ({
     page,
   }) => {
-    await page.goto('/');
+    await openExample(page, 'swoop2');
     await importPreData(page, {
       ...PREPROCESSOR_EXAMPLE,
       distribution: { mode: 4, widths: center === 'rib' ? [0, 20, 30, 40] : [20, 30, 40] },
@@ -532,7 +532,7 @@ for (const center of ['rib', 'cell'] as const) {
 test('status separates invalid parameters from differences and warns only when applying changes the cell count', async ({
   page,
 }) => {
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   const source = ok(parseLep(await download(page, 'leparagliding.txt')));
   await importPreData(page, withCells(source.geometry.cells));
   await open(page);
@@ -568,7 +568,7 @@ test('status separates invalid parameters from differences and warns only when a
 test('Auto lists what its shape replaces before tuning, and keeps the inactive modes', async ({
   page,
 }) => {
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   await importPreData(page, PREPROCESSOR_EXAMPLE);
   await open(page);
   await expect(mode(page, 'Manual')).toBeChecked();
@@ -602,7 +602,7 @@ test('Auto lists what its shape replaces before tuning, and keeps the inactive m
 test('Fit sets the settings of section 1, and the others to follow its table, in Auto', async ({
   page,
 }) => {
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   const { geometry } = ok(parseLep(await download(page, 'leparagliding.txt')));
   const input = newPreData({ geometry });
   const fitted = fitShape(shapeOf(input, ok(generateGeometry(input))), { geometry });
@@ -628,7 +628,7 @@ test('Fit sets the settings of section 1, and the others to follow its table, in
 test('Fit compares section 1 with the fitted shape, and asks before replacing parameters', async ({
   page,
 }) => {
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   await importPreData(page, PREPROCESSOR_EXAMPLE);
   await open(page);
   await expect(mode(page, 'Manual')).toBeChecked();

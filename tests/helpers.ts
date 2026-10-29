@@ -2,6 +2,26 @@ import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { expect, type Page } from '@playwright/test';
+import designIndex from '../oracle/designs/index.json' with { type: 'json' };
+
+/** Open a specific example, independently of the application's default wing. */
+export async function openExample(page: Page, id: string): Promise<void> {
+  const design = designIndex.find((entry) => entry.id === id);
+  if (!design) throw new Error(`Unknown example: ${id}`);
+  await page.goto('/');
+  await page.getByRole('combobox', { name: 'Input source', exact: true }).click();
+  await page
+    .getByRole('option', {
+      name: `${design.wing} — LEparagliding ${design.program} · ${design.cells} cells`,
+      exact: true,
+    })
+    .click();
+  await expect(page.getByRole('listbox')).toHaveCount(0);
+  await expect(page.getByRole('combobox', { name: 'Input source', exact: true })).toHaveText(
+    `${design.wing} — LEparagliding ${design.program} · ${design.cells} cells`,
+  );
+  await expect(page.getByRole('combobox', { name: 'Input source', exact: true })).toBeEnabled();
+}
 
 /** Assembles packages/<name>/ and its dependencies into build/ (scripts/assemble-package.sh). */
 export function assemblePackage(name: string): void {

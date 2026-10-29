@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 import JSZip from 'jszip';
 import { PREPROCESSOR_EXAMPLE, writePreData } from '../packages/preprocessor/src/index.ts';
 import { ok } from './format/helpers';
-import { acknowledge, editText } from './helpers';
+import { acknowledge, editText, openExample } from './helpers';
 
 async function source(page: Page, name: string): Promise<void> {
   await page.getByRole('combobox', { name: 'Input source', exact: true }).click();
@@ -37,20 +37,23 @@ async function apply(page: Page, text: string): Promise<void> {
 test('editing, cancelling, switching sources and restoring keep the correct file contents', async ({
   page,
 }) => {
-  const original = await readFile('oracle/designs/swoop2/leparagliding.txt');
+  const original = await readFile('oracle/designs/A8/leparagliding.txt');
   await page.goto('/');
+  await expect(page.getByRole('combobox', { name: 'Input source', exact: true })).toHaveText(
+    'A8 test — LEparagliding 3.25 · 33 cells',
+  );
   await editText(page, 'leparagliding.txt');
   const area = page.getByRole('textbox', { name: 'Content of leparagliding.txt', exact: true });
   await area.fill('cancelled edit');
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   expect(await downloadFile(page, 'leparagliding.txt')).toEqual(original);
 
-  const edited = original.toString().replace('"Swoop2"', '"My draft"');
+  const edited = original.toString().replace('"A8 test"', '"My draft"');
   await apply(page, edited);
   await expect(page.getByText('Modified', { exact: true })).toBeVisible();
   await source(page, 'My files');
   await expect(page.getByTestId('input-file-row')).toHaveCount(0);
-  await source(page, 'Swoop2 — LEparagliding 3.29 · 50 cells');
+  await source(page, 'A8 test — LEparagliding 3.25 · 33 cells');
   expect(await downloadFile(page, 'leparagliding.txt')).toEqual(Buffer.from(edited));
   await page.getByRole('button', { name: 'Actions for leparagliding.txt', exact: true }).click();
   await page.getByRole('menuitem', { name: 'Restore original', exact: true }).click();
@@ -148,7 +151,7 @@ test('personal inputs use their own airfoil names and results are cleared when e
 test('replacing preserves the input name and a failed import keeps the current draft', async ({
   page,
 }) => {
-  await page.goto('/');
+  await openExample(page, 'swoop2');
   await page.getByRole('button', { name: 'Actions for leparagliding.txt', exact: true }).click();
   const chooser = page.waitForEvent('filechooser');
   await page.getByRole('menuitem', { name: 'Replace…', exact: true }).click();
