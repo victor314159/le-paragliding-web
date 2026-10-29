@@ -1,28 +1,8 @@
-<mat-expansion-panel #disclaimer class="notice-panel mat-border-subtle">
-  <mat-expansion-panel-header>
-    <mat-panel-title>Safety disclaimer</mat-panel-title>
-  </mat-expansion-panel-header>
-  <p>
-    This application is an experimental browser port of LEparagliding. Errors may arise from the
-    original software, the port, or the input data.
-  </p>
-  <p>
-    The results do not constitute a safety assessment or airworthiness certification. They must not
-    be used as the sole basis for building or flying a wing. Any real-world use requires independent
-    verification and appropriate testing by qualified individuals.
-  </p>
-  <p>
-    Paragliding is inherently dangerous. Designing, building, testing or flying a wing, even one
-    built from correct results, can cause property damage, serious injury or death. You do so at
-    your own risk.
-  </p>
-  <p>
-    The software is provided without warranty, to the extent permitted by applicable law. See the
-    <a [href]="links.license" target="_blank" rel="noopener">GNU GPL v3 license</a>.
-  </p>
-</mat-expansion-panel>
+<button matButton type="button" class="disclaimer" (click)="showDisclaimer()">
+  Safety disclaimer
+</button>
 
-<mat-checkbox [checked]="acknowledged()" (change)="acknowledge($event, disclaimer)">
+<mat-checkbox [checked]="acknowledged()" (change)="acknowledge($event)">
   I have read and understood this warning and the limitations of the results provided.
 </mat-checkbox>
 
@@ -58,3 +38,5 @@
 @if (compute.error(); as error) {
   <p class="message mat-text-error" role="alert">{{ error }} You can try computing again.</p>
 }
+
+<app-execution-log />

@@ -24,7 +24,7 @@ import { LINKS } from '../shared/links';
       flex-wrap: wrap;
       justify-content: space-between;
       gap: 4px 16px;
-      padding: 32px 0;
+      padding: 12px 0;
     }
     a {
       color: inherit;

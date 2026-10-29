@@ -42,9 +42,7 @@ test('generated files have text, airfoil, DXF and STL previews without changing 
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/');
   await page.getByRole('combobox', { name: 'Input source', exact: true }).click();
-  await page
-    .getByRole('option', { name: 'A8 test — LEparagliding 3.25 · 33 cells', exact: true })
-    .click();
+  await page.getByRole('option', { name: 'A8 test · 33 cells', exact: true }).click();
   await acknowledge(page);
   await page.getByRole('button', { name: 'Compute design' }).click();
   await expect(page.getByTestId('compute-status')).toHaveAttribute('data-state', 'done', {

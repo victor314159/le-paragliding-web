@@ -12,13 +12,13 @@ export async function openExample(page: Page, id: string): Promise<void> {
   await page.getByRole('combobox', { name: 'Input source', exact: true }).click();
   await page
     .getByRole('option', {
-      name: `${design.wing} — LEparagliding ${design.program} · ${design.cells} cells`,
+      name: `${design.wing} · ${design.cells} cells`,
       exact: true,
     })
     .click();
   await expect(page.getByRole('listbox')).toHaveCount(0);
   await expect(page.getByRole('combobox', { name: 'Input source', exact: true })).toHaveText(
-    `${design.wing} — LEparagliding ${design.program} · ${design.cells} cells`,
+    `${design.wing} · ${design.cells} cells`,
   );
   await expect(page.getByRole('combobox', { name: 'Input source', exact: true })).toBeEnabled();
 }
@@ -40,13 +40,9 @@ export async function expectReady(page: Page): Promise<void> {
 
 // The safety disclaimer gates the Compute design button.
 export async function acknowledge(page: Page): Promise<void> {
-  const disclaimer = page.getByRole('button', { name: 'Safety disclaimer', exact: true });
-  if ((await disclaimer.getAttribute('aria-expanded')) !== 'true') await disclaimer.click();
-  await page
-    .getByLabel(
-      'I have read and understood this warning and the limitations of the results provided.',
-    )
-    .check();
+  await page.getByRole('button', { name: 'Safety disclaimer', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click();
+  await page.getByRole('checkbox').check();
   await expect(page.getByRole('button', { name: 'Compute design' })).toBeEnabled();
 }
 

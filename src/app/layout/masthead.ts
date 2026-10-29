@@ -35,7 +35,7 @@ import { ThemeService } from '../shared/theme.service';
       justify-content: space-between;
       align-items: center;
       gap: 8px 16px;
-      min-height: 96px;
+      min-height: 56px;
       border-bottom: 1px solid var(--mat-sys-outline-variant);
     }
     .brand {

@@ -1,31 +1,26 @@
-<mat-card appearance="outlined">
-  <mat-card-header>
-    <h2 mat-card-title id="log-title">Log</h2>
-    <p mat-card-subtitle>{{ compute.logs().length }} lines</p>
-  </mat-card-header>
-  <mat-card-content>
-    <div
-      #terminal
-      class="terminal mat-corner-sm"
-      role="log"
-      aria-label="Live computation log"
-      tabindex="0"
-      (scroll)="onScroll()"
-    >
-      @for (entry of compute.logs(); track $index) {
-        <div
-          class="line"
-          data-testid="log-line"
-          [class.stderr]="entry.stream === 'stderr'"
-          [textContent]="entry.text"
-        ></div>
-      } @empty {
-        {{
-          compute.busy()
-            ? 'Preparing the calculation…'
-            : 'Engine output will appear here as it runs.'
-        }}
-      }
-    </div>
-  </mat-card-content>
-</mat-card>
+<details [open]="expanded()" (toggle)="expanded.set($any($event.target).open)">
+  <summary class="mat-font-body-sm mat-text-on-surface-variant">
+    Show log · {{ compute.logs().length }} lines
+  </summary>
+  <div
+    #terminal
+    class="terminal mat-corner-sm"
+    role="log"
+    aria-label="Live computation log"
+    tabindex="0"
+    (scroll)="onScroll()"
+  >
+    @for (entry of compute.logs(); track $index) {
+      <div
+        class="line"
+        data-testid="log-line"
+        [class.stderr]="entry.stream === 'stderr'"
+        [textContent]="entry.text"
+      ></div>
+    } @empty {
+      {{
+        compute.busy() ? 'Preparing the calculation…' : 'Engine output will appear here as it runs.'
+      }}
+    }
+  </div>
+</details>

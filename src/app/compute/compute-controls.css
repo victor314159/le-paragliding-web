@@ -1,12 +1,15 @@
 :host {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 8px;
   padding: 12px 16px 16px;
   margin-top: auto;
   border-top: 1px solid var(--mat-sys-outline-variant);
   border-radius: 0 0 12px 12px;
   background: var(--mat-sys-surface-container-low);
+}
+.disclaimer {
+  align-self: flex-start;
 }
 .actions,
 .status,
