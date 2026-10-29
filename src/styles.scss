@@ -190,6 +190,15 @@ html {
   );
 }
 
+// Dense parameter forms keep the app's typography and colors.
+app-design-editor {
+  @include mat.theme(
+    (
+      density: -2,
+    )
+  );
+}
+
 // Compact expansion panel for secondary notes such as the safety disclaimer:
 // small supporting text, a 48px header, card-aligned 16px insets.
 .notice-panel {
