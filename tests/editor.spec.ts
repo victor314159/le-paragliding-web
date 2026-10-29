@@ -74,6 +74,7 @@ test('eight examples open with their values and a no-op Save preserves their byt
     await page.keyboard.press('Enter');
     await expect(page.getByRole('dialog')).toBeVisible();
     await expect(page.getByRole('heading', { name: '1 · Geometry', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '1 · Geometry', exact: true })).toBeFocused();
     await expect(page.getByRole('textbox', { name: 'Wing name', exact: true })).toHaveValue(
       design.geometry.wingName,
     );
@@ -113,9 +114,7 @@ test('eight examples open with their values and a no-op Save preserves their byt
   }
 });
 
-test('Cancel, close and Escape confirm dirty drafts and preserve original bytes', async ({
-  page,
-}) => {
+test('Cancel and Escape confirm dirty drafts and preserve original bytes', async ({ page }) => {
   await openExample(page, 'swoop2');
   const original = await downloadFile(page);
   await opener(page).click();
@@ -123,7 +122,7 @@ test('Cancel, close and Escape confirm dirty drafts and preserve original bytes'
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(opener(page)).toBeFocused();
-  for (const action of ['Cancel', 'Close parameter editor', 'Escape']) {
+  for (const action of ['Cancel', 'Escape']) {
     await opener(page).click();
     await section(page, '6 · Sewing allowances');
     await page.getByRole('textbox', { name: 'Rib edges (mm)', exact: true }).fill('');
@@ -230,6 +229,7 @@ test('the airfoil form edits points and counts, previews them and rewrites only 
   // Its own button opens the editor on the airfoil.
   await page.getByRole('button', { name: 'Edit parameters of gnuReflex.txt', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'gnuReflex.txt', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'gnuReflex.txt', exact: true })).toBeFocused();
   const item = page.getByRole('navigation').getByRole('button', { name: 'gnuReflex.txt' });
   await expect(item).toHaveAttribute('aria-current', 'true');
   await expect(item).toBeInViewport();
@@ -1646,3 +1646,147 @@ test('inlet, wingtip and HVR hole previews follow each mode and the engine colum
   await choose(page, 'Holes output', '0', last);
   await expect(svg.locator('path.hole')).toHaveCount(0);
 });
+
+test('A8 colored fabric stays visible from different cameras with full and cutaway skin', async ({
+  page,
+}) => {
+  await openExample(page, 'A8');
+  await opener(page).click();
+  await page.getByRole('button', { name: 'Show 3D preview', exact: true }).click();
+  const overview = page.locator('app-wing-overview');
+  const coverage = overview.getByRole('slider', { name: 'Skin coverage', exact: true });
+  for (const value of ['100', '80']) {
+    await coverage.fill(value);
+    for (const camera of ['perspective', 'front', 'top']) {
+      await overview.getByRole('combobox', { name: 'Camera view' }).selectOption(camera);
+      const screenshot = await overview.locator('canvas').screenshot();
+      const coloredPixels = await page.evaluate(async (png) => {
+        const image = new Image();
+        image.src = `data:image/png;base64,${png}`;
+        await image.decode();
+        const canvas = document.createElement('canvas');
+        canvas.width = image.width;
+        canvas.height = image.height;
+        const context = canvas.getContext('2d')!;
+        context.drawImage(image, 0, 0);
+        const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+        let gold = 0,
+          cyan = 0;
+        for (let i = 0; i < pixels.length; i += 4) {
+          const [r, g, b] = [pixels[i], pixels[i + 1], pixels[i + 2]];
+          // Gold and cyan panel fabric, excluding neutral skin and thin line colors.
+          if (r > b * 1.5 && g > b * 1.2) gold++;
+          if (b > r * 1.3 && g > r * 1.2) cyan++;
+        }
+        return { gold, cyan };
+      }, screenshot.toString('base64'));
+      expect(coloredPixels.gold, `gold, ${camera}, skin ${value}%`).toBeGreaterThan(500);
+      expect(coloredPixels.cyan, `cyan, ${camera}, skin ${value}%`).toBeGreaterThan(5000);
+    }
+  }
+});
+
+for (const width of [1440, 390]) {
+  test(`wing overview preserves the draft and section, camera and layers at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await openExample(page, 'swoop2');
+    await opener(page).click();
+    await expect(page.getByRole('heading', { name: '1 · Geometry', exact: true })).toBeVisible();
+    await expect(page.locator('.editor-label .mat-font-title-sm')).toHaveText('Editor');
+    await page.getByRole('button', { name: 'Show 3D preview', exact: true }).click();
+    await expect(page.locator('.editor-label .mat-font-title-sm')).toHaveText('3D Preview');
+    const overview = page.locator('app-wing-overview');
+    await expect(page.getByRole('navigation', { name: 'Sections and airfoils' })).toBeHidden();
+    await expect(
+      page.getByRole('button', { name: 'Sections and airfoils', exact: true }),
+    ).toBeHidden();
+    const workspaceBounds = await page.locator('app-design-editor .workspace').boundingBox();
+    const overviewBounds = await overview.boundingBox();
+    expect(overviewBounds!.width).toBeCloseTo(workspaceBounds!.width, 0);
+    await expect(
+      overview.getByRole('heading', { name: 'Wing overview', exact: true }),
+    ).toBeVisible();
+    await expect(overview.getByRole('slider', { name: 'Skin coverage', exact: true })).toHaveValue(
+      '80',
+    );
+    await page.getByRole('button', { name: 'Show editor', exact: true }).click();
+    await expect(page.locator('.editor-label .mat-font-title-sm')).toHaveText('Editor');
+    const wingName = page.getByRole('textbox', { name: 'Wing name', exact: true });
+    await wingName.fill('Overview draft');
+    const originalSection = page.locator('#editor-section-title');
+    await page.getByRole('button', { name: 'Show 3D preview', exact: true }).click();
+    const errors: string[] = [];
+    page.on('console', (message) => {
+      if (message.type() === 'error') errors.push(message.text());
+    });
+    await expect(overview.getByRole('heading', { name: 'Wing overview' })).toBeVisible();
+    await expect(overview.locator('canvas')).toBeVisible();
+    await expect(overview.locator('figcaption')).toHaveText('Overview draft');
+    await expect(originalSection).toBeHidden();
+    await overview.getByRole('combobox', { name: 'Camera view' }).selectOption('front');
+    await expect(overview.getByRole('group', { name: 'Layers', exact: true })).toBeVisible();
+    const ballooning = overview.getByRole('checkbox', { name: 'Ballooning', exact: true });
+    await expect(ballooning).toBeChecked();
+    await ballooning.uncheck();
+    await expect(overview.locator('app-model-preview p')).toContainText(
+      'Skin straight between ribs',
+    );
+    await ballooning.check();
+    await expect(overview.locator('app-model-preview p')).toContainText('Skin ballooned');
+    await expect(overview.getByRole('combobox', { name: 'Camera view' })).toHaveValue('front');
+    const skin = overview.getByRole('checkbox', { name: 'Skin', exact: true });
+    const slider = overview.getByRole('slider', { name: 'Skin coverage', exact: true });
+    await expect(overview.getByRole('checkbox').first()).toHaveAccessibleName('Skin');
+    await expect(slider).toHaveValue('80');
+    await slider.press('End');
+    await expect(slider).toHaveValue('100');
+    const whole = await overview.locator('canvas').screenshot();
+    await slider.evaluate((input: HTMLInputElement) => {
+      input.value = '50';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await expect(slider).toHaveValue('50');
+    await expect(skin).toBeChecked();
+    expect(await overview.locator('canvas').screenshot()).not.toEqual(whole);
+    await slider.focus();
+    await slider.press('Home');
+    await expect(slider).toHaveValue('0');
+    await expect(skin).not.toBeChecked();
+    await slider.press('ArrowRight');
+    await expect(slider).toHaveValue('1');
+    await expect(skin).toBeChecked();
+    await skin.uncheck();
+    await expect(slider).toHaveValue('0');
+    await skin.check();
+    await expect(slider).toHaveValue('100');
+    await skin.uncheck();
+    expect(errors).toEqual([]);
+    await overview.getByRole('checkbox', { name: 'Attachment points', exact: true }).check();
+    await page.getByRole('button', { name: 'Show editor', exact: true }).click();
+    await expect(wingName).toHaveValue('Overview draft');
+    await expect(originalSection).toHaveText('1 · Geometry');
+    await page.getByRole('button', { name: 'Show 3D preview', exact: true }).click();
+    await expect(overview.getByRole('combobox', { name: 'Camera view' })).toHaveValue('front');
+    await expect(overview.getByRole('checkbox', { name: 'Skin', exact: true })).not.toBeChecked();
+    await expect(
+      overview.getByRole('checkbox', { name: 'Attachment points', exact: true }),
+    ).toBeChecked();
+    // Return to editing before using the section navigation.
+    await page.getByRole('button', { name: 'Show editor', exact: true }).click();
+    await expect(overview).toBeHidden();
+    const menu = page.getByRole('button', { name: 'Sections and airfoils', exact: true });
+    if (await menu.isVisible()) await menu.click();
+    await expect(page.getByRole('navigation', { name: 'Sections and airfoils' })).toBeVisible();
+    await page
+      .getByRole('navigation', { name: 'Sections and airfoils' })
+      .getByRole('button', { name: '6 · Sewing allowances' })
+      .click();
+    await expect(overview).toBeHidden();
+    await expect(originalSection).toHaveText('6 · Sewing allowances');
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    const design = ok(parseLep((await downloadFile(page)).toString()));
+    expect(design.geometry.wingName).toBe('Overview draft');
+  });
+}

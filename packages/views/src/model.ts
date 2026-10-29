@@ -24,13 +24,27 @@ import type { PreviewScene } from './scene.ts';
 export interface PreviewModel {
   title: string;
   note: string;
-  surfaces: { rows: Point3[][]; kind: string; color?: string }[];
-  fills: { points: Point3[]; holes?: Point3[][]; kind: string }[];
-  dots: { point: Point3; kind: string; selected: boolean; color?: string }[];
-  lines: { points: Point3[]; kind: string; selected: boolean; color?: string }[];
+  surfaces: { rows: Point3[][]; kind: string; color?: string; cutaway?: boolean }[];
+  fills: { points: Point3[]; holes?: Point3[][]; kind: string; cutaway?: boolean }[];
+  dots: { point: Point3; kind: string; selected: boolean; color?: string; cutaway?: boolean }[];
+  lines: { points: Point3[]; kind: string; selected: boolean; color?: string; cutaway?: boolean }[];
   legend: PreviewScene['legend'];
   /** The direction the view looks from, when not the default one. */
   camera?: Point3;
+  /** X bounds and fade width (cm) for surfaces and markings tagged for a skin cutaway. */
+  cutaway?: { min: number; max: number; feather: number };
+}
+
+/** A right-half skin panel, sampled on the rendered mesh, with chord positions from TE. */
+export interface SkinPanel {
+  readonly cell: number;
+  readonly surface: TensionSurface;
+  readonly rows: readonly (readonly SkinVertex[])[];
+}
+export interface SkinVertex {
+  readonly point: Point3;
+  readonly span: number;
+  readonly chord: number;
 }
 
 /**
@@ -179,7 +193,7 @@ const distance = (a: Vector, b: Vector) => Math.hypot(...sub(a, b));
 type Overwidth = (station: Station, index: number) => number;
 
 /** A ribbed run of skin: each rib's section and stations. */
-type Run = { index: number; section: Point3[]; stations: readonly Station[] }[];
+type Run = { index: number; section: Point3[]; stations: readonly Station[]; side: number }[];
 
 /**
  * The rows of skin of `run`, ballooned between its ribs: each panel an arc
@@ -268,6 +282,7 @@ function assemble(
   overwidth?: Overwidth,
   highlighted?: (index: number) => boolean,
   minirib?: (index: number) => number,
+  panels?: SkinPanel[],
 ): PreviewModel {
   const lines: PreviewModel['lines'] = [];
   for (const rib of half)
@@ -280,33 +295,86 @@ function assemble(
   // Runs of adjacent ribs with a section, from the left tip: gaps split the skin.
   const runs: Run[] = [];
   let previous: number | undefined;
-  for (const { index, section, stations } of mirrored(half, (r) => ({
-    ...r,
-    section: r.section?.map(mirror),
-  }))) {
+  for (const { index, section, stations, side } of mirrored(
+    half.map((r) => ({ ...r, side: 1 })),
+    (r) => ({
+      ...r,
+      section: r.section?.map(mirror),
+      side: -1,
+    }),
+  )) {
     if (!section) previous = undefined;
     else {
       if (previous === undefined || Math.abs(index - previous) > 1) runs.push([]);
-      runs[runs.length - 1].push({ index, section, stations });
+      runs[runs.length - 1].push({ index, section, stations, side });
       previous = index;
     }
   }
   const open = new Set(half.filter((r) => r.open).map((r) => r.index));
   const surfaces: PreviewModel['surfaces'] = [];
-  for (const run of runs.filter((ribs) => ribs.length > 1)) {
+  for (const fullRun of runs) {
+    // The left skin is reflected below; only retain its central rib as a
+    // boundary for the first right-hand cell, instead of inflating both halves.
+    const firstRight = fullRun.findIndex((rib) => rib.side > 0);
+    if (firstRight < 0) continue;
+    const run = fullRun.slice(Math.max(0, firstRight - 1));
+    if (run.length < 2) continue;
     const rows = overwidth ? inflate(run, overwidth, minirib) : run.map(({ section }) => section);
     const step = overwidth ? SUBDIVISIONS : 1;
-    const columns = (from: number, to?: number, cell?: number) =>
-      (cell === undefined ? rows : rows.slice((cell - 1) * step, cell * step + 1)).map((points) =>
-        points.slice(from, to === undefined ? undefined : to + 1),
-      );
-    surfaces.push({ rows: columns(0, INLET[0]), kind: 'skin' });
-    if (run[0].section.length - 1 > INLET[1])
-      surfaces.push({ rows: columns(INLET[1]), kind: 'skin' });
-    // A cell is that of its outer rib, the central one that of the first rib.
-    for (let i = 1; i < run.length; i++)
-      if (!open.has(Math.max(run[i - 1].index, run[i].index)))
-        surfaces.push({ rows: columns(INLET[0], INLET[1], i), kind: 'skin' });
+    // Draw each right-hand cell and its reflection. Colors use these same
+    // triangles: reversing a left-hand grid would change its facet diagonals.
+    for (let i = 1; i < run.length; i++) {
+      const a = run[i - 1],
+        b = run[i];
+      const central = a.side < 0;
+      const cellRows = rows.slice((i - 1) * step, i * step + 1);
+      const start = central ? step / 2 : 0;
+      for (const [surface, from, to] of [
+        ['extrados', 0, INLET[0]],
+        ['intrados', INLET[1], run[0].section.length - 1],
+        ['inlet', INLET[0], INLET[1]],
+      ] as const) {
+        if (to <= from || (surface === 'inlet' && open.has(b.index))) continue;
+        const sampled: SkinVertex[][] = [];
+        for (let j = start; j <= step; j++) {
+          const t = j / step;
+          const low = Math.floor(j),
+            high = Math.ceil(j),
+            fraction = j - low;
+          sampled.push(
+            Array.from({ length: to - from + 1 }, (_, n) => {
+              const k = n + from,
+                p = cellRows[low][k],
+                q = cellRows[high][k];
+              return {
+                point: [
+                  p[0] + (q[0] - p[0]) * fraction,
+                  p[1] + (q[1] - p[1]) * fraction,
+                  p[2] + (q[2] - p[2]) * fraction,
+                ],
+                span: central ? 2 * t - 1 : t,
+                chord: 100 * (1 - (a.stations[k].x + (b.stations[k].x - a.stations[k].x) * t)),
+              };
+            }),
+          );
+        }
+        // With straight skin the central half starts midway between the only two rows.
+        if (central && step === 1)
+          sampled.push(
+            cellRows[1].slice(from, to + 1).map((point, n) => ({
+              point,
+              span: 1,
+              chord: 100 * (1 - b.stations[n + from].x),
+            })),
+          );
+        const right = sampled.map((row) => row.map((p) => p.point));
+        surfaces.push(
+          { rows: right, kind: 'skin' },
+          { rows: right.map((row) => row.map(mirror)), kind: 'skin' },
+        );
+        if (surface !== 'inlet') panels?.push({ cell: b.index, surface, rows: sampled });
+      }
+    }
   }
   // The highlighted rib, filled.
   const fills: PreviewModel['fills'] = half
@@ -434,6 +502,7 @@ export function wingModel(
     inlets = true,
     ribs,
     miniribs = true,
+    panels,
   }: {
     row?: number;
     anchors?: boolean;
@@ -442,6 +511,8 @@ export function wingModel(
     inlets?: boolean;
     ribs?: (index: number) => boolean;
     miniribs?: boolean;
+    /** Optionally collect the rendered skin panels for layers that follow its surface. */
+    panels?: SkinPanel[];
   } = {},
 ): PreviewModel {
   const single = design.geometry.paragliderType === 'ss';
@@ -482,6 +553,7 @@ export function wingModel(
       const length = (design.airfoils[index]?.minirib ?? 0) / 100;
       return !single && length > 0.01 && length < 1 ? length : 0;
     },
+    panels,
   );
   if (miniribs)
     for (const { outline } of placedMiniribs(design, airfoils))
@@ -497,6 +569,13 @@ function groupOverwidths(groups: readonly SkinTensionGroup[]) {
     last.find((g) => g.firstRib <= index + 1 && index + 1 <= g.lastRib)?.points;
 }
 
+/** The active skin overwidths: section 31 replaces section 5 when enabled. */
+export function skinOverwidths(design: Pick<LepDesign, 'skinTension' | 'skinTensionGroups'>) {
+  return design.skinTensionGroups.mode === 0
+    ? design.skinTension.points
+    : groupOverwidths(design.skinTensionGroups.groups);
+}
+
 /**
  * Section 5: the wing in 3D, its skin ballooned as the engine does: by
  * these overwidths, or, when section 31 is active, by its groups, which
@@ -506,11 +585,9 @@ export function tensionModel(
   design: Pick<LepDesign, ProfileSections | 'skinTension' | 'skinTensionGroups'>,
   airfoils: ReadonlyMap<string, LepAirfoil>,
 ): PreviewModel {
-  const groups = design.skinTensionGroups;
-  if (groups.mode === 0)
-    return wingModel(design, airfoils, { overwidths: design.skinTension.points });
-  const model = wingModel(design, airfoils, { overwidths: groupOverwidths(groups.groups) });
-  model.note = `Section 31 is active and replaces these overwidths: each panel edge ballooned by its rib's group there. ${model.note}`;
+  const model = wingModel(design, airfoils, { overwidths: skinOverwidths(design) });
+  if (design.skinTensionGroups.mode !== 0)
+    model.note = `Section 31 is active and replaces these overwidths: each panel edge ballooned by its rib's group there. ${model.note}`;
   return model;
 }
 
@@ -550,6 +627,25 @@ export function tensionGroupsModel(
 }
 
 /**
+ * Rib `index` placed in 3D, with `holes` placed on it, a cutout per hole
+ * (fewer than three points when it cannot be drawn); undefined without a contour.
+ */
+export function holedRib(
+  design: Pick<LepDesign, ProfileSections>,
+  airfoils: ReadonlyMap<string, LepAirfoil>,
+  index: number,
+  holes: LepDesign['holes'][number]['holes'],
+): { contour: Point3[]; cutouts: Point3[][] } | undefined {
+  const place = (point: Point) => ribPoint(design, index, point);
+  const contour = placeEach(ribProfile(design, airfoils, index).points, place);
+  if (contour.length < 3) return undefined;
+  return {
+    contour,
+    cutouts: holes.map((hole) => placeEach(holeOutline(hole)?.points ?? [], place)),
+  };
+}
+
+/**
  * Section 4: the wing with the ribs of hole group `group` filled, its holes
  * cut out and the hole `active` outlined.
  */
@@ -567,13 +663,11 @@ export function holesModel(
     'Triangle and trapezoid holes without their rounded corners. ' +
     model.note;
   if (!holes || !finite(holes.firstRib) || !finite(holes.lastRib)) return model;
-  const outlines = holes.holes.map((hole) => holeOutline(hole)?.points ?? []);
   const last = Math.min(holes.lastRib, design.geometry.ribs.length);
   for (let index = Math.max(holes.firstRib - 1, 0); index < last; index++) {
-    const place = (point: Point) => ribPoint(design, index, point);
-    const contour = placeEach(ribProfile(design, airfoils, index).points, place);
-    if (contour.length < 3) continue;
-    const cutouts = outlines.map((outline) => placeEach(outline, place));
+    const rib = holedRib(design, airfoils, index, holes.holes);
+    if (!rib) continue;
+    const { contour, cutouts } = rib;
     const focused = cutouts[active] ?? [];
     for (const side of [mirror, (p: Point3) => p]) {
       model.fills.push({

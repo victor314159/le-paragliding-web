@@ -8,12 +8,13 @@ import {
   type ElementRef,
   inject,
   Injector,
+  signal,
   untracked,
   viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormRoot } from '@angular/forms/signals';
-import { MatButton, MatIconButton } from '@angular/material/button';
+import { MatButton } from '@angular/material/button';
 import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { MatIcon } from '@angular/material/icon';
 import { MatTooltip } from '@angular/material/tooltip';
@@ -33,6 +34,7 @@ import {
   type Selection,
 } from './editor-state';
 import { SECTION_FORMS } from './sections';
+import { WingOverview } from './wing-overview';
 
 const MANUAL = 'https://www.laboratoridenvol.com/leparagliding/manual.en.html';
 const PREPROCESSOR_MANUAL = 'https://www.laboratoridenvol.com/leparagliding/pre.en.html';
@@ -66,11 +68,11 @@ interface NavigationItem {
   imports: [
     FormRoot,
     MatButton,
-    MatIconButton,
     MatIcon,
     MatTooltip,
     NgComponentOutlet,
     EditorPreview,
+    WingOverview,
   ],
   templateUrl: './design-editor.html',
   styleUrl: './design-editor.css',
@@ -82,7 +84,6 @@ export class DesignEditor {
   private readonly injector = inject(Injector);
   protected readonly editor = inject(EditorState);
   protected readonly draft = this.editor.draft;
-  protected readonly designFile = DESIGN_FILE;
   protected readonly preDataFile = PRE_DATA_FILE;
   protected readonly preDataNote = PRE_DATA_NOTE_TEXT;
   protected readonly diagnosticLabel = diagnosticLabel;
@@ -227,6 +228,15 @@ export class DesignEditor {
     const status = PREPROCESSOR_NOTES[this.editor.preprocessorStatus()];
     if (!preprocessor.changed()) return status;
     return `${status} · ${preprocessor.exists ? 'Modified' : 'Created'}`;
+  }
+
+  protected readonly overviewVisited = signal(this.editor.overviewOpen());
+
+  protected toggleOverview(): void {
+    if (this.editor.focusUnparsed()) return;
+    this.overviewVisited.set(true);
+    this.editor.navOpen.set(false);
+    this.editor.overviewOpen.update((open) => !open);
   }
 
   protected showFirstError(): void {

@@ -12,7 +12,13 @@ Web Worker: a static site, no backend.
 points of its airfoils in forms; saving them rewrites the changed files without
 their comments. **Edit text**, in the menu of each file, edits any file. Most
 sections show a live drawing of their input, before the engine's corrections:
-zoom with the wheel, pan by dragging.
+zoom with the wheel, pan by dragging. **Show 3D preview** shows the whole draft
+at Wing scale, in layers: skin, with a slider to cut it away, panel colors and
+cuts, ribs and holes, internal structures, suspension and brakes, rods. Its
+ballooning follows the skin tension of section 5 or 31, pinched at the
+miniribs: an illustration of the extra fabric, not of the flying shape, without
+3D shaping. Lines, risers and rods take their cross sections from sections 34
+and 21, the lines and risers 3 times thicker to stay visible.
 
 **Preprocessor** edits `pre-data.txt`, the parameters of the [geometry
 preprocessor](https://www.laboratoridenvol.com/leparagliding/pre.en.html), like

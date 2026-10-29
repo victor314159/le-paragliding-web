@@ -1,26 +1,9 @@
 <form [formRoot]="editor.form" (submit)="submit()">
-  <header>
-    <div class="header-title">
-      <h2>{{ designFile }}</h2>
-      <span class="editor-mode mat-text-on-surface-variant">Edit parameters</span>
-      <span
-        class="warning-badge mat-font-label-sm"
-        tabindex="0"
-        matTooltip="The parameter editor is very experimental: check what it writes before relying on it."
-        ><mat-icon svgIcon="warning" />Experimental</span
-      >
-      @if (editor.changed()) {
-        <span class="mat-text-on-surface-variant">· Modified</span>
-      }
-    </div>
-    <button matIconButton type="button" aria-label="Close parameter editor" (click)="close()">
-      <mat-icon svgIcon="close" />
-    </button>
-  </header>
   <button
     matButton
     type="button"
     class="nav-toggle"
+    [hidden]="editor.overviewOpen()"
     [attr.aria-expanded]="editor.navOpen()"
     aria-controls="editor-navigation"
     (click)="editor.navOpen.set(!editor.navOpen())"
@@ -32,6 +15,7 @@
       #nav
       id="editor-navigation"
       aria-label="Sections and airfoils"
+      [hidden]="editor.overviewOpen()"
       [class.open]="editor.navOpen()"
     >
       @for (group of navigation(); track group.title) {
@@ -40,7 +24,9 @@
           <button
             matButton
             type="button"
-            [attr.aria-current]="editor.selection() === item.id ? 'true' : null"
+            [attr.aria-current]="
+              !editor.overviewOpen() && editor.selection() === item.id ? 'true' : null
+            "
             (click)="editor.select(item.id)"
           >
             {{ item.label }}
@@ -51,10 +37,10 @@
         }
       }
     </nav>
-    <div class="editor-content">
+    <div class="editor-content" [hidden]="editor.overviewOpen()">
       <section #content aria-labelledby="editor-section-title">
         <div class="section-heading">
-          <h3 id="editor-section-title">{{ title() }}</h3>
+          <h3 id="editor-section-title" tabindex="-1">{{ title() }}</h3>
           @if (editor.selection() === preDataFile) {
             <span class="warning-badge mat-font-label-sm" tabindex="0" [matTooltip]="preDataNote"
               ><mat-icon svgIcon="warning" />Differs from official</span
@@ -99,8 +85,32 @@
         <app-editor-preview />
       }
     </div>
+    @if (overviewVisited()) {
+      <app-wing-overview [active]="editor.overviewOpen()" [hidden]="!editor.overviewOpen()" />
+    }
   </div>
   <footer>
+    <div class="editor-label">
+      <span class="mat-font-title-sm">{{ editor.overviewOpen() ? '3D Preview' : 'Editor' }}</span>
+      <span
+        class="warning-badge mat-font-label-sm"
+        tabindex="0"
+        matTooltip="The parameter editor is very experimental: check what it writes before relying on it."
+        ><mat-icon svgIcon="warning" />Experimental</span
+      >
+      @if (editor.changed()) {
+        <span class="mat-text-on-surface-variant">· Modified</span>
+      }
+    </div>
+    <button
+      matButton="outlined"
+      type="button"
+      class="overview-toggle"
+      [attr.aria-pressed]="editor.overviewOpen()"
+      (click)="toggleOverview()"
+    >
+      {{ editor.overviewOpen() ? 'Show editor' : 'Show 3D preview' }}
+    </button>
     <!-- Next to Save: why it is disabled, and a way to the first error. -->
     @if (blocking(); as count) {
       <p class="status mat-text-error" role="status">

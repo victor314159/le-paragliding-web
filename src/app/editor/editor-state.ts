@@ -163,6 +163,7 @@ export class EditorState {
   });
   /** The navigation is open, on narrow screens. */
   readonly navOpen = signal(false);
+  readonly overviewOpen = signal(false);
   readonly previewCollapsed = signal(false);
   /** The height set by dragging the preview divider; null for the default. */
   readonly previewHeight = signal<number | null>(null);
@@ -300,6 +301,7 @@ export class EditorState {
   select(selection: Selection): boolean {
     this.navOpen.set(false);
     if (selection !== this.selection() && this.focusUnparsed()) return false;
+    this.overviewOpen.set(false);
     this.selection.set(selection);
     return true;
   }

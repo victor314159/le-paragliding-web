@@ -11,7 +11,7 @@ import { centroid, finite, type Point } from './geometry.ts';
 import { wingModel, type PreviewModel } from './model.ts';
 import { contourPoint, frontPoint, ribProfile, type ProfileSections } from './profile.ts';
 import { PreviewDrawing, type PreviewContext } from './scene.ts';
-import { planColor } from './suspension.ts';
+import { planColor, planLabel } from './suspension.ts';
 
 interface Attachment {
   rib: number;
@@ -205,8 +205,9 @@ export function reinforcementModel(
   airfoils: ReadonlyMap<string, LepAirfoil>,
   selected = -1,
   cut?: (rib: VRib) => Point3[][][] | undefined,
+  layer?: PreviewModel,
 ): PreviewModel {
-  const model = wingModel(design, airfoils);
+  const model = layer ?? wingModel(design, airfoils);
   const ribs = vRibs(design, airfoils);
   const straps = hStraps(design, airfoils);
   model.surfaces = [];
@@ -232,7 +233,7 @@ export function reinforcementModel(
   model.legend = [...new Set(lines.map((line) => line.plan))]
     .sort((a, b) => a - b)
     .map((plan) => ({
-      text: `Plan ${plan}`,
+      text: planLabel(plan),
       color: planColor(plan),
     }));
   model.title = 'Wing 3D model · V and VH ribs';

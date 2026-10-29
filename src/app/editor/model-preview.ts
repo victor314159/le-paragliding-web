@@ -28,6 +28,7 @@ import { EditorState } from './editor-state';
           }
         </div>
       }
+      <div class="model-controls"><ng-content /></div>
       <div #viewport class="viewport"></div>
       <p>{{ model().note }}</p>
     </figure>
@@ -37,7 +38,12 @@ import { EditorState } from './editor-state';
     /* The model spans the whole figure, under its caption, legend and note. */
     figure {
       display: grid;
-      grid-template-rows: auto auto minmax(56px, 1fr) auto;
+      grid-template-rows: auto auto auto minmax(56px, 1fr) auto;
+    }
+    .model-controls {
+      grid-area: 3 / 1;
+      z-index: 1;
+      pointer-events: none;
     }
     .viewport {
       position: relative;
@@ -65,12 +71,15 @@ import { EditorState } from './editor-state';
       grid-row: 2;
     }
     p {
-      grid-row: 4;
+      grid-row: 5;
     }
   `,
 })
 export class ModelPreview {
   readonly model = input.required<PreviewModel>();
+  readonly skinCoverage = input(100);
+  /** A standalone viewer can fit independently of the section preview dock. */
+  readonly fitRequest = input<number>();
   private readonly editor = inject(EditorState);
   private readonly theme = inject(ThemeService);
   private readonly viewport = viewChild.required<ElementRef<HTMLDivElement>>('viewport');
@@ -92,11 +101,11 @@ export class ModelPreview {
       });
     });
     let fitted = false;
-    let request = this.editor.previewFitRequest();
+    let request: number | undefined;
     effect(() => {
       const viewer = this.viewer();
       const model = this.model();
-      const fit = this.editor.previewFitRequest();
+      const fit = this.fitRequest() ?? this.editor.previewFitRequest();
       this.theme.scheme();
       if (!viewer) return;
       const color = (token: string) => themeColor(this.viewport().nativeElement, token);
@@ -113,5 +122,7 @@ export class ModelPreview {
       fitted ||= model.lines.length > 0 || model.surfaces.length > 0;
       request = fit;
     });
+    // The cut moves in shader uniforms; the wing geometry and camera stay intact.
+    effect(() => this.viewer()?.setSkinCoverage(this.skinCoverage()));
   }
 }

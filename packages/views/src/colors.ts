@@ -1,7 +1,8 @@
 import type { LepAirfoil, LepDesign } from '@lepara/format';
 import { ribPoint, type Point3 } from '@lepara/geometry';
-import { wingModel, type PreviewModel } from './model.ts';
+import { wingModel, type PreviewModel, type SkinPanel } from './model.ts';
 import { colorPlanform, SURFACE_COLORS } from './patterns.ts';
+import { skinCut, skinRegion } from './skin.ts';
 import { contourPoint, ribProfile, type ProfileSections } from './profile.ts';
 
 /** Points across a panel, and along the chord of its regions. */
@@ -20,7 +21,8 @@ type Ends = { readonly left: number; readonly right: number };
  * the rib marks, of its extrados or intrados, both halves, placed as the
  * engine places them (% of chord from the trailing edge, on that surface),
  * straight across each panel. The panel or rib record `selected` is
- * highlighted, and its cut or mark `active`.
+ * highlighted, and its cut or mark `active`. Optional `skinPanels` make the
+ * colors and cuts follow that rendered mesh, including ballooning.
  */
 export function colorsModel(
   design: Pick<LepDesign, ProfileSections | 'extradosColors' | 'intradosColors'>,
@@ -28,13 +30,17 @@ export function colorsModel(
   upper: boolean,
   selected = -1,
   active = -1,
+  layer?: PreviewModel,
+  skinPanels?: readonly SkinPanel[],
 ): PreviewModel {
   const colors = upper ? design.extradosColors : design.intradosColors;
   const layout = colorPlanform(design.geometry, colors);
   const marks = layout.marks.filter((mark) => mark.rib >= 1);
-  const model = wingModel(design, airfoils, {
-    row: colors.mode === 'ribs' ? (marks.find((m) => m.record === selected)?.rib ?? 0) - 1 : -1,
-  });
+  const model =
+    layer ??
+    wingModel(design, airfoils, {
+      row: colors.mode === 'ribs' ? (marks.find((m) => m.record === selected)?.rib ?? 0) - 1 : -1,
+    });
   const surface = upper ? 'extrados' : 'intrados';
   model.title = `Wing 3D model · ${surface} colors`;
   if (!upper) model.camera = [0.3, -1, 0.8];
@@ -87,19 +93,28 @@ export function colorsModel(
   };
   for (const panel of layout.panels) {
     const [left, right] = [panel.number - 2, panel.number - 1];
+    const skin = skinPanels?.find((p) => p.cell === right && p.surface === surface);
+    if (skinPanels && !skin) continue;
     const chosen = panel.record === selected && panel.record >= 0;
+    const regionRows = (from: Ends, to: Ends): Point3[][][] => {
+      if (skin) return skinRegion(skin, from, to);
+      const rows = grid(left, right, from, to, STEPS);
+      return rows ? [rows] : [];
+    };
     for (const region of panel.regions) {
       const color = BANDS[region.band % 3];
-      if (color) add(grid(left, right, region.from, region.to, STEPS), 'skin', color);
+      if (color) for (const rows of regionRows(region.from, region.to)) add(rows, 'skin', color);
     }
     if (chosen)
-      add(grid(left, right, { left: 0, right: 0 }, { left: 100, right: 100 }, STEPS), 'selected');
+      for (const rows of regionRows({ left: 0, right: 0 }, { left: 100, right: 100 }))
+        add(rows, 'selected');
     for (const cut of panel.cuts) {
-      const rows = grid(left, right, cut, cut, 0);
-      if (rows)
+      const rows = skin ? undefined : grid(left, right, cut, cut, 0);
+      const segments = skin ? skinCut(skin, cut) : rows ? [rows.map(([p]) => p)] : [];
+      for (const points of segments)
         for (const side of sides)
           model.lines.push({
-            points: rows.map(([p]) => side(p)),
+            points: points.map(side),
             kind: 'color-cut',
             selected: chosen && cut.index === active,
           });
