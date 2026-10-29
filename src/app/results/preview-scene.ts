@@ -96,6 +96,7 @@ export class PreviewScene {
     // All 3D previews use Z-up, including after resetting the view.
     this.camera.up.set(0, 0, 1);
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+    this.controls.cursorStyle = 'grab';
     this.controls.addEventListener('change', this.render);
     this.observer = new ResizeObserver(() => this.resize());
     this.observer.observe(container);
