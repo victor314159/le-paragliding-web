@@ -11,7 +11,8 @@ form {
   gap: 12px;
   min-width: 0;
 }
-.editor-label span {
+.editor-label span,
+.editor-label > button {
   flex-shrink: 0;
   white-space: nowrap;
 }
@@ -160,7 +161,4 @@ footer p {
 .nav-toggle[hidden],
 nav[hidden] {
   display: none;
-}
-.overview-toggle {
-  flex-shrink: 0;
 }

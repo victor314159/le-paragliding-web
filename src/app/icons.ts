@@ -5,6 +5,9 @@ import add from '@material-symbols/svg-400/outlined/add.svg' with { loader: 'tex
 import architecture from '@material-symbols/svg-400/outlined/architecture.svg' with {
   loader: 'text',
 };
+import arrowDropDown from '@material-symbols/svg-400/outlined/arrow_drop_down.svg' with {
+  loader: 'text',
+};
 import darkMode from '@material-symbols/svg-400/outlined/dark_mode.svg' with { loader: 'text' };
 import close from '@material-symbols/svg-400/outlined/close.svg' with { loader: 'text' };
 import deleteIcon from '@material-symbols/svg-400/outlined/delete.svg' with { loader: 'text' };
@@ -33,6 +36,7 @@ import warning from '@material-symbols/svg-400/outlined/warning.svg' with { load
 const ICONS = {
   add,
   architecture,
+  arrow_drop_down: arrowDropDown,
   close,
   dark_mode: darkMode,
   delete: deleteIcon,

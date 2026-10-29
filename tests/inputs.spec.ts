@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 import JSZip from 'jszip';
 import { PREPROCESSOR_EXAMPLE, writePreData } from '../packages/preprocessor/src/index.ts';
 import { ok } from './format/helpers';
-import { acknowledge, editText, openExample } from './helpers';
+import { acknowledge, editText, openExample, selectEditorView } from './helpers';
 
 async function source(page: Page, name: string): Promise<void> {
   await page.getByRole('combobox', { name: 'Input source', exact: true }).click();
@@ -189,8 +189,9 @@ test('the main wing preview follows inputs and expands directly into the 3D edit
   await page.getByRole('button', { name: 'Expand 3D preview' }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByRole('heading', { name: 'Wing overview' })).toBeVisible();
-  await expect(dialog.getByRole('button', { name: 'Show editor', exact: true })).toBeVisible();
-  await dialog.getByRole('button', { name: 'Show editor', exact: true }).click();
+  await expect(dialog.getByRole('button', { name: '3D Preview', exact: true })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: '3D Preview', exact: true })).toBeFocused();
+  await selectEditorView(page, 'Editor');
   await expect(dialog.getByRole('heading', { name: '1 · Geometry', exact: true })).toBeVisible();
   await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
 

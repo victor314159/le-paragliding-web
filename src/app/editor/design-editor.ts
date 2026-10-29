@@ -17,6 +17,7 @@ import { FormRoot } from '@angular/forms/signals';
 import { MatButton } from '@angular/material/button';
 import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { MatIcon } from '@angular/material/icon';
+import { MatMenu, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
 import { MatTooltip } from '@angular/material/tooltip';
 import { DESIGN_FILE, SECTIONS, type Diagnostic } from '@lepara/format';
 import { PRE_DATA_FILE } from '@lepara/preprocessor';
@@ -69,6 +70,9 @@ interface NavigationItem {
     FormRoot,
     MatButton,
     MatIcon,
+    MatMenu,
+    MatMenuItem,
+    MatMenuTrigger,
     MatTooltip,
     NgComponentOutlet,
     EditorPreview,
@@ -184,6 +188,7 @@ export class DesignEditor {
   private readonly content = viewChild<ElementRef<HTMLElement>>('content');
   private readonly navigationList = viewChild<ElementRef<HTMLElement>>('nav');
   private readonly diagnostics = viewChild<ElementRef<HTMLElement>>('diagnostics');
+  private readonly viewMenu = viewChild(MatMenuTrigger);
 
   constructor() {
     // Each section opens at its top, not at the scroll position of the previous one.
@@ -203,7 +208,7 @@ export class DesignEditor {
     this.ref
       .keydownEvents()
       .pipe(
-        filter((event) => event.key === 'Escape'),
+        filter((event) => event.key === 'Escape' && !this.viewMenu()?.menuOpen),
         takeUntilDestroyed(),
       )
       .subscribe((event) => {
@@ -232,11 +237,11 @@ export class DesignEditor {
 
   protected readonly overviewVisited = signal(this.editor.overviewOpen());
 
-  protected toggleOverview(): void {
-    if (this.editor.focusUnparsed()) return;
+  protected setOverview(open: boolean): void {
+    if (open === this.editor.overviewOpen() || this.editor.focusUnparsed()) return;
     this.overviewVisited.set(true);
     this.editor.navOpen.set(false);
-    this.editor.overviewOpen.update((open) => !open);
+    this.editor.overviewOpen.set(open);
   }
 
   protected showFirstError(): void {

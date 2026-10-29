@@ -4,7 +4,7 @@ import JSZip from 'jszip';
 import designIndex from '../oracle/designs/index.json' with { type: 'json' };
 import { parseAirfoil, parseLep, SECTIONS, writeLep } from '../packages/format/src/index.ts';
 import { ok } from './format/helpers';
-import { acknowledge, editText, openExample } from './helpers';
+import { acknowledge, editText, openExample, selectEditorView } from './helpers';
 
 // Fetching a full generated DXF into a trace would make it unnecessarily large.
 test.use({ trace: 'off' });
@@ -1652,7 +1652,7 @@ test('A8 colored fabric stays visible from different cameras with full and cutaw
 }) => {
   await openExample(page, 'A8');
   await opener(page).click();
-  await page.getByRole('button', { name: 'Show 3D preview', exact: true }).click();
+  await selectEditorView(page, '3D Preview');
   const overview = page.locator('app-wing-overview');
   const coverage = overview.getByRole('slider', { name: 'Skin coverage', exact: true });
   for (const value of ['100', '80']) {
@@ -1694,9 +1694,16 @@ for (const width of [1440, 390]) {
     await openExample(page, 'swoop2');
     await opener(page).click();
     await expect(page.getByRole('heading', { name: '1 · Geometry', exact: true })).toBeVisible();
-    await expect(page.locator('.editor-label .mat-font-title-sm')).toHaveText('Editor');
-    await page.getByRole('button', { name: 'Show 3D preview', exact: true }).click();
-    await expect(page.locator('.editor-label .mat-font-title-sm')).toHaveText('3D Preview');
+    await expect(page.locator('.editor-label button')).toHaveText('Editor');
+    await expect(page.locator('#editor-section-title')).toBeFocused();
+    await page.locator('.editor-label button').press('Enter');
+    const editorOption = page.getByRole('menuitemradio', { name: 'Editor', exact: true });
+    await expect(editorOption).toHaveAttribute('aria-checked', 'true');
+    await editorOption.press('Escape');
+    await expect(page.getByRole('menu')).toHaveCount(0);
+    await expect(page.locator('.editor-label button')).toBeFocused();
+    await selectEditorView(page, '3D Preview');
+    await expect(page.locator('.editor-label button')).toHaveText('3D Preview');
     const overview = page.locator('app-wing-overview');
     await expect(page.getByRole('navigation', { name: 'Sections and airfoils' })).toBeHidden();
     await expect(
@@ -1711,12 +1718,12 @@ for (const width of [1440, 390]) {
     await expect(overview.getByRole('slider', { name: 'Skin coverage', exact: true })).toHaveValue(
       '80',
     );
-    await page.getByRole('button', { name: 'Show editor', exact: true }).click();
-    await expect(page.locator('.editor-label .mat-font-title-sm')).toHaveText('Editor');
+    await selectEditorView(page, 'Editor');
+    await expect(page.locator('.editor-label button')).toHaveText('Editor');
     const wingName = page.getByRole('textbox', { name: 'Wing name', exact: true });
     await wingName.fill('Overview draft');
     const originalSection = page.locator('#editor-section-title');
-    await page.getByRole('button', { name: 'Show 3D preview', exact: true }).click();
+    await selectEditorView(page, '3D Preview');
     const errors: string[] = [];
     page.on('console', (message) => {
       if (message.type() === 'error') errors.push(message.text());
@@ -1764,17 +1771,17 @@ for (const width of [1440, 390]) {
     await skin.uncheck();
     expect(errors).toEqual([]);
     await overview.getByRole('checkbox', { name: 'Attachment points', exact: true }).check();
-    await page.getByRole('button', { name: 'Show editor', exact: true }).click();
+    await selectEditorView(page, 'Editor');
     await expect(wingName).toHaveValue('Overview draft');
     await expect(originalSection).toHaveText('1 · Geometry');
-    await page.getByRole('button', { name: 'Show 3D preview', exact: true }).click();
+    await selectEditorView(page, '3D Preview');
     await expect(overview.getByRole('combobox', { name: 'Camera view' })).toHaveValue('front');
     await expect(overview.getByRole('checkbox', { name: 'Skin', exact: true })).not.toBeChecked();
     await expect(
       overview.getByRole('checkbox', { name: 'Attachment points', exact: true }),
     ).toBeChecked();
     // Return to editing before using the section navigation.
-    await page.getByRole('button', { name: 'Show editor', exact: true }).click();
+    await selectEditorView(page, 'Editor');
     await expect(overview).toBeHidden();
     const menu = page.getByRole('button', { name: 'Sections and airfoils', exact: true });
     if (await menu.isVisible()) await menu.click();

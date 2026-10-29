@@ -151,7 +151,7 @@ export class DesignInput implements OnInit {
         data,
         disableClose: true,
         ariaLabel: `Edit parameters · ${DESIGN_FILE}`,
-        autoFocus: overview ? '.overview-toggle' : '#editor-section-title',
+        autoFocus: overview ? '.editor-label button' : '#editor-section-title',
       })
       .afterClosed()
       .subscribe((result: DesignEditorResult | undefined) => {

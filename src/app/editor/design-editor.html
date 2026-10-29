@@ -91,7 +91,28 @@
   </div>
   <footer>
     <div class="editor-label">
-      <span class="mat-font-title-sm">{{ editor.overviewOpen() ? '3D Preview' : 'Editor' }}</span>
+      <button matButton="outlined" type="button" [matMenuTriggerFor]="viewMenu">
+        {{ editor.overviewOpen() ? '3D Preview' : 'Editor' }}
+        <mat-icon svgIcon="arrow_drop_down" iconPositionEnd />
+      </button>
+      <mat-menu #viewMenu="matMenu">
+        <button
+          mat-menu-item
+          role="menuitemradio"
+          [attr.aria-checked]="!editor.overviewOpen()"
+          (click)="setOverview(false)"
+        >
+          Editor
+        </button>
+        <button
+          mat-menu-item
+          role="menuitemradio"
+          [attr.aria-checked]="editor.overviewOpen()"
+          (click)="setOverview(true)"
+        >
+          3D Preview
+        </button>
+      </mat-menu>
       <span
         class="warning-badge mat-font-label-sm"
         tabindex="0"
@@ -102,15 +123,6 @@
         <span class="mat-text-on-surface-variant">· Modified</span>
       }
     </div>
-    <button
-      matButton="outlined"
-      type="button"
-      class="overview-toggle"
-      [attr.aria-pressed]="editor.overviewOpen()"
-      (click)="toggleOverview()"
-    >
-      {{ editor.overviewOpen() ? 'Show editor' : 'Show 3D preview' }}
-    </button>
     <!-- Next to Save: why it is disabled, and a way to the first error. -->
     @if (blocking(); as count) {
       <p class="status mat-text-error" role="status">
