@@ -249,6 +249,12 @@ export class PreviewScene {
             geometry.addGroup(0, indices.length, 0);
             geometry.addGroup(0, indices.length, 1);
             materials = [opaque, material];
+            // The feather's depth first, of every color: only its nearest fabric blends,
+            // not a color behind it, drawn later, over it.
+            const depth = material.clone();
+            depth.colorWrite = false;
+            this.applySkinCut(depth, true, 'depth');
+            this.model.add(new THREE.Mesh(geometry, depth));
           } else this.applySkinCut(material, cutaway);
           const mesh = new THREE.Mesh(geometry, materials);
           // Coplanar colored patches must blend after the neutral fabric at the cut.
@@ -353,11 +359,11 @@ export class PreviewScene {
   private applySkinCut(
     material: THREE.Material,
     enabled: boolean,
-    pass: 'opaque' | 'feather' | 'all' = 'all',
+    pass: 'opaque' | 'feather' | 'depth' | 'all' = 'all',
   ): void {
     if (!enabled || !this.cutaway) return;
     material.transparent = pass !== 'opaque';
-    material.depthWrite = pass === 'opaque';
+    material.depthWrite = pass === 'opaque' || pass === 'depth';
     material.customProgramCacheKey = () => `skin-cutaway-${pass}`;
     material.onBeforeCompile = (shader) => {
       shader.uniforms['uSkinEdge'] = this.skinCutUniforms.edge;
@@ -377,7 +383,7 @@ export class PreviewScene {
           '#include <alphatest_fragment>',
           `
           ${pass === 'opaque' ? 'if (vSkinX > uSkinEdge - uSkinFeather) discard;' : ''}
-          ${pass === 'feather' ? 'if (vSkinX <= uSkinEdge - uSkinFeather) discard;' : ''}
+          ${pass === 'feather' || pass === 'depth' ? 'if (vSkinX <= uSkinEdge - uSkinFeather) discard;' : ''}
           diffuseColor.a *= 1.0 - smoothstep(uSkinEdge - uSkinFeather, uSkinEdge, vSkinX);
           if (diffuseColor.a < 0.001) discard;
           #include <alphatest_fragment>`,
