@@ -1699,6 +1699,7 @@ for (const width of [1440, 390]) {
     await page.locator('.editor-label button').press('Enter');
     const editorOption = page.getByRole('menuitemradio', { name: 'Editor', exact: true });
     await expect(editorOption).toHaveAttribute('aria-checked', 'true');
+    await expect(editorOption).toBeFocused();
     await editorOption.press('Escape');
     await expect(page.getByRole('menu')).toHaveCount(0);
     await expect(page.locator('.editor-label button')).toBeFocused();
