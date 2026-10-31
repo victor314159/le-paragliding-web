@@ -55,6 +55,11 @@ the engine, distances along a line are truncated to whole centimeters, and
 anchors are displaced after the washin. On a single skin the anchors move to
 the extrados, and the lines end at their turned triangles (§12.7).
 `anchorPoint` gives an anchor as the lines reach it.
+`suspensionTriangles(design, airfoils, lines)` gives the turned single-skin
+triangles of section 12.7: their rib and anchor row, their two base points
+on the extrados, the anchor they turn and their tip at the endpoint of the
+terminal suspension line; none where the engine keeps the anchor or the
+turn is not finite.
 
 `brakeLines(design, airfoils, lines?)` places the brake lines (§14) in the
 plan after the lines': each main brake line from the end of the first riser
@@ -103,10 +108,11 @@ docker compose run --rm web npm test -- geometry
 The tests compare the ribs, trim and every line and brake of the example
 designs with the engine's `lep-out.txt` in `oracle/reference/`: lengths and
 centers to 0.01 cm, but only the lengths of the lines of the single-skin
-BHL7-22, whose printed centers are not its lines'. The V and VH ribs are
-compared with the engine's `lep-3d.dxf`, which starts with them: its
-reference is committed as a hash only, so their test runs the engine
-(`build/engine/`), on a few cases, or on every example and the variants of
+BHL7-22, whose printed centers are not its lines', and its turned
+attachment edges with the engine's `lep-3d.dxf`. The V and VH ribs are
+compared with that file too, which starts with them: its reference is
+committed as a hash only, so these tests run the engine (`build/engine/`),
+the V and VH ribs on a few cases, or on every example and the variants of
 section 12 with `ORACLE_ALL=1`. The holes of the V-ribs are compared, by
 their place in their V-ribs laid flat and their semi-axes, with the ellipses
 the engine draws in `leparagliding.dxf` for Swoop2, the one example with

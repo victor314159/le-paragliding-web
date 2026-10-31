@@ -1797,3 +1797,43 @@ for (const width of [1440, 390]) {
     expect(design.geometry.wingName).toBe('Overview draft');
   });
 }
+
+test('single-skin overview toggles estimated rib deformation without changing the draft or camera', async ({
+  page,
+}) => {
+  await openExample(page, 'BHL7-22');
+  await page.getByRole('button', { name: 'Expand 3D preview' }).click();
+  const overview = page.locator('app-wing-overview');
+  const estimate = overview.getByRole('checkbox', {
+    name: 'Illustrative rib deformation',
+    exact: true,
+  });
+  await expect(estimate).toBeChecked();
+  const ribs = overview.getByRole('checkbox', { name: 'Ribs and holes', exact: true });
+  await ribs.uncheck();
+  await expect(estimate).toBeDisabled();
+  await ribs.check();
+  await overview.getByRole('checkbox', { name: 'Skin', exact: true }).uncheck();
+  await overview.getByRole('combobox', { name: 'Camera view' }).selectOption('front');
+  const bent = await overview.locator('canvas').screenshot();
+  await estimate.uncheck();
+  await expect(overview.locator('app-model-preview p')).not.toContainText(
+    'Illustrative rib deformation',
+  );
+  expect(await overview.locator('canvas').screenshot()).not.toEqual(bent);
+  await expect(overview.getByRole('combobox', { name: 'Camera view' })).toHaveValue('front');
+  await selectEditorView(page, 'Editor');
+  await expect(page.getByRole('textbox', { name: 'Wing name', exact: true })).toHaveValue(
+    'BHL7-22',
+  );
+  await selectEditorView(page, '3D Preview');
+  await expect(estimate).not.toBeChecked();
+  await estimate.check();
+  await expect(overview.locator('app-model-preview p')).toContainText(
+    'Illustrative rib deformation',
+  );
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await openExample(page, 'swoop');
+  await page.getByRole('button', { name: 'Expand 3D preview' }).click();
+  await expect(estimate).toHaveCount(0);
+});

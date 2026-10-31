@@ -1,4 +1,4 @@
-export { anchorPoint } from './anchors.ts';
+export { anchorPoint, suspensionTriangles, type SuspensionTriangle } from './anchors.ts';
 export * from './brakes.ts';
 export * from './lines.ts';
 export * from './ribs.ts';

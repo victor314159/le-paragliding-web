@@ -1,11 +1,18 @@
 import type { LepAirfoil, LepDesign } from '@lepara/format';
-import { brakeLines, suspensionLines, type LineSections, type Point3 } from '@lepara/geometry';
+import {
+  brakeLines,
+  suspensionLines,
+  suspensionTriangles,
+  type LineSections,
+  type Point3,
+} from '@lepara/geometry';
 import { colorsModel } from './colors.ts';
-import { holedRib, skinOverwidths, wingModel, type PreviewModel, type SkinPanel } from './model.ts';
+import { skinOverwidths, wingModel, type PreviewModel, type SkinPanel } from './model.ts';
 import { ANCHOR_COLORS } from './profile.ts';
 import { additionalPointsModel, rodsModel, shapingModel } from './rods.ts';
 import { hvrHolesModel, ventsModel } from './special.ts';
 import { linesModel } from './suspension.ts';
+import { RIB_DEFORMATION_NOTE, suspendedRib } from './suspended-rib.ts';
 
 const LINE_THICKNESS_SCALE = 3;
 const ROD_THICKNESS_SCALE = 1;
@@ -52,6 +59,53 @@ function empty(): PreviewModel {
 }
 
 /**
+ * The ribs layer of the overview, their holes cut out: on a single skin,
+ * bent to their turned attachments with `estimateRibDeformation`, else flat
+ * with the outlines of the engine's turned triangles; from the suspension
+ * `lines` when known.
+ */
+export function overviewRibs(
+  design: Pick<LepDesign, OverviewSections>,
+  airfoils: ReadonlyMap<string, LepAirfoil>,
+  estimateRibDeformation = true,
+  lines = suspensionLines(design, airfoils),
+): PreviewModel {
+  const ribs = empty();
+  const triangles = suspensionTriangles(design, airfoils, lines);
+  if (estimateRibDeformation && triangles.length) ribs.note = RIB_DEFORMATION_NOTE;
+  // The last hole group naming a rib applies to it, as in the input drawing.
+  design.geometry.ribs.forEach((_, index) => {
+    const group = [...design.holes]
+      .reverse()
+      .find((g) => g.firstRib <= index + 1 && index + 1 <= g.lastRib);
+    const rib = suspendedRib(
+      design,
+      airfoils,
+      index,
+      group?.holes ?? [],
+      estimateRibDeformation ? triangles : [],
+    );
+    if (!rib) return;
+    for (const side of SIDES) {
+      ribs.lines.push({ points: rib.contour.map(side), kind: 'rib', selected: false });
+      for (const fill of rib.fills)
+        ribs.fills.push({
+          points: fill.points.map(side),
+          holes: fill.holes?.filter((hole) => hole.length > 2).map((hole) => hole.map(side)),
+          kind: 'skin',
+        });
+    }
+  });
+  if (!estimateRibDeformation)
+    for (const {
+      points: [a, b, tip],
+    } of triangles)
+      for (const side of SIDES)
+        ribs.lines.push({ points: [a, tip, b, a].map(side), kind: 'rib', selected: false });
+  return ribs;
+}
+
+/**
  * The draft wing at Wing scale in separate visibility layers, reusing the section
  * drawings in their common, unpitched coordinates. Optional ballooning follows
  * the active skin tension curves; colors and surface cuts follow that same mesh.
@@ -80,9 +134,7 @@ export function wingOverviewLayers(
   skin.note = ballooning
     ? `Skin ballooned from section ${design.skinTensionGroups.mode === 0 ? '5' : '31'}, pinched at miniribs. Illustrative shape, without 3D shaping.`
     : 'Skin straight between ribs, without ballooning or 3D shaping.';
-  const ribs = empty(),
-    anchors = empty();
-  ribs.lines = skin.lines.filter((line) => line.kind === 'rib');
+  const anchors = empty();
   skin.lines = skin.lines.filter((line) => line.kind !== 'rib');
   // Actual terminal line endpoints include fractional brake attachments and virtual anchors.
   // A defined anchor position on a rib alone does not make it a used attachment.
@@ -109,21 +161,6 @@ export function wingOverviewLayers(
       );
   });
   skin.dots = [];
-  // The last hole group naming a rib applies to it, as in the input drawing.
-  design.geometry.ribs.forEach((_, index) => {
-    const group = [...design.holes]
-      .reverse()
-      .find((g) => g.firstRib <= index + 1 && index + 1 <= g.lastRib);
-    const rib = holedRib(design, airfoils, index, group?.holes ?? []);
-    if (!rib) return;
-    const holes = rib.cutouts.filter((cutout) => cutout.length > 2);
-    for (const side of SIDES)
-      ribs.fills.push({
-        points: rib.contour.map(side),
-        holes: holes.map((hole) => hole.map(side)),
-        kind: 'skin',
-      });
-  });
   const colors = colorsModel(design, airfoils, true, -1, -1, empty(), panels);
   colorsModel(design, airfoils, false, -1, -1, colors, panels);
   const structure = hvrHolesModel(design, airfoils, -1, empty());
@@ -134,7 +171,7 @@ export function wingOverviewLayers(
   return {
     skin,
     colors,
-    ribs,
+    ribs: overviewRibs(design, airfoils, true, suspension),
     anchors,
     structure,
     shaping,
@@ -158,7 +195,8 @@ export function wingOverviewModel(
   const lineNote = visible.has('lines')
     ? ` Lines and risers shown at ${LINE_THICKNESS_SCALE}× thickness.`
     : '';
-  model.note = `Live draft · At Wing scale · ${layers.skin.note}${lineNote} Drag to rotate, scroll to zoom.`;
+  const ribNote = visible.has('ribs') && layers.ribs.note ? ` ${layers.ribs.note}` : '';
+  model.note = `Live draft · At Wing scale · ${layers.skin.note}${ribNote}${lineNote} Drag to rotate, scroll to zoom.`;
   if (visible.has('skin')) {
     let min = Infinity,
       max = -Infinity;
