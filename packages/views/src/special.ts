@@ -6,6 +6,7 @@ import {
   ribAt,
   ribPoint,
   vRibHoles,
+  type BalloonedPanel,
   type LineSections,
   type HoledVRib,
   type Point3,
@@ -146,6 +147,7 @@ export function ventsModel(
   airfoils: ReadonlyMap<string, LepAirfoil>,
   selected: number,
   layer?: PreviewModel,
+  skin?: readonly BalloonedPanel[],
 ): PreviewModel {
   const vents = design.glueVents;
   const model = layer ?? wingModel(design, airfoils, { row: selected, inlets: vents.mode === 0 });
@@ -193,7 +195,13 @@ export function ventsModel(
   vents.ribs.forEach(({ type, parameters }, cell) => {
     if (!finite(type)) return;
     const color = type > 0 ? SURFACE_COLORS.extrados : SURFACE_COLORS.intrados;
-    for (const band of closedBands(type, parameters)) {
+    const inlet = skin?.find((p) => p.cell === cell && p.surface === 'inlet');
+    if (inlet) {
+      const rows = inlet.rows.map((row) => row.map((p) => p.point));
+      for (const side of sides)
+        model.surfaces.push({ rows: rows.map((row) => row.map(side)), kind: 'skin', color });
+    }
+    for (const band of inlet ? [] : closedBands(type, parameters)) {
       const rows = bandRows(cell, band);
       if (rows)
         for (const side of sides)

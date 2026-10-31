@@ -59,7 +59,7 @@ export function skinRegion(panel: SkinPanel, from: SkinCut, to: SkinCut): Point3
   return rows;
 }
 
-/** Segments of a cut following the actual skin triangles, including the minirib pinch. */
+/** Segments of a cut following the actual skin triangles, including ballooning. */
 export function skinCut(panel: SkinPanel, cut: SkinCut): Point3[][] {
   const segments: Point3[][] = [];
   for (const triangle of triangles(panel)) {

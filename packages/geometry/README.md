@@ -119,3 +119,24 @@ the engine draws in `leparagliding.dxf` for Swoop2, the one example with
 such holes. The H straps are compared, laid flat, with the engine's drawing
 of them in the same file, by the vectors from their first row to their last
 along each edge, which its tension does not change.
+
+## Skin ballooning
+
+`balloonedSkin` ports the surface mesh written to `lep-3d-surfaces.dxf`:
+section 7's panel development, section 8's skin tension and panel corrections,
+then `panels3d` and `tessella`. It uses native airfoil stations, the 301-step
+height search, the median-profile normals and equal angular subdivisions
+(section 37, code 1291; 12 by default). Colors and cuts use the same mesh in
+`@lepara/views`.
+
+The port retains the engine's single-precision intermediate variables,
+nonplanar quadrilateral segment endpoints, section 31's asymmetric intrados
+widths, the vent stations overwriting the extrados end, and the central
+cell's heights copied from the following cell. Miniribs do not pinch this
+mesh, and shaping cuts do not change its pre-cut panel lengths. This is the
+engine's geometric model, not a simulation of the flying shape.
+
+`tests/geometry/skin.spec.ts` runs the engine and compares every mesh vertex
+with its DXF to its printed precision (0.001 cm), on all reference designs
+and variants covering classic and grouped tensions, panel corrections,
+closed inlets, subdivision counts and `.dat` airfoils.

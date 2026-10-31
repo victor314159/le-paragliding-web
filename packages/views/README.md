@@ -74,9 +74,9 @@ the wing pre-data.txt generates on a generic airfoil, without the rest of
 the design.
 
 `wingOverviewLayers` assembles the draft in independently visible layers.
-Panel colors and cuts follow the exact skin facets, including ballooning and
-minirib pinches. `wingOverviewModel` combines the chosen layers without mutating
-them and tags the skin and its markings for the renderer's cutaway.
+Panel colors and cuts follow the exact skin facets, including the ported
+engine ballooning. `wingOverviewModel` combines the chosen layers without
+mutating them and tags the skin and its markings for the renderer's cutaway.
 On single-skin wings, the overview and suspension preview bend the rib fabric
 to the engine's turned attachment endpoints, keeping the extrados fixed: each
 anchor pulls the intrados between the base points of its triangle (§12.7).

@@ -1,5 +1,6 @@
 import type { LepAirfoil, LepDesign } from '@lepara/format';
 import {
+  balloonedSkin,
   brakeLines,
   suspensionLines,
   suspensionTriangles,
@@ -7,7 +8,7 @@ import {
   type Point3,
 } from '@lepara/geometry';
 import { colorsModel } from './colors.ts';
-import { skinOverwidths, wingModel, type PreviewModel, type SkinPanel } from './model.ts';
+import { wingModel, type PreviewModel, type SkinPanel } from './model.ts';
 import { ANCHOR_COLORS } from './profile.ts';
 import { additionalPointsModel, rodsModel, shapingModel } from './rods.ts';
 import { hvrHolesModel, ventsModel } from './special.ts';
@@ -51,7 +52,9 @@ type OverviewSections =
   | 'shaping'
   | 'skinTension'
   | 'skinTensionGroups'
-  | 'lineTypes';
+  | 'lineTypes'
+  | 'sewingAllowances'
+  | 'specialParameters';
 
 /** An empty drawing for a section model to populate without rebuilding the skin. */
 function empty(): PreviewModel {
@@ -116,6 +119,7 @@ export function wingOverviewLayers(
   ballooning = true,
 ): Readonly<Record<OverviewLayer, PreviewModel>> {
   const panels: SkinPanel[] = [];
+  const mesh = ballooning ? balloonedSkin(design, airfoils) : undefined;
   const skin = ventsModel(
     design,
     airfoils,
@@ -123,16 +127,17 @@ export function wingOverviewLayers(
     wingModel(design, airfoils, {
       inlets: design.glueVents.mode === 0,
       miniribs: false,
-      overwidths: ballooning ? skinOverwidths(design) : undefined,
+      skin: mesh,
       panels,
     }),
+    mesh,
   );
   // Section 26 uses diagnostic surface colors; the assembled view uses the skin material.
   for (const surface of skin.surfaces) delete surface.color;
   skin.legend = [];
   skin.title = design.geometry.wingName;
-  skin.note = ballooning
-    ? `Skin ballooned from section ${design.skinTensionGroups.mode === 0 ? '5' : '31'}, pinched at miniribs. Illustrative shape, without 3D shaping.`
+  skin.note = mesh?.length
+    ? `Skin ballooned as in lep-3d-surfaces.dxf, from section ${design.skinTensionGroups.mode === 0 ? '5' : '31'}, with the engine’s panel corrections.`
     : 'Skin straight between ribs, without ballooning or 3D shaping.';
   const anchors = empty();
   skin.lines = skin.lines.filter((line) => line.kind !== 'rib');

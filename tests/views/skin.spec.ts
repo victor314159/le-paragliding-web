@@ -2,11 +2,11 @@ import { expect, test } from '@playwright/test';
 import {
   skinCut,
   skinRegion,
-  skinOverwidths,
   wingModel,
   wingOverviewLayers,
   type SkinPanel,
 } from '../../packages/views/src/index.ts';
+import { balloonedSkin } from '../../packages/geometry/src/index.ts';
 import { DESIGNS, project } from '../format/helpers';
 
 for (const id of DESIGNS) {
@@ -16,7 +16,7 @@ for (const id of DESIGNS) {
       const panels: SkinPanel[] = [];
       const model = wingModel(design, airfoils, {
         panels,
-        overwidths: ballooning ? skinOverwidths(design) : undefined,
+        skin: ballooning ? balloonedSkin(design, airfoils) : undefined,
       });
       const key = (rows: readonly (readonly (readonly number[])[])[]) => JSON.stringify(rows);
       const grids = new Set(model.surfaces.map((surface) => key(surface.rows)));
@@ -74,32 +74,6 @@ const tension = (value: number) => {
   return [point(0), point(20), point(40), point(60), point(80), point(100)] as const;
 };
 
-test('ballooning leaves rib edges fixed and pinches the skin midway over miniribs', () => {
-  const { design, airfoils } = project('oracle/designs/swoop2');
-  const input = { ...design, airfoils: design.airfoils.map((row) => ({ ...row, minirib: 50 })) };
-  const flat: SkinPanel[] = [],
-    inflated: SkinPanel[] = [];
-  wingModel(input, airfoils, { panels: flat });
-  wingModel(input, airfoils, { panels: inflated, overwidths: tension(5) });
-  const skin = inflated.find((p) => p.cell === 1 && p.surface === 'extrados')!;
-  const original = flat.find((p) => p.cell === skin.cell && p.surface === skin.surface)!;
-  expect(skin.rows[0].map((p) => p.point)).toEqual(original.rows[0].map((p) => p.point));
-  expect(skin.rows.at(-1)!.map((p) => p.point)).toEqual(original.rows.at(-1)!.map((p) => p.point));
-  const middle = skin.rows[skin.rows.length >> 1];
-  let bulged = false,
-    pinched = false;
-  middle.forEach((p, k) => {
-    const a = original.rows[0][k].point,
-      b = original.rows[1][k].point;
-    const distance = Math.hypot(...p.point.map((v, axis) => v - (a[axis] + b[axis]) / 2));
-    if (p.chord <= 50) {
-      expect(distance).toBeLessThan(1e-9);
-      pinched = true;
-    } else if (distance > 0.01) bulged = true;
-  });
-  expect(bulged && pinched).toBe(true);
-});
-
 test('overview ballooning uses the last matching section 31 group instead of section 5', () => {
   const { design, airfoils } = project('oracle/designs/swoop2');
   const group = {
@@ -123,8 +97,30 @@ test('overview ballooning uses the last matching section 31 group instead of sec
     wingOverviewLayers(zero, airfoils).skin.surfaces,
   );
   expect(wingOverviewLayers(grouped, airfoils).skin.note).toContain('section 31');
-  const active = skinOverwidths(grouped);
-  expect(typeof active === 'function' && active(0)).toEqual(tension(0));
   const straight = wingOverviewLayers(grouped, airfoils, false);
   expect(straight.skin.note).toContain('straight between ribs');
+});
+
+test('overview retains the engine mesh of closed glue vents', () => {
+  const { design, airfoils } = project('oracle/designs/swoop2');
+  const input = {
+    ...design,
+    glueVents: { mode: 1 as const, ribs: design.airfoils.map(() => ({ type: 1, parameters: [] })) },
+  };
+  const inlets = balloonedSkin(input, airfoils).filter((p) => p.surface === 'inlet');
+  expect(inlets.length).toBeGreaterThan(0);
+  const grids = new Set(
+    wingOverviewLayers(input, airfoils).skin.surfaces.map((s) => JSON.stringify(s.rows)),
+  );
+  for (const panel of inlets)
+    expect(grids.has(JSON.stringify(panel.rows.map((row) => row.map((p) => p.point))))).toBe(true);
+});
+
+test('an engine mesh the draft cannot produce falls back to the straight skin', () => {
+  const { design, airfoils } = project('oracle/designs/swoop2');
+  const straight = wingModel(design, airfoils);
+  const fallback = wingModel(design, airfoils, { skin: [] });
+  expect(fallback.surfaces.length).toBeGreaterThan(0);
+  expect(fallback.surfaces).toEqual(straight.surfaces);
+  expect(fallback.note).toContain('straight between ribs');
 });
