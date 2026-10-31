@@ -9,6 +9,7 @@ import {
   brakeLines,
   karabiner,
   suspensionLines,
+  suspensionTriangles,
   type LineSections,
   type Point3,
   type SuspensionLine,
@@ -16,6 +17,7 @@ import {
 import { wingModel, type PreviewModel } from './model.ts';
 import { ANCHOR_COLORS } from './profile.ts';
 import { sweptSurface, tubeSurface } from './geometry.ts';
+import { RIB_DEFORMATION_NOTE, suspendedRib } from './suspended-rib.ts';
 
 const mirror = ([x, y, z]: Point3): Point3 => [-x, y, z];
 /** The color of line plan `plan` (from 1): those of the anchor rows A to E, in turn. */
@@ -24,6 +26,34 @@ export const planColor = (plan: number) => ANCHOR_COLORS[(plan - 1) % (ANCHOR_CO
 export const planLabel = (plan: number) => String.fromCharCode(64 + plan);
 /** The brakes take the color of the F row of anchors. */
 const BRAKE_COLOR = ANCHOR_COLORS[5];
+
+/**
+ * Replace the single-skin rib outlines of `model`, a wingModel that
+ * highlights none, with fabric following the turned anchors.
+ */
+function suspendRibs(
+  model: PreviewModel,
+  design: Pick<LepDesign, LineSections>,
+  airfoils: ReadonlyMap<string, LepAirfoil>,
+  lines: readonly SuspensionLine[],
+): void {
+  const triangles = suspensionTriangles(design, airfoils, lines);
+  if (!triangles.length) return;
+  model.note = `${RIB_DEFORMATION_NOTE} ${model.note}`;
+  model.lines = model.lines.filter((line) => line.kind !== 'rib');
+  design.geometry.ribs.forEach((_, index) => {
+    const rib = suspendedRib(design, airfoils, index, [], triangles);
+    if (!rib) return;
+    const bent = triangles.some((triangle) => triangle.rib === index + 1);
+    for (const side of [mirror, (p: Point3) => p]) {
+      model.lines.push({ points: rib.contour.map(side), kind: 'rib', selected: false });
+      if (bent)
+        model.fills.push(
+          ...rib.fills.map(({ points }) => ({ points: points.map(side), kind: 'skin' })),
+        );
+    }
+  });
+}
 
 /** The path to highlight: of a line plan (from 0) or of the brakes (`plan` -1). */
 export interface HighlightedPath {
@@ -78,6 +108,7 @@ export function linesModel(
 ): PreviewModel {
   const model = layer ?? wingModel(design, airfoils);
   const lines = suspensionLines(design, airfoils);
+  if (!layer) suspendRibs(model, design, airfoils, lines);
   const brakes = brakeLines(design, airfoils, lines);
   const brakePlan = design.lines.plans.length + 1;
   const chosen =

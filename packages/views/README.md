@@ -77,6 +77,18 @@ the design.
 Panel colors and cuts follow the exact skin facets, including ballooning and
 minirib pinches. `wingOverviewModel` combines the chosen layers without mutating
 them and tags the skin and its markings for the renderer's cutaway.
+On single-skin wings, the overview and suspension preview bend the rib fabric
+to the engine's turned attachment endpoints, keeping the extrados fixed: each
+anchor pulls the intrados between the base points of its triangle (§12.7).
+The original flat tips are replaced; holes follow the same deformation, and
+the fabric is cut in planar triangles between the stations where the bending
+changes. This interpolated display shape is neither a fabric simulation nor
+an engine output. The suspension preview always bends the ribs, and fills
+only those with attachments, without their holes, which it does not read.
+`overviewRibs(design, airfoils, false)` draws the ribs layer without this
+estimate: the original planar ribs, with the outlines of the engine's turned
+attachment triangles. The full 3D preview offers it on single-skin wings,
+rebuilding that layer alone.
 
 ## Build and test
 

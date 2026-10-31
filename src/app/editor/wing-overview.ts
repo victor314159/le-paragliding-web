@@ -1,9 +1,10 @@
-import { Component, computed, inject, input, linkedSignal, signal } from '@angular/core';
+import { Component, computed, inject, input, linkedSignal, signal, untracked } from '@angular/core';
 import { MatIconButton } from '@angular/material/button';
 import { MatIcon } from '@angular/material/icon';
 import { MatTooltip } from '@angular/material/tooltip';
 import {
   OVERVIEW_LAYERS,
+  overviewRibs,
   wingOverviewLayers,
   wingOverviewModel,
   type OverviewLayer,
@@ -80,6 +81,17 @@ import { ModelPreview } from './model-preview';
               (change)="toggle(layer[0])"
             />{{ layer[1] }}</label
           >
+          @if (layer[0] === 'ribs' && singleSkin()) {
+            <label
+              matTooltip="Interpolates rib fabric towards the engine's attachment points. No forces or fabric properties are simulated."
+              ><input
+                type="checkbox"
+                [checked]="estimateRibDeformation()"
+                [disabled]="!visible().has('ribs')"
+                (change)="estimateRibDeformation.set(!estimateRibDeformation())"
+              />Illustrative rib deformation</label
+            >
+          }
         }
       </div>
       @if (
@@ -200,6 +212,10 @@ export class WingOverview {
     new Set(['skin', 'colors', 'ribs', 'structure', 'lines', 'rods']),
   );
   protected readonly ballooning = signal(true);
+  protected readonly estimateRibDeformation = signal(true);
+  protected readonly singleSkin = computed(
+    () => this.editor.draft.project().design.geometry.paragliderType === 'ss',
+  );
   protected readonly skinCoverage = signal(80);
   protected readonly camera = signal('perspective');
   protected readonly fitRequest = signal(0);
@@ -212,8 +228,15 @@ export class WingOverview {
       return wingOverviewLayers(design, airfoils, this.ballooning());
     },
   });
+  // Toggling the rib deformation rebuilds the ribs alone, of the draft the drawings show.
+  private readonly ribs = computed(() => {
+    const { ribs } = this.drawings();
+    if (this.estimateRibDeformation()) return ribs;
+    const { design, airfoils } = untracked(this.editor.draft.project);
+    return overviewRibs(design, airfoils, false);
+  });
   protected readonly model = computed(() => ({
-    ...wingOverviewModel(this.drawings(), this.visible()),
+    ...wingOverviewModel({ ...this.drawings(), ribs: this.ribs() }, this.visible()),
     title: this.drawings().skin.title,
     camera: (
       {

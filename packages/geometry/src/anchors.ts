@@ -9,10 +9,24 @@ export type AnchorDesign = Pick<
 >;
 
 /**
+ * A turned attachment triangle, with its rib and anchor row numbered from 1.
+ */
+export interface SuspensionTriangle {
+  readonly rib: number;
+  readonly row: number;
+  /** The chordwise positions of its base points on the rib's airfoil, from 0 to 1. */
+  readonly base: readonly [number, number];
+  /** The anchor on its airfoil, rib-local, before turning. */
+  readonly anchor: Point;
+  readonly points: readonly [Point3, Point3, Point3];
+}
+
+/**
  * Anchor `row` of rib number `rib` on its airfoil, at Wing scale: from the
  * inlet, on the last segment that spans its position, else at the leading
  * edge (§9.1), placed as its rib (§12.3); `above`, the extrados point after
- * its position (`anccont`, from the trailing edge), and the airfoil.
+ * its position (`anccont`, from the trailing edge), and the airfoil;
+ * `local`, the anchor rib-local.
  */
 function anchorOnRib(
   design: AnchorDesign,
@@ -37,7 +51,7 @@ function anchorOnRib(
   }
   let above: number | undefined;
   for (let j = extrados - 1; j >= 1; j--) if (points[j][0] <= x && points[j - 1][0] >= x) above = j;
-  return { point: ribPoint(design, index, local, true), above, points };
+  return { point: ribPoint(design, index, local, true), local, above, points };
 }
 
 /** Whether the single-skin anchor `row` of rib number `rib` is virtual (§12.4+). */
@@ -66,41 +80,49 @@ export function anchorPoint(
   return p && q ? [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2, (p[2] + q[2]) / 2] : undefined;
 }
 
+/**
+ * §12.7: a single skin keeps the anchor of `line` where it is not virtual
+ * and on a last rib of zero thickness, a stabilo.
+ */
+const keepsAnchor = (
+  design: AnchorDesign,
+  airfoils: ReadonlyMap<string, LepAirfoil>,
+  { rib, row }: Pick<SuspensionLine, 'rib' | 'row'>,
+) =>
+  !virtualAnchor(design, rib, row) ||
+  (rib === design.geometry.ribs.length &&
+    ribAirfoil(design, airfoils, rib - 1).points.every(([, y]) => y === 0));
+
 const sub = (a: Point3, b: Point3): Point3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const unit = (v: Point3): Point3 => {
   const length = Math.hypot(...v);
   return [v[0] / length, v[1] / length, v[2] / length];
 };
 
+/** §12.7: the last level (3 or 4) of a line's path, where a single skin turns its anchor. */
+export const turnsAnchor = (line: Pick<SuspensionLine, 'level' | 'levels'>) =>
+  line.level === line.levels && line.level >= 3;
+
 /**
- * §12.7: on a single skin, the anchor of `line`, at the last level (3 or
- * 4) of its path, its triangle turned towards the line: the triangle of
+ * §12.7: on a single skin, the triangle of the anchor of `line`, at the
+ * last level (3 or 4) of its path, turned towards the line: the triangle of
  * the extrados points three before and after the anchor and the anchor on
  * its airfoil, about its base, by the angle between the line and the rib
  * (beta). The engine's formulas, signs included, differ between levels.
- * The anchor stays on ribs whose minirib column is 0 and on a flat last
- * rib, and is the anchor on its airfoil on the A row with
- * `paragliderParameter` 1.
+ * None where the turn is not finite.
  */
-export function turnedAnchor(
+function turnedTriangle(
   design: AnchorDesign,
   airfoils: ReadonlyMap<string, LepAirfoil>,
   line: Pick<SuspensionLine, 'level' | 'rib' | 'row' | 'start' | 'end'>,
-): Point3 | undefined {
-  const { geometry, airfoils: rows } = design;
-  if (line.row === 1 && geometry.paragliderParameter === 1)
-    return anchorOnRib(design, airfoils, line.rib, line.row)?.point;
-  // A last rib of zero thickness, a stabilo, keeps its anchors too.
-  const flat = (rib: number) =>
-    rib === geometry.ribs.length &&
-    ribAirfoil(design, airfoils, rib - 1).points.every(([, y]) => y === 0);
-  if (rows[line.rib - 1]?.minirib === 0 || flat(line.rib)) return line.end;
-  const anchor = anchorOnRib(design, airfoils, line.rib, line.row);
+): SuspensionTriangle | undefined {
+  const { rib, row } = line;
+  const anchor = anchorOnRib(design, airfoils, rib, row);
   if (!anchor?.point || anchor.above === undefined) return undefined;
-  const { above, points, point: p3 } = anchor;
-  const [p1, p2] = [points[above - 3], points[above + 3]].map(
-    (point) => point && ribPoint(design, line.rib - 1, point),
-  );
+  const { above, points, local, point: p3 } = anchor;
+  const [a, b] = [points[above - 3], points[above + 3]];
+  const p1 = a && ribPoint(design, rib - 1, a);
+  const p2 = b && ribPoint(design, rib - 1, b);
   if (!p1 || !p2) return undefined;
   const d21 = unit(sub(p1, p2));
   const d31 = sub(p1, p3);
@@ -109,15 +131,15 @@ export function turnedAnchor(
   const d41 = unit(sub(p1, p4));
   const d43 = unit(sub(p3, p4));
   const length = Math.hypot(...sub(p3, p4));
-  const [a, b] = [sub(p2, p1), sub(p3, p1)];
+  const [u, v] = [sub(p2, p1), sub(p3, p1)];
   const d45 = unit([
-    a[1] * b[2] - a[2] * b[1],
-    a[2] * b[0] - a[0] * b[2],
-    a[0] * b[1] - a[1] * b[0],
+    u[1] * v[2] - u[2] * v[1],
+    u[2] * v[0] - u[0] * v[2],
+    u[0] * v[1] - u[1] * v[0],
   ]);
   // phi0: the line's angle to the vertical, in the span plane, less the rib's beta.
   const phi1 = Math.atan((line.end[0] - line.start[0]) / (line.start[2] - line.end[2]));
-  const phi = phi1 - (geometry.ribs[line.rib - 1].beta * Math.PI) / 180;
+  const phi = phi1 - (design.geometry.ribs[rib - 1].beta * Math.PI) / 180;
   const across = length * Math.sin(phi);
   const down = length * Math.cos(phi);
   const turned: Point3 =
@@ -132,7 +154,43 @@ export function turnedAnchor(
           d21[0] * across - d21[2] * down + p4[1],
           d43[0] * across + d43[2] * down + p4[2],
         ];
-  return turned.every(finite) ? turned : undefined;
+  return turned.every(finite)
+    ? { rib, row, base: [a[0], b[0]], anchor: local, points: [p1, p2, turned] }
+    : undefined;
+}
+
+/**
+ * The end of `line` on a single skin (§12.7): the tip of its turned
+ * triangle; its anchor as the lines reach it where the engine keeps it
+ * (the A row with `paragliderParameter` 1, ribs whose minirib column is 0,
+ * a flat last rib); undefined where the turn is not finite.
+ */
+export function turnedAnchor(
+  design: AnchorDesign,
+  airfoils: ReadonlyMap<string, LepAirfoil>,
+  line: Pick<SuspensionLine, 'level' | 'rib' | 'row' | 'start' | 'end'>,
+): Point3 | undefined {
+  if (keepsAnchor(design, airfoils, line)) return line.end;
+  return turnedTriangle(design, airfoils, line)?.points[2];
+}
+
+/**
+ * The turned attachment triangles of the right half wing (§12.7), from
+ * the suspension `lines`: their base on the extrados, their tip at the
+ * terminal line's endpoint, and none where the engine keeps the anchor.
+ */
+export function suspensionTriangles(
+  design: AnchorDesign,
+  airfoils: ReadonlyMap<string, LepAirfoil>,
+  lines: readonly SuspensionLine[],
+): SuspensionTriangle[] {
+  return lines.flatMap((line) => {
+    if (!turnsAnchor(line) || keepsAnchor(design, airfoils, line)) return [];
+    // The turn starts from the line's end before it, the anchor as the lines reach it.
+    const end = anchorPoint(design, airfoils, line.rib, line.row);
+    const triangle = end && turnedTriangle(design, airfoils, { ...line, end });
+    return triangle ? [triangle] : [];
+  });
 }
 
 /**

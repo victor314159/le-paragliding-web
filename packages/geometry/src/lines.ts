@@ -1,7 +1,7 @@
 // Section 12 of the engine: the suspension lines in space, from the main
 // karabiners to the anchors (§12.2 to 12.8), with its quirks.
 import type { LepAirfoil, LepDesign } from '@lepara/format';
-import { anchorPoint, turnedAnchor } from './anchors.ts';
+import { anchorPoint, turnedAnchor, turnsAnchor } from './anchors.ts';
 import { branch, lineList, placeLines, type ListedLine, type SuspensionLine } from './network.ts';
 import { finite, ribChord, type Point3 } from './ribs.ts';
 import { karabiner } from './trim.ts';
@@ -111,8 +111,6 @@ export function suspensionLines(
   });
   if (design.geometry.paragliderType !== 'ss') return placed;
   return placed.map((line) =>
-    line.level === line.levels && line.level >= 3
-      ? { ...line, end: turnedAnchor(design, airfoils, line) ?? line.end }
-      : line,
+    turnsAnchor(line) ? { ...line, end: turnedAnchor(design, airfoils, line) ?? line.end } : line,
   );
 }

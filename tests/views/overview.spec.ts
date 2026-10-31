@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
   OVERVIEW_LAYERS,
+  overviewRibs,
   linesModel,
   wingOverviewLayers,
   wingOverviewModel,
@@ -8,7 +9,11 @@ import {
 } from '../../packages/views/src/index.ts';
 import { DESIGNS, project } from '../format/helpers';
 import { ANCHOR_COLORS } from '../../packages/views/src/profile.ts';
-import { brakeLines, suspensionLines } from '../../packages/geometry/src/index.ts';
+import {
+  brakeLines,
+  suspensionLines,
+  suspensionTriangles,
+} from '../../packages/geometry/src/index.ts';
 
 test('overview shows connected attachment points without spanwise tracks', () => {
   const { design, airfoils } = project('oracle/designs/swoop2');
@@ -144,4 +149,45 @@ test('cutaway affects only skin and its markings, leaving internal geometry inta
   expect(hidden.cutaway).toBeUndefined();
   expect(hidden.surfaces.some((surface) => surface.cutaway)).toBe(false);
   expect(layers.skin.surfaces.every((surface) => !surface.cutaway)).toBe(true);
+});
+
+test('single-skin rib fabric meets terminal lines without superposed triangle outlines', () => {
+  const { design, airfoils } = project('oracle/designs/BHL7-22');
+  const layers = wingOverviewLayers(design, airfoils);
+  const triangles = suspensionTriangles(design, airfoils, suspensionLines(design, airfoils));
+  expect(layers.ribs.lines).toHaveLength(design.geometry.ribs.length * 2);
+  const close = (a: readonly number[], b: readonly number[]) =>
+    a.every((value, axis) => Math.abs(value - b[axis]) < 1e-8);
+  for (const {
+    points: [, , tip],
+  } of triangles)
+    for (const sign of [-1, 1]) {
+      const end = [sign * tip[0], tip[1], tip[2]];
+      expect(layers.ribs.lines.some((line) => line.points.some((p) => close(p, end)))).toBe(true);
+      expect(layers.ribs.fills.some((fill) => fill.points.some((p) => close(p, end)))).toBe(true);
+    }
+  const section = linesModel(design, airfoils);
+  expect(section.lines.filter((line) => line.kind === 'rib')).toHaveLength(
+    layers.ribs.lines.length,
+  );
+  for (const {
+    points: [, , tip],
+  } of triangles)
+    expect(section.fills.some((fill) => fill.points.some((p) => close(p, tip)))).toBe(true);
+});
+
+test('flat ribs show the turned triangles instead of bending, and double skins stay as they are', () => {
+  const { design, airfoils } = project('oracle/designs/BHL7-22');
+  const bent = wingOverviewLayers(design, airfoils).ribs;
+  const flat = overviewRibs(design, airfoils, false);
+  expect(bent.note).toContain('Illustrative rib deformation');
+  expect(flat.note).toBe('');
+  expect(flat.fills).toHaveLength(design.geometry.ribs.length * 2);
+  const triangles = suspensionTriangles(design, airfoils, suspensionLines(design, airfoils));
+  expect(flat.lines.filter((line) => line.points.length === 4)).toHaveLength(triangles.length * 2);
+  expect(flat).not.toEqual(bent);
+  const double = project('oracle/designs/swoop');
+  expect(overviewRibs(double.design, double.airfoils, false)).toEqual(
+    wingOverviewLayers(double.design, double.airfoils).ribs,
+  );
 });
