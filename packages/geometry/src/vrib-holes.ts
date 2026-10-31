@@ -18,8 +18,14 @@ const length3 = (a: Point3, b: Point3) => Math.hypot(a[0] - b[0], a[1] - b[1], a
  * `flatt`: the V-rib between edges `left` and `right` laid flat, each row
  * and the next as a quadrilateral of the same sides and diagonals, from the
  * first row along the x axis; the engine's angle between rows by `atan`.
+ * `segmentEnds` also collects the individual quadrilateral endpoints, which
+ * differ from the next row's right start for nonplanar panels (§7).
  */
-export function flatten(left: readonly Point3[], right: readonly Point3[]): FlatVRib {
+export function flatten(
+  left: readonly Point3[],
+  right: readonly Point3[],
+  segmentEnds?: { left: Point[]; right: Point[] },
+): FlatVRib {
   const flat = { left: [] as Point[], right: [] as Point[] };
   let [x0, y0, theta] = [0, 0, 0];
   for (let j = 0; j < left.length; j++) {
@@ -37,6 +43,8 @@ export function flatten(left: readonly Point3[], right: readonly Point3[]): Flat
     const [c, s] = [Math.cos(theta), Math.sin(theta)];
     const next: Point = [a1l * c - hl * s + x0, a1l * s + hl * c + y0];
     const nextRight: Point = [a1r * c - hr * s + x0, a1r * s + hr * c + y0];
+    segmentEnds?.left.push(next);
+    segmentEnds?.right.push(nextRight);
     [x0, y0] = next;
     theta = Math.atan((nextRight[1] - next[1]) / (nextRight[0] - next[0]));
   }
