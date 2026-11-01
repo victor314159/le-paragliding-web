@@ -6,6 +6,15 @@ import { ok } from './format/helpers';
 import { acknowledge, editText } from './helpers';
 
 async function source(page: Page, name: string): Promise<void> {
+  if (name === 'My files') {
+    await page.getByRole('button', { name: 'My files', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'My files', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    return;
+  }
+  await page.getByRole('button', { name: 'Examples', exact: true }).click();
   await page.getByRole('combobox', { name: 'Input source', exact: true }).click();
   await page.getByRole('option', { name, exact: true }).click();
 }
@@ -58,6 +67,28 @@ test('editing, cancelling, switching sources and restoring keep the correct file
   await expect(page.getByText('Modified', { exact: true })).toHaveCount(0);
 });
 
+test('examples and personal files are separate drafts and return to the selected example', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await source(page, 'Swoop2 — LEparagliding 3.29 · 50 cells');
+  await source(page, 'My files');
+  await expect(page.getByRole('combobox', { name: 'Input source', exact: true })).toHaveCount(0);
+  await expect(page.getByText('No input files yet', { exact: true })).toBeVisible();
+  await importFiles(page, [
+    { name: 'personal.dat', mimeType: 'text/plain', buffer: Buffer.from('personal draft') },
+  ]);
+  await page.getByRole('button', { name: 'Examples', exact: true }).click();
+  await expect(page.getByRole('combobox', { name: 'Input source', exact: true })).toHaveText(
+    'Swoop2 — LEparagliding 3.29 · 50 cells',
+  );
+  await expect(page.getByTestId('input-file-row')).toHaveCount(2);
+  await expect(page.getByText('personal.dat', { exact: true })).toHaveCount(0);
+  await source(page, 'My files');
+  await expect(page.getByTestId('input-file-row')).toHaveCount(1);
+  expect(await downloadFile(page, 'personal.dat')).toEqual(Buffer.from('personal draft'));
+});
+
 test('exported ZIP can be imported again with exact bytes, including untouched CRLF and BOM', async ({
   page,
 }) => {
@@ -80,7 +111,7 @@ test('exported ZIP can be imported again with exact bytes, including untouched C
   expect(await downloadFile(page, 'leparagliding.txt')).toEqual(main);
 
   const downloading = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Export all (.zip)', exact: true }).click();
+  await page.getByRole('button', { name: 'Export ZIP', exact: true }).click();
   const download = await downloading;
   expect(download.suggestedFilename()).toBe('lepara-inputs.zip');
   const bytes = await readFile(await download.path());

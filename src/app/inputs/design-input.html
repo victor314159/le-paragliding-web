@@ -1,112 +1,150 @@
 <mat-card appearance="outlined">
   <mat-card-header>
     <h2 mat-card-title id="input-title">Input</h2>
-    <p mat-card-subtitle>Start from an example or import your own files.</p>
   </mat-card-header>
 
   <mat-card-content>
-    <div class="source">
-      <mat-form-field appearance="outline" subscriptSizing="dynamic">
-        <mat-label>Input source</mat-label>
-        <mat-select
-          [value]="inputs.sourceId()"
-          [disabled]="locked()"
-          (selectionChange)="inputs.selectSource($event.value)"
-        >
-          @for (source of sources; track source.id) {
-            <mat-option [value]="source.id">{{ source.label }}</mat-option>
-          }
-        </mat-select>
-        <mat-hint>{{ sourceHint() }}</mat-hint>
-      </mat-form-field>
-      <button matButton="outlined" type="button" [disabled]="locked()" (click)="chooseImport()">
-        <mat-icon svgIcon="upload" />
-        Import files
+    <div class="source-modes" role="group" aria-label="Input mode">
+      <button
+        matButton
+        type="button"
+        [attr.aria-pressed]="!!inputs.selected()"
+        [disabled]="locked()"
+        (click)="selectMode('example')"
+      >
+        Examples
+      </button>
+      <button
+        matButton
+        type="button"
+        [attr.aria-pressed]="!inputs.selected()"
+        [disabled]="locked()"
+        (click)="selectMode('custom')"
+      >
+        My files
       </button>
     </div>
+    @if (inputs.selected()) {
+      <div class="source">
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Input source</mat-label>
+          <mat-select
+            [value]="inputs.sourceId()"
+            [disabled]="locked()"
+            (selectionChange)="selectExample($event.value)"
+          >
+            @for (source of sources; track source.id) {
+              <mat-option [value]="source.id">{{ source.label }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      <details class="source-details mat-font-body-sm mat-text-on-surface-variant">
+        <summary>About this example</summary>
+        <p>{{ sourceHint() }}</p>
+      </details>
+    } @else {
+      <p class="import-hint mat-font-body-sm mat-text-on-surface-variant">
+        Import your design ZIP, or select leparagliding.txt and its airfoils together (.txt or
+        .dat).
+      </p>
+    }
 
     @if (inputs.pending()) {
       <mat-progress-bar mode="indeterminate" aria-label="Loading input files" />
     }
 
-    <mat-list role="list" aria-label="Input files">
-      @for (file of inputs.files(); track file.name) {
-        <mat-divider />
-        <mat-list-item role="listitem" data-testid="input-file-row">
-          <span matListItemTitle
-            >{{ file.name }}
-            @if (file.name === designFile) {
-              <span
-                class="main-badge mat-font-label-sm"
-                matTooltip="The engine runs this file, with the airfoils its section 2 names."
-                >Main input</span
-              >
-            }
-          </span>
-          <span matListItemLine>{{ kind(file) }}</span>
-          <div matListItemMeta class="file-actions">
-            @if (file.origin === 'created') {
-              <mat-chip>Created</mat-chip>
-            } @else if (file.modified) {
-              <mat-chip>Modified</mat-chip>
-            } @else if (file.origin === 'imported') {
-              <mat-chip>Imported</mat-chip>
-            }
-            @if (editor && file.name === designFile) {
-              <span
-                [matTooltip]="
-                  inputs.reading().project || locked()
-                    ? 'Edit parameters'
-                    : 'Fix ' + designFile + ' with Edit text first.'
-                "
-              >
-                <button
-                  matIconButton
-                  type="button"
-                  [disabled]="locked() || !inputs.reading().project"
-                  [attr.aria-label]="'Edit parameters of ' + file.name"
-                  (click)="editParameters()"
+    <div class="files-heading">
+      <h3 class="mat-font-label-lg">
+        Files <span>{{ inputs.files().length }}</span>
+      </h3>
+      <div class="file-toolbar">
+        <button
+          matButton
+          type="button"
+          title="Import into this draft. Matching names replace existing files."
+          [disabled]="locked()"
+          (click)="chooseImport()"
+        >
+          <mat-icon svgIcon="upload" />
+          Import files
+        </button>
+        <button
+          matButton
+          type="button"
+          [disabled]="locked() || !inputs.files().length || inputs.zipping()"
+          (click)="exportAll()"
+        >
+          <mat-icon svgIcon="download" />
+          {{ inputs.zipping() ? 'Exporting…' : 'Export ZIP' }}
+        </button>
+      </div>
+    </div>
+    @if (inputs.files().length) {
+      <ul class="files" aria-label="Input files">
+        @for (file of inputs.files(); track file.name) {
+          <li
+            class="file"
+            [class.main-file]="file.name === designFile"
+            data-testid="input-file-row"
+          >
+            <div class="file-info">
+              <span class="file-name">{{ file.name }}</span>
+              <span class="file-kind mat-font-body-sm mat-text-on-surface-variant">{{
+                kind(file)
+              }}</span>
+              @if (file.origin === 'created') {
+                <span class="file-state mat-font-label-sm">Created</span>
+              } @else if (file.modified) {
+                <span class="file-state mat-font-label-sm">Modified</span>
+              } @else if (file.origin === 'imported') {
+                <span class="file-state mat-font-label-sm">Imported</span>
+              }
+            </div>
+            <div class="file-actions">
+              @if (editor && parameterFiles().has(file.name)) {
+                <span
+                  [matTooltip]="
+                    parameterFiles().get(file.name) || locked()
+                      ? 'Edit parameters'
+                      : 'Fix ' + file.name + ' with Edit text first.'
+                  "
                 >
-                  <mat-icon svgIcon="tune" />
-                </button>
-              </span>
-            } @else if (editor && parameterFiles().has(file.name)) {
-              <span
-                [matTooltip]="
-                  parameterFiles().get(file.name) || locked()
-                    ? 'Edit parameters'
-                    : 'Fix ' + file.name + ' with Edit text first.'
-                "
+                  <button
+                    matButton
+                    type="button"
+                    [disabled]="locked() || !parameterFiles().get(file.name)"
+                    [attr.aria-label]="'Edit parameters of ' + file.name"
+                    (click)="editParameters(file.name === designFile ? undefined : file.name)"
+                  >
+                    <mat-icon svgIcon="tune" />
+                    Edit
+                  </button>
+                </span>
+              }
+              <button
+                matIconButton
+                type="button"
+                matTooltip="More actions"
+                [disabled]="locked()"
+                [matMenuTriggerFor]="fileMenu"
+                [matMenuTriggerData]="{ $implicit: file }"
+                [attr.aria-label]="'Actions for ' + file.name"
               >
-                <button
-                  matIconButton
-                  type="button"
-                  [disabled]="locked() || !parameterFiles().get(file.name)"
-                  [attr.aria-label]="'Edit parameters of ' + file.name"
-                  (click)="editParameters(file.name)"
-                >
-                  <mat-icon svgIcon="tune" />
-                </button>
-              </span>
-            }
-            <button
-              matIconButton
-              type="button"
-              matTooltip="More actions"
-              [disabled]="locked()"
-              [matMenuTriggerFor]="fileMenu"
-              [matMenuTriggerData]="{ $implicit: file }"
-              [attr.aria-label]="'Actions for ' + file.name"
-            >
-              <mat-icon svgIcon="more_vert" />
-            </button>
-          </div>
-        </mat-list-item>
-      }
-    </mat-list>
+                <mat-icon svgIcon="more_vert" />
+              </button>
+            </div>
+          </li>
+        }
+      </ul>
+    }
 
     @if (!inputs.files().length && !inputs.pending() && !inputs.error()) {
-      <p class="mat-text-on-surface-variant">Import your input files to get started.</p>
+      <div class="empty-files mat-text-on-surface-variant">
+        <mat-icon svgIcon="upload" />
+        <p>No input files yet</p>
+      </div>
     }
     @if (inputs.error(); as error) {
       <p class="message mat-text-error" role="alert">
@@ -146,23 +184,10 @@
         </ul>
       </details>
     }
-    <mat-divider />
+    <p class="draft-note mat-font-body-sm mat-text-on-surface-variant">
+      Drafts stay until you reload. Export to keep your changes.
+    </p>
   </mat-card-content>
-
-  <mat-card-actions>
-    <span class="mat-font-body-sm mat-text-on-surface-variant">
-      Drafts stay until you reload this page.
-    </span>
-    <button
-      matButton
-      type="button"
-      [disabled]="locked() || !inputs.files().length || inputs.zipping()"
-      (click)="exportAll()"
-    >
-      <mat-icon svgIcon="download" />
-      {{ inputs.zipping() ? 'Exporting…' : 'Export all (.zip)' }}
-    </button>
-  </mat-card-actions>
 
   <ng-content />
 </mat-card>

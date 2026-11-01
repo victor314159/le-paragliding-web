@@ -7,26 +7,11 @@ import {
   type ElementRef,
 } from '@angular/core';
 import { MatButton, MatIconButton } from '@angular/material/button';
-import {
-  MatCard,
-  MatCardActions,
-  MatCardContent,
-  MatCardHeader,
-  MatCardSubtitle,
-  MatCardTitle,
-} from '@angular/material/card';
-import { MatChip } from '@angular/material/chips';
+import { MatCard, MatCardContent, MatCardHeader, MatCardTitle } from '@angular/material/card';
 import { MatDialog } from '@angular/material/dialog';
 import { MatDivider } from '@angular/material/divider';
-import { MatFormField, MatHint, MatLabel } from '@angular/material/form-field';
+import { MatFormField, MatLabel } from '@angular/material/form-field';
 import { MatIcon } from '@angular/material/icon';
-import {
-  MatList,
-  MatListItem,
-  MatListItemLine,
-  MatListItemMeta,
-  MatListItemTitle,
-} from '@angular/material/list';
 import { MatMenu, MatMenuContent, MatMenuItem, MatMenuTrigger } from '@angular/material/menu';
 import { MatProgressBar } from '@angular/material/progress-bar';
 import { MatOption, MatSelect } from '@angular/material/select';
@@ -53,22 +38,13 @@ const EDITOR_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
     MatButton,
     MatIconButton,
     MatCard,
-    MatCardActions,
     MatCardContent,
     MatCardHeader,
-    MatCardSubtitle,
     MatCardTitle,
-    MatChip,
     MatDivider,
     MatFormField,
-    MatHint,
     MatLabel,
     MatIcon,
-    MatList,
-    MatListItem,
-    MatListItemLine,
-    MatListItemMeta,
-    MatListItemTitle,
     MatMenu,
     MatMenuContent,
     MatMenuItem,
@@ -91,17 +67,24 @@ export class DesignInput implements OnInit {
   private readonly dialog = inject(MatDialog);
   private readonly importInput = viewChild.required<ElementRef<HTMLInputElement>>('importInput');
   private pendingImport?: string;
-  protected readonly sources = [
-    ...DESIGNS.map((design) => ({
-      id: design.id,
-      label: `${design.wing} — LEparagliding ${design.program} · ${design.cells} cells`,
-    })),
-    { id: 'custom', label: 'My files' },
-  ];
+  protected readonly sources = DESIGNS.map((design) => ({
+    id: design.id,
+    label: `${design.wing} — LEparagliding ${design.program} · ${design.cells} cells`,
+  }));
+  private exampleId = this.inputs.sourceId();
+
+  protected selectExample(id: string): void {
+    this.exampleId = id;
+    void this.inputs.selectSource(id);
+  }
+
+  protected selectMode(mode: 'example' | 'custom'): void {
+    void this.inputs.selectSource(mode === 'example' ? this.exampleId : 'custom');
+  }
+
   protected readonly sourceHint = computed(() => {
     const design = this.inputs.selected();
-    if (!design)
-      return 'Import leparagliding.txt and its airfoils (.txt or .dat), or an exported ZIP.';
+    if (!design) return '';
     const adapted = design.adapted ? ` Adapted for 3.29: ${design.adapted}.` : '';
     return `Official example from LEparagliding ${design.program}.${adapted}`;
   });
@@ -115,12 +98,12 @@ export class DesignInput implements OnInit {
 
   protected kind(file: InputFile): string {
     if (file.name === PRE_DATA_FILE) return 'Geometry preprocessor parameters';
-    return file.name === DESIGN_FILE ? 'Wing geometry and parameters' : 'Airfoil';
+    return file.name === DESIGN_FILE ? 'Main input · Wing parameters' : 'Airfoil';
   }
 
   /**
-   * The files edited with the design, by name: the airfoils section 2 names,
-   * and pre-data.txt. True for those read.
+   * The files edited with the design, by name: leparagliding.txt, the
+   * airfoils section 2 names, and pre-data.txt. True for those read.
    */
   protected readonly parameterFiles = computed(() => {
     const project = this.inputs.reading().project;
@@ -130,6 +113,7 @@ export class DesignInput implements OnInit {
         ({ airfoil }) => [airfoil, project.airfoils.has(airfoil)] as const,
       ) ?? []),
       ...(project && preData ? [[PRE_DATA_FILE, preData.ok] as const] : []),
+      [DESIGN_FILE, !!project],
     ]);
   });
 

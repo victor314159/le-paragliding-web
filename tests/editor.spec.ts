@@ -12,6 +12,15 @@ const opener = (page: Page) =>
   page.getByRole('button', { name: 'Edit parameters of leparagliding.txt', exact: true });
 
 async function source(page: Page, name: string): Promise<void> {
+  if (name === 'My files') {
+    await page.getByRole('button', { name: 'My files', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'My files', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    return;
+  }
+  await page.getByRole('button', { name: 'Examples', exact: true }).click();
   await page.getByRole('combobox', { name: 'Input source', exact: true }).click();
   await page.getByRole('option', { name, exact: true }).click();
 }
@@ -341,7 +350,7 @@ test('Save survives ZIP export and import, colors reach DXF, results invalidate 
   );
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   const downloading = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Export all (.zip)', exact: true }).click();
+  await page.getByRole('button', { name: 'Export ZIP', exact: true }).click();
   const zipBytes = await readFile(await (await downloading).path());
   const zip = await JSZip.loadAsync(zipBytes);
   expect(await zip.file('gnuReflex.txt')!.async('nodebuffer')).toEqual(foil);

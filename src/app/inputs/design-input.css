@@ -5,45 +5,114 @@
 mat-card {
   height: 100%;
 }
-.source {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 8px 12px;
-  margin-top: 16px;
-}
-mat-form-field {
-  flex: 1 1 280px;
-}
-/* Centers the 40px button on the 56px field, whatever the hint's height. */
-.source > button {
-  margin-top: 8px;
-}
-/* Rows are separated by dividers, so the list's own vertical padding would
- * only make the last row look taller. */
-mat-list {
-  margin-top: 16px;
-  padding-block: 0;
-}
-/* Several controls in the trailing slot: center them as a row. Two-line
- * items otherwise align the slot to the top. */
-.mat-mdc-list-item .file-actions {
-  display: flex;
+mat-card-header {
   align-items: center;
-  align-self: center;
-  gap: 4px;
-  margin: 0;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 16px;
 }
-.file-actions::before {
-  content: none;
+mat-card-content {
+  padding-bottom: 12px;
 }
-.main-badge {
-  margin-inline-start: 8px;
-  padding: 2px 8px;
-  border-radius: 8px;
-  vertical-align: middle;
+.source-modes {
+  display: flex;
+  padding: 3px;
+  margin-bottom: 12px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 24px;
+}
+.source-modes button {
+  flex: 1;
+}
+.source-modes [aria-pressed='true'] {
   background: var(--mat-sys-secondary-container);
   color: var(--mat-sys-on-secondary-container);
+}
+.file-toolbar {
+  display: flex;
+  align-items: center;
+}
+.source mat-form-field {
+  width: 100%;
+}
+.source-details p {
+  margin: 0 0 8px;
+  overflow-wrap: anywhere;
+}
+.import-hint {
+  margin: 8px 0;
+}
+.files-heading,
+.files-heading h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.files-heading {
+  justify-content: space-between;
+  margin-top: 4px;
+}
+.files-heading h3 {
+  margin: 0;
+}
+.files-heading h3 span {
+  color: var(--mat-sys-on-surface-variant);
+}
+.files {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 4px 10px 12px;
+}
+.file + .file {
+  border-top: 1px solid var(--mat-sys-outline-variant);
+}
+.main-file {
+  background: var(--mat-sys-surface-container-low);
+}
+.file-info {
+  flex: 1;
+  min-width: 0;
+}
+.file-name,
+.file-kind {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.file-state {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: 4px;
+  background: var(--mat-sys-secondary-container);
+  color: var(--mat-sys-on-secondary-container);
+}
+.file-actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.empty-files {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 12px;
+  border: 1px dashed var(--mat-sys-outline-variant);
+  border-radius: 12px;
+  text-align: center;
+}
+.empty-files p {
+  margin: 8px 0 4px;
+}
+.draft-note {
+  margin: 8px 0 0;
 }
 .message {
   display: flex;
@@ -68,9 +137,19 @@ summary {
   cursor: pointer;
   padding-block: 8px;
 }
-mat-card-actions {
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding-inline: 16px;
+@media (min-width: 901px) and (max-height: 800px) {
+  mat-card-header {
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+  .source-modes {
+    margin-bottom: 8px;
+    --mat-button-text-container-height: 32px;
+  }
+  summary {
+    padding-block: 4px;
+  }
+  .file {
+    padding-block: 4px;
+  }
 }

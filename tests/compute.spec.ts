@@ -116,9 +116,21 @@ test('the workspace fits a narrow screen and supports keyboard navigation', asyn
   await expect(page.getByRole('heading', { name: 'Input', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Log', exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
-  await page.getByRole('combobox', { name: 'Input source', exact: true }).focus();
+  await page.getByRole('button', { name: 'Examples', exact: true }).focus();
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: 'My files', exact: true })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('combobox', { name: 'Input source', exact: true })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(page.locator('.source-details summary')).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(
+    page.getByText('Official example from LEparagliding', { exact: false }),
+  ).toBeVisible();
   await page.keyboard.press('Tab');
   await expect(page.getByRole('button', { name: 'Import files', exact: true })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: 'Export ZIP', exact: true })).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(
     page.getByRole('button', { name: 'Edit parameters of leparagliding.txt', exact: true }),
