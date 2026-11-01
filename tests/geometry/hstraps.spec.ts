@@ -4,7 +4,7 @@
 // its tension by moving its second edge, so each strap is checked by the
 // vectors from its first row to its last along each edge.
 import { expect, test } from '@playwright/test';
-import { flatten, hStraps, type Point } from '../../packages/geometry/src/index.ts';
+import { flatten, hStraps, type Point } from '@lepara/geometry/fortran-3.29';
 import { designFiles, engine, project } from '../format/helpers';
 
 /** The lines of color `color` of a DXF: their ends. */

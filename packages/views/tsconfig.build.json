@@ -8,6 +8,7 @@
       "@lepara/design": ["../../build/design/index.d.ts"],
       "@lepara/format": ["../../build/format/index.d.ts"],
       "@lepara/geometry": ["../../build/geometry/index.d.ts"],
+      "@lepara/geometry/*": ["../../build/geometry/*.d.ts"],
       "@lepara/preprocessor": ["../../build/preprocessor/index.d.ts"]
     }
   }

@@ -5,14 +5,8 @@ import { flatten } from './vrib-holes.ts';
 import type { Point } from './ribs.ts';
 import type { SkinRib } from './skin-ribs.ts';
 
-export type SkinPatternSections =
-  'geometry' | 'skinTension' | 'skinTensionGroups' | 'sewingAllowances';
-
-/** A panel laid flat: its edges on its left and right ribs, by the engine's point indices. */
-interface Flat {
-  left: Point[];
-  right: Point[];
-}
+import type { Flat, SkinPatternSections } from '../shared/skin-types.ts';
+export type { SkinPatternSections } from '../shared/skin-types.ts';
 
 const zero: Point = [0, 0];
 /** Point `j` of `p`, or the origin where the engine's array holds no value. */
@@ -112,6 +106,7 @@ function widths(
   curve: readonly Point[],
   grouped: boolean,
   ends = edge,
+  round: (value: number) => number = Math.fround,
 ): number[] {
   const values: number[] = [];
   let u = 0;
@@ -122,7 +117,7 @@ function widths(
         const [a, b] = [curve[k], curve[k + 1]];
         if (
           grouped
-            ? u >= a[0] && u <= b[0] * Math.fround(1.001)
+            ? u >= a[0] && u <= b[0] * round(1.001)
             : (k === 0 || u > a[0]) && (k === curve.length - 2 || u <= b[0])
         ) {
           const slope = (b[1] - a[1]) / (b[0] - a[0]);
@@ -154,6 +149,7 @@ function reformat(
   panels: Flat[],
   upper: boolean,
   unformatted: readonly number[],
+  round: (value: number) => number,
 ) {
   const n = ribs.length - 1;
   const factor = design.skinTension.panelCorrection.factor;
@@ -206,8 +202,8 @@ function reformat(
       const start = c[`${side}Start`];
       let sectionLength = 0;
       for (let j = upper ? start : from; j < (upper ? to : start); j++)
-        sectionLength = Math.fround(sectionLength + distance(at(edge, j), at(edge, j + 1)));
-      const scale = Math.fround(Math.fround(sectionLength + c[`${side}Delta`]) / sectionLength);
+        sectionLength = round(sectionLength + distance(at(edge, j), at(edge, j + 1)));
+      const scale = round(round(sectionLength + c[`${side}Delta`]) / sectionLength);
       // Intrados right side intentionally uses jirl for the rewritten points (§8.4.4).
       const first = !upper && side === 'right' ? c.leftStart : start;
       extend(edge, first, upper ? to : from, scale, 0, first, upper ? 1 : -1);
@@ -219,14 +215,14 @@ function reformat(
         [from, to] = bounds(i);
       const edge = panels[i].left;
       const end = upper ? to : from;
-      const error = Math.fround(
+      const error = round(
         distance(at(panels[i].left, end), at(panels[i].right, end)) - unformatted[i],
       );
       const dist = distance(at(edge, c.leftStart), at(edge, end));
       const omega =
-        Math.abs(error) < Math.fround(0.01)
+        Math.abs(error) < round(0.01)
           ? 0
-          : Math.fround((Math.asin(error / dist) * error) / Math.abs(error));
+          : round((Math.asin(error / dist) * error) / Math.abs(error));
       // Angles are prepared from jirl, then extrados writes from jirr.
       extend(
         edge,
@@ -247,9 +243,10 @@ function legacyCorrection(
   ribs: readonly SkinRib[],
   panels: Flat[],
   seams: Flat[],
+  round: (value: number) => number,
 ) {
   const count = design.skinTension.panelCorrection.points;
-  const factor = design.skinTension.panelCorrection.factor || Math.fround(0.01);
+  const factor = design.skinTension.panelCorrection.factor || round(0.01);
   const differences = ribs.map((rib, i) =>
     i > 0 && i < ribs.length - 1
       ? (length(seams[i].left, rib.upper - count, rib.upper) -
@@ -306,10 +303,15 @@ function extend(
     edge[j + step] = move(at(edge, j), vectors.get(j) ?? zero, scale);
 }
 
-/** Developed panels after skin tension and sewing-length corrections, before shaping cuts. */
+/**
+ * Developed panels after skin tension and sewing-length corrections, before
+ * shaping cuts. `round` reproduces implicit reals in the reference; supplying
+ * identity changes precision while retaining these panel conventions.
+ */
 export function skinPatterns(
   design: Pick<LepDesign, SkinPatternSections>,
   ribs: readonly SkinRib[],
+  round: (value: number) => number = Math.fround,
 ): { upper: Flat[]; lower: Flat[]; inlet: Flat[] } {
   const n = ribs.length - 1;
   const grouped = design.skinTensionGroups.mode === 1;
@@ -354,6 +356,7 @@ export function skinPatterns(
         curve(points(i), upper, totals[i], width),
         grouped,
         panel.leftEnds,
+        round,
       );
       const rightCurve = curve(
         points(i + 1),
@@ -371,9 +374,10 @@ export function skinPatterns(
         grouped ? rightCurve.slice(0, points(i).length + (upper ? 0 : 1)) : rightCurve,
         grouped,
         panel.rightEnds,
+        round,
       );
       if (upper) {
-        const margin = design.sewingAllowances.upper.sides * Math.fround(0.1);
+        const margin = design.sewingAllowances.upper.sides * round(0.1);
         seams.push({
           left: offset(
             panel.left,
@@ -408,8 +412,8 @@ export function skinPatterns(
       ),
     );
     if (design.skinTension.panelCorrection.points === 1000)
-      reformat(design, ribs, output, upper, unformatted);
-    else if (upper) legacyCorrection(design, ribs, output, seams);
+      reformat(design, ribs, output, upper, unformatted, round);
+    else if (upper) legacyCorrection(design, ribs, output, seams, round);
     return output;
   };
   const upper = make(true),
@@ -456,7 +460,7 @@ export function skinPatterns(
         const d = delta(at(edge, k), at(ends, k + 1));
         const angle = Math.abs(Math.atan(d[1] / d[0]));
         let value = j === first ? a : slope * u + intercept;
-        if (side === 'left' && j !== first && value <= Math.fround(0.001)) value = 0;
+        if (side === 'left' && j !== first && value <= round(0.001)) value = 0;
         const sign = side === 'left' ? -1 : 1;
         const base = side === 'left' || j === first ? at(edge, j) : at(ends, j);
         result[side][j] = move(base, [sign * Math.sin(angle), -sign * Math.cos(angle)], value);

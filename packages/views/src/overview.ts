@@ -6,7 +6,7 @@ import {
   suspensionTriangles,
   type LineSections,
   type Point3,
-} from '@lepara/geometry';
+} from '@lepara/geometry/enhanced-v1';
 import { colorsModel } from './colors.ts';
 import { wingModel, type PreviewModel, type SkinPanel } from './model.ts';
 import { ANCHOR_COLORS } from './profile.ts';
@@ -137,7 +137,7 @@ export function wingOverviewLayers(
   skin.legend = [];
   skin.title = design.geometry.wingName;
   skin.note = mesh?.length
-    ? `Skin ballooned as in lep-3d-surfaces.dxf, from section ${design.skinTensionGroups.mode === 0 ? '5' : '31'}, with the engine’s panel corrections.`
+    ? `Skin ballooned by the enhanced model from section ${design.skinTensionGroups.mode === 0 ? '5' : '31'}, with the engine’s panel corrections and, on a double skin, section 2 miniribs.`
     : 'Skin straight between ribs, without ballooning or 3D shaping.';
   const anchors = empty();
   skin.lines = skin.lines.filter((line) => line.kind !== 'rib');

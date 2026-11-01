@@ -11,7 +11,7 @@ import {
   type HoledVRib,
   type Point3,
   type VRib,
-} from '@lepara/geometry';
+} from '@lepara/geometry/enhanced-v1';
 import { finite, type Point } from './geometry.ts';
 import { placedMiniribs, wingModel, type PreviewModel } from './model.ts';
 import { SURFACE_COLORS } from './patterns.ts';

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { balloonedSkin, skinSubdivisions, type Point3 } from '../../packages/geometry/src/index.ts';
+import { balloonedSkin, skinSubdivisions, type Point3 } from '@lepara/geometry/fortran-3.29';
 import { writeLep, type LepDesign } from '../../packages/format/src/index.ts';
 import { DAT_FIXTURE, DESIGNS, designFiles, engine, project } from '../format/helpers';
 

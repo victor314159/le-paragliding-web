@@ -1,5 +1,5 @@
 import type { LepAirfoil, LepDesign } from '@lepara/format';
-import { ribAirfoil, ribPoint } from '@lepara/geometry';
+import { ribAirfoil, ribPoint } from '@lepara/geometry/enhanced-v1';
 import { finite, type Point } from './geometry.ts';
 
 /** The sections a rib profile reads. */

@@ -1,5 +1,5 @@
 import type { LepAirfoil, LepDesign } from '@lepara/format';
-import { ribPoint, type Point3, type SuspensionTriangle } from '@lepara/geometry';
+import { ribPoint, type Point3, type SuspensionTriangle } from '@lepara/geometry/enhanced-v1';
 import { holeOutline, type Point } from './geometry.ts';
 import { holedRib } from './model.ts';
 import { contourPoint, ribProfile, type ProfileSections } from './profile.ts';

@@ -9,7 +9,7 @@ import type {
   ShapingGroup,
   SharkNoseGroup,
 } from '@lepara/format';
-import { ribPoint, type Point3 } from '@lepara/geometry';
+import { ribPoint, type Point3 } from '@lepara/geometry/enhanced-v1';
 import { finite, tubeSurface, type Point } from './geometry.ts';
 import { skinCut } from './skin.ts';
 import { wingModel, type PreviewModel, type SkinPanel } from './model.ts';

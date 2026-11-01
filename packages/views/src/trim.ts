@@ -1,5 +1,5 @@
 import type { LepAirfoil, LepDesign } from '@lepara/format';
-import { karabiner, ribPoint, trimEstimate, type Point3 } from '@lepara/geometry';
+import { karabiner, ribPoint, trimEstimate, type Point3 } from '@lepara/geometry/enhanced-v1';
 import type { Point } from './geometry.ts';
 import { wingModel, type PreviewModel } from './model.ts';
 import { ribProfile, type ProfileSections } from './profile.ts';

@@ -9,6 +9,7 @@
       "@lepara/design": ["../design/src/index.ts"],
       "@lepara/format": ["../format/src/index.ts"],
       "@lepara/geometry": ["../geometry/src/index.ts"],
+      "@lepara/geometry/*": ["../geometry/src/*.ts"],
       "@lepara/preprocessor": ["../preprocessor/src/index.ts"]
     }
   },

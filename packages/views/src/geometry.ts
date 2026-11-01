@@ -1,4 +1,4 @@
-import type { Point3 } from '@lepara/geometry';
+import type { Point3 } from '@lepara/geometry/enhanced-v1';
 
 export type Point = readonly [number, number];
 

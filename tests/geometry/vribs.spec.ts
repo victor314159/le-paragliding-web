@@ -3,7 +3,7 @@
 // each case runs the engine (a design by default, every one with
 // ORACLE_ALL=1, as CI does).
 import { expect, test } from '@playwright/test';
-import { vRibs, type Point3 } from '../../packages/geometry/src/index.ts';
+import { vRibs, type Point3 } from '@lepara/geometry/fortran-3.29';
 import { DESIGNS, designFiles, engine, project } from '../format/helpers';
 import { VARIANTS, variantFiles } from '../format/variants';
 

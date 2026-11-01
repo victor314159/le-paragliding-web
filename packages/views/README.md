@@ -49,13 +49,15 @@ reinforcement attachments, color cuts, skin tension curves, vents, wing tips
 and holes.
 
 A `PreviewModel` is a 3D drawing, at Wing scale in the engine's coordinates
-(Z down) of [`@lepara/geometry`](../geometry/README.md): grids of skin, some
+(Z down) of [`@lepara/geometry`](../geometry/README.md), whose
+`enhanced-v1` model it draws (the engine's geometry, with an improved skin
+ballooning): grids of skin, some
 colored over it, planar fills with holes, lines and dots. A section with one
 gives it as the `model` of its `SECTION_SCENES` entry, for its `MODEL_VIEW`
 view: `wingModel` (sections 1 to 3 and 30, the skin open at the inlets of
 open cells; from section 2 on, with the miniribs, `placedMiniribs`, which
 the engine leaves out of its 3D model, midway across their cells),
-`tensionModel` (section 5, the skin ballooned as the engine does: by section
+`tensionModel` (section 5, the skin ballooned by section
 5, or by the groups of section 31 when active), `tensionGroupsModel`
 (section 31, the skin ballooned by each rib's group), `holesModel` (section
 4), `trimModel` (section 8, beside its `trimScene`), `linesModel` (sections

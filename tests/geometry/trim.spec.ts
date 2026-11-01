@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { karabiner, trimEstimate } from '../../packages/geometry/src/index.ts';
+import { karabiner, trimEstimate } from '@lepara/geometry/fortran-3.29';
 import { DESIGNS, project } from '../format/helpers';
 import { report } from './helpers';
 

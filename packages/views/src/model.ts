@@ -9,7 +9,7 @@ import {
   type BalloonedPanel,
   type Point3,
   type SkinSections,
-} from '@lepara/geometry';
+} from '@lepara/geometry/enhanced-v1';
 import {
   ANCHOR_COLORS,
   ANCHOR_NAMES,
@@ -400,7 +400,7 @@ export function wingModel(
     ballooned ? 'Wing 3D model · ballooned skin' : 'Wing 3D model',
     'At Wing scale · Ribs placed as the engine places them. ' +
       (ballooned
-        ? 'Skin ballooned as in lep-3d-surfaces.dxf, using the engine’s panel development, corrections and circular arcs.'
+        ? 'Skin ballooned by the enhanced model: the engine’s panel development and corrections, exact circular arcs and, on a double skin, section 2 miniribs.'
         : 'Skin straight between ribs: no ballooning or 3D shaping.') +
       (single
         ? ' Single skin: the skin over the extrados and air inlets only, as the engine meshes it.'

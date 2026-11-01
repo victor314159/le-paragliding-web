@@ -49,6 +49,40 @@ export default defineConfig(
     processor: angular.processInlineTemplates,
     rules: { '@typescript-eslint/consistent-type-imports': 'error' },
   },
+  // Geometry models (packages/geometry/MODELS.md): the reference never reaches
+  // improved code, and shared code never selects a model.
+  {
+    files: ['packages/geometry/src/fortran/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              regex: '/(enhanced|fortran-3\\.29)|^@lepara/geometry',
+              message: 'The reference never imports improved code or a public entry.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['packages/geometry/src/shared/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              regex: '/(enhanced|fortran)|^@lepara/geometry',
+              message: 'Shared code cannot import or select a model.',
+            },
+          ],
+        },
+      ],
+    },
+  },
   {
     files: ['**/*.html'],
     extends: [angular.configs.templateRecommended, angular.configs.templateAccessibility],

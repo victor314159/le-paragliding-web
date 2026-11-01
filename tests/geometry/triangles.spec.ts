@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { suspensionLines, suspensionTriangles } from '../../packages/geometry/src/index.ts';
+import { suspensionLines, suspensionTriangles } from '@lepara/geometry/fortran-3.29';
 import { designFiles, engine, project } from '../format/helpers';
 
 test('BHL7 attachment triangles match the turned edges in the engine DXF', async () => {

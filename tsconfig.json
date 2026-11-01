@@ -18,6 +18,7 @@
       "@lepara/design": ["./packages/design/src/index.ts"],
       "@lepara/format": ["./packages/format/src/index.ts"],
       "@lepara/geometry": ["./packages/geometry/src/index.ts"],
+      "@lepara/geometry/*": ["./packages/geometry/src/*.ts"],
       "@lepara/preprocessor": ["./packages/preprocessor/src/index.ts"],
       "@lepara/views": ["./packages/views/src/index.ts"]
     },

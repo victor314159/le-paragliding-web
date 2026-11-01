@@ -1,4 +1,4 @@
-import type { Point3 } from '@lepara/geometry';
+import type { Point3 } from '@lepara/geometry/enhanced-v1';
 import type { SkinPanel, SkinVertex } from './model.ts';
 
 /** A line across a panel, in % chord from TE on its inner and outer ribs. */

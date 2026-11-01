@@ -1,5 +1,5 @@
 import type { LepAirfoil, LepDesign } from '@lepara/format';
-import { ribPoint, type Point3 } from '@lepara/geometry';
+import { ribPoint, type Point3 } from '@lepara/geometry/enhanced-v1';
 import { wingModel, type PreviewModel, type SkinPanel } from './model.ts';
 import { colorPlanform, SURFACE_COLORS } from './patterns.ts';
 import { skinCut, skinRegion } from './skin.ts';

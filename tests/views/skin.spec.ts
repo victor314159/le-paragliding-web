@@ -6,7 +6,7 @@ import {
   wingOverviewLayers,
   type SkinPanel,
 } from '../../packages/views/src/index.ts';
-import { balloonedSkin } from '../../packages/geometry/src/index.ts';
+import { balloonedSkin } from '@lepara/geometry/enhanced-v1';
 import { DESIGNS, project } from '../format/helpers';
 
 for (const id of DESIGNS) {
@@ -101,7 +101,7 @@ test('overview ballooning uses the last matching section 31 group instead of sec
   expect(straight.skin.note).toContain('straight between ribs');
 });
 
-test('overview retains the engine mesh of closed glue vents', () => {
+test('overview retains the ballooned mesh of closed glue vents', () => {
   const { design, airfoils } = project('oracle/designs/swoop2');
   const input = {
     ...design,
@@ -116,7 +116,7 @@ test('overview retains the engine mesh of closed glue vents', () => {
     expect(grids.has(JSON.stringify(panel.rows.map((row) => row.map((p) => p.point))))).toBe(true);
 });
 
-test('an engine mesh the draft cannot produce falls back to the straight skin', () => {
+test('a mesh the draft cannot produce falls back to the straight skin', () => {
   const { design, airfoils } = project('oracle/designs/swoop2');
   const straight = wingModel(design, airfoils);
   const fallback = wingModel(design, airfoils, { skin: [] });

@@ -22,8 +22,14 @@ if (design.ok) {
 }
 ```
 
+Two models export the same functions: `@lepara/geometry/fortran-3.29`, the
+port above, which the root aliases, and `@lepara/geometry/enhanced-v1`, which
+improves the skin ballooning. See [the model contracts](MODELS.md) for their
+differences and the engine quirks found so far.
+
 Each function takes the sections it reads (`Pick<LepDesign, ...>`): a whole
-design fits. Inputs are readonly and are never mutated.
+design fits. Inputs are readonly and are never mutated. The descriptions
+below are those of the Fortran model.
 
 ## Ribs
 

@@ -2,7 +2,7 @@
   "name": "@lepara/geometry",
   "version": "0.1.0",
   "private": true,
-  "description": "The 3D geometry of LEparagliding 3.29 designs as the engine computes it: ribs, trim and suspension lines, checked against its outputs.",
+  "description": "Versioned functional geometry models: the verified LEparagliding 3.29 port and enhanced v1.",
   "license": "GPL-3.0-only",
   "author": "victor314159",
   "repository": {
@@ -16,12 +16,23 @@
       "types": "./index.d.ts",
       "default": "./index.js"
     },
+    "./fortran-3.29": {
+      "types": "./fortran-3.29.d.ts",
+      "default": "./fortran-3.29.js"
+    },
+    "./enhanced-v1": {
+      "types": "./enhanced-v1.d.ts",
+      "default": "./enhanced-v1.js"
+    },
     "./package.json": "./package.json"
   },
   "types": "./index.d.ts",
   "files": [
     "*.js",
-    "*.d.ts"
+    "*.d.ts",
+    "fortran/",
+    "enhanced/",
+    "shared/"
   ],
   "sideEffects": false,
   "dependencies": {

@@ -1,22 +1,16 @@
 import type { LepAirfoil, LepDesign } from '@lepara/format';
 import { ribAirfoil, ribChord, ribPoint, type Point, type Point3 } from './ribs.ts';
 
-export type SkinProfileSections = 'geometry' | 'wingTip' | 'airfoils' | 'thickness';
-
-/** A rib at the airfoil's own points, from 1 as in the engine (0 unused). */
-export interface SkinRib {
-  /** Its airfoil scaled to its chord (cm), in its plane. */
-  readonly local: readonly Point[];
-  /** Placed in 3D, at Wing scale. */
-  readonly points: readonly Point3[];
-  /** The last extrados point, where the air inlet starts. */
-  readonly upper: number;
-  /** The points of the air inlet. */
-  readonly inlet: number;
-}
+import type { SkinProfileSections, SkinRib } from '../shared/skin-types.ts';
+export type { SkinProfileSections, SkinRib } from '../shared/skin-types.ts';
 
 /** datair: retain the engine's moved points and counts, including its unfinished insertion. */
-function datProfile(foil: Extract<LepAirfoil, { format: 'dat' }>, start: number, end: number) {
+function datProfile(
+  foil: Extract<LepAirfoil, { format: 'dat' }>,
+  start: number,
+  end: number,
+  round: (value: number) => number,
+) {
   const points: Point[] = foil.points.map(([x, y]) => [x, -y]);
   let first = 0,
     last = 0,
@@ -35,8 +29,8 @@ function datProfile(foil: Extract<LepAirfoil, { format: 'dat' }>, start: number,
       if (boundary === 'start') first = j + 1;
       else last = j + 1;
       // xm/xb are implicit single-precision variables in datair.
-      const slope = Math.fround((b[1] - a[1]) / (b[0] - a[0]));
-      const intercept = Math.fround(a[1] - slope * a[0]);
+      const slope = round((b[1] - a[1]) / (b[0] - a[0]));
+      const intercept = round(a[1] - slope * a[0]);
       const p: Point = [x, slope * x + intercept];
       const d1 = distance(a, p),
         d2 = distance(b, p);
@@ -55,10 +49,15 @@ function datProfile(foil: Extract<LepAirfoil, { format: 'dat' }>, start: number,
   return { points, upper: first + addedStart, inlet: last - first + 1 };
 }
 
-/** Native airfoil stations, with the engine's rib numbering and mirror rib 0. */
+/**
+ * Native airfoil stations, with the engine's rib numbering and mirror rib 0.
+ * The reference rounds datair's implicit reals; improved models can reuse
+ * the same station conventions with double arithmetic.
+ */
 export function skinRibs(
   design: Pick<LepDesign, SkinProfileSections>,
   airfoils: ReadonlyMap<string, LepAirfoil>,
+  round: (value: number) => number = Math.fround,
 ): SkinRib[] {
   const ribs: SkinRib[] = [];
   design.geometry.ribs.forEach((_, index) => {
@@ -71,6 +70,7 @@ export function skinRibs(
             profile.foil,
             design.airfoils[index].intakeStart,
             design.airfoils[index].intakeEnd,
+            round,
           );
     if (data.upper < 2 || data.inlet < 1 || data.upper + data.inlet - 1 > data.points.length)
       return;
@@ -82,6 +82,7 @@ export function skinRibs(
     }
     const chord = ribChord(design, index);
     ribs.push({
+      chord,
       local: [[0, 0], ...data.points.map(([x, y]): Point => [x * chord, y * chord])],
       points,
       upper: data.upper,

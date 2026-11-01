@@ -13,7 +13,7 @@ import {
   type LineSections,
   type Point3,
   type SuspensionLine,
-} from '@lepara/geometry';
+} from '@lepara/geometry/enhanced-v1';
 import { wingModel, type PreviewModel } from './model.ts';
 import { ANCHOR_COLORS } from './profile.ts';
 import { sweptSurface, tubeSurface } from './geometry.ts';

@@ -100,11 +100,14 @@ Setup, build and test commands are in [README.md](README.md).
   check. The editor's form adapters stay in `src/app/editor/`.
   Run `docker compose run --rm web npm test -- design` after changing it.
 - `packages/geometry/` ports the engine's 3D geometry (rib placement,
-  trim, suspension and brake lines, V and VH ribs), quirks included, at
+  trim, suspension and brake lines, V and VH ribs, skin), quirks included, at
   Wing scale; its tests compare it with `lep-out.txt` in `oracle/reference/`,
   the V and VH ribs with the `lep-3d.dxf` of the engine, and their holes and
   the H straps with its `leparagliding.dxf`, which they run (`build/engine/`). What the engine computes in
-  space goes there, typed on the sections it reads, not in `views`.
+  space goes there, typed on the sections it reads, not in `views`. The port
+  is the `fortran-3.29` model (the package root); `enhanced-v1` improves on
+  it, and the previews draw it: follow `packages/geometry/MODELS.md` and log
+  there each quirk found.
   Run `docker compose run --rm web npm test -- geometry views` after changing it.
 - `packages/views/` draws a design: each scene is a function of a
   `PreviewContext` (the `LepDesign` sections it reads), or of the file it

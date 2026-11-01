@@ -3,7 +3,7 @@
 // as lines and its holes as polylines of color 3, the drawing's y reversed:
 // Swoop2 is the only design with such holes, and the engine runs for it.
 import { expect, test } from '@playwright/test';
-import { holeOutline, vRibHoles, type Point } from '../../packages/geometry/src/index.ts';
+import { holeOutline, vRibHoles, type Point } from '@lepara/geometry/fortran-3.29';
 import { designFiles, engine, project } from '../format/helpers';
 
 /** The lines of a DXF, and the vertices of its polylines of color `color`. */

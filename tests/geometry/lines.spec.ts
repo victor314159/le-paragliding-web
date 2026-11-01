@@ -1,9 +1,5 @@
 import { expect, test } from '@playwright/test';
-import {
-  brakeLines,
-  suspensionLines,
-  type SuspensionLine,
-} from '../../packages/geometry/src/index.ts';
+import { brakeLines, suspensionLines, type SuspensionLine } from '@lepara/geometry/fortran-3.29';
 import { DESIGNS, project } from '../format/helpers';
 import { report, table } from './helpers';
 

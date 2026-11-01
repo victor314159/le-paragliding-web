@@ -6,7 +6,7 @@ import {
   type LineSections,
   type Point3,
   type VRib,
-} from '@lepara/geometry';
+} from '@lepara/geometry/enhanced-v1';
 import { centroid, finite, type Point } from './geometry.ts';
 import { wingModel, type PreviewModel } from './model.ts';
 import { contourPoint, frontPoint, ribProfile, type ProfileSections } from './profile.ts';
