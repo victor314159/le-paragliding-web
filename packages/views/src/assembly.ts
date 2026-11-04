@@ -134,7 +134,8 @@ interface CellRib {
   readonly mirrored: boolean;
   readonly chord: number;
   readonly tipward: Point3;
-  readonly pattern: Pick<RibPattern, 'sewing' | 'holes' | 'marks'>;
+  readonly pattern: Pick<RibPattern, 'sewing' | 'holes' | 'marks'> &
+    Partial<Pick<RibPattern, 'vRibs'>>;
   /** Its allowances: each point of a cut line, with the point of the sewing line it folds on. */
   readonly edges: readonly (readonly (readonly [number, Point])[])[];
   /** A point of its pattern in 3D. */
@@ -796,6 +797,45 @@ function ribPiece(rib: CellRib, side: number, kind: Kind = 'rib'): Piece | undef
   };
 }
 
+/** How far a line of points runs from a closed line, at most. */
+function offRing(points: readonly Point3[], ring: readonly Point3[]) {
+  const toSegment = (p: Point3, a: Point3, b: Point3) => {
+    const d = minus(b, a);
+    const t = Math.max(0, Math.min(1, dot(minus(p, a), d) / (dot(d, d) || 1)));
+    return Math.hypot(...minus(p, along(a, d, t)));
+  };
+  return Math.max(
+    ...points.map((p) =>
+      Math.min(...ring.map((a, i) => toSegment(p, a, ring[(i + 1) % ring.length]))),
+    ),
+  );
+}
+
+/** A rib's sewing line in 3D. */
+const contourOf = ({ pattern, place }: CellRib) =>
+  pattern.sewing.flatMap((point) => {
+    const placed = place(point);
+    return placed ? [placed] : [];
+  });
+
+/**
+ * How far an edge lies from where its rib says it is sewn: on the line the
+ * engine draws on it, end for end, or along its contour, in the rib's seam
+ * with the panels, where it draws none.
+ */
+function offRib(rib: CellRib, points: readonly Point3[]) {
+  const { pattern, place } = rib;
+  const [a, b] = [points[0], points[points.length - 1]];
+  const span = (p: Point3, q: Point3) => Math.hypot(...minus(p, q));
+  const lines = (pattern.vRibs?.lines ?? []).flatMap((line) => {
+    const [p, q] = [place(line[0]), place(line[line.length - 1])];
+    return p && q
+      ? [Math.min(Math.max(span(a, p), span(b, q)), Math.max(span(a, q), span(b, p)))]
+      : [];
+  });
+  return Math.min(...lines, offRing(points, contourOf(rib)));
+}
+
 /** The 3D edges of a strap or V-rib in the order of `left` and `right`, as far as its corners tell. */
 function matched(
   left: readonly Point[],
@@ -882,11 +922,22 @@ function vRibPiece(
     check(
       `V-rib ${pattern.rows[0]} on rib ${rib.index + 1}`,
       lengthOf(edge.map((v) => v.flat)) - length3D,
-      0,
+      offRib(
+        rib,
+        edge.map((v) => v.point),
+      ),
     );
     const line = cut[side + 2];
     if (line?.length !== count + 2) return [];
     const flatEdge = edge.map((v) => v.flat);
+    // In a rib's seam, nested in the panel's corner: under it, it would go through its allowance.
+    const inSeam =
+      offRing(
+        edge.map((v) => v.point),
+        contourOf(rib),
+      ) <= SEAM_CONVENTIONS.seamTolerance;
+    const panel = rib === ribs[0] && !rib.mirrored ? 'outerPanel' : 'innerPanel';
+    const layers = inSeam ? ribLayer(panel) + into : into;
     /** Square to its edge at point `k`, in the rib's plane. */
     const square = (k: number) =>
       unit(
@@ -902,7 +953,7 @@ function vRibPiece(
     const fits = rib.room(edge[middle].point, along([0, 0, 0], square(middle), way)) >= widest;
     const lying = (flat: Point, i: number) => {
       const k = Math.max(0, Math.min(i - 1, count - 1));
-      const inset = along(edge[k].point, rib.tipward, into * SEAM_CONVENTIONS.layerThickness);
+      const inset = along(edge[k].point, rib.tipward, layers * SEAM_CONVENTIONS.layerThickness);
       const width = distance(flat, edge[k].flat);
       return {
         seam: { point: inset, flat: edge[k].flat },

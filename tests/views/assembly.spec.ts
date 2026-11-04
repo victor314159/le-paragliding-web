@@ -299,32 +299,65 @@ for (const id of designs)
     expect(worst(gaps)).toBeLessThan(0.4);
   });
 
+/** How far a point lies from each rib of a model, outer last. */
+function ribPlanes({ fills }: ReturnType<ReturnType<typeof assembly>['model']>) {
+  return [fills[0], fills[fills.length - 1]].map(({ points }) => {
+    const [o, a, b] = [0, points.length >> 2, (points.length * 3) >> 3].map((i) => points[i]);
+    const [u, v] = [a, b].map((p) => p.map((value, axis) => value - o[axis]));
+    const normal = [
+      u[1] * v[2] - u[2] * v[1],
+      u[2] * v[0] - u[0] * v[2],
+      u[0] * v[1] - u[1] * v[0],
+    ];
+    const length = Math.hypot(...normal);
+    return (p: Point3) =>
+      Math.abs(p.reduce((sum, value, axis) => sum + (value - o[axis]) * normal[axis], 0)) / length;
+  });
+}
+
 for (const id of designs)
-  test(`${id}: a strap or V-rib's allowances lie a layer off its ribs`, () => {
+  test(`${id}: a strap or V-rib's allowances lie flat, a few layers off its ribs`, () => {
     const { design, airfoils } = project(`oracle/designs/${id}`);
     const pieces = assembly(design, airfoils);
     const model = pieces.model(pieces.cells[pieces.cells.length >> 1], new Set(['rib', 'vrib']));
-    const [inner, outer] = [model.fills[0], model.fills[model.fills.length - 1]];
+    const planes = ribPlanes(model);
     const flat = model.fills.slice(1, -1).map(({ color }) => color);
     const flaps = model.surfaces.filter((s) => s.kind === 'flap' && flat.includes(s.color));
-    const planes = [inner, outer].map(({ points }) => {
-      const [o, a, b] = [0, points.length >> 2, (points.length * 3) >> 3].map((i) => points[i]);
-      const [u, v] = [a, b].map((p) => p.map((value, axis) => value - o[axis]));
-      const normal = [
-        u[1] * v[2] - u[2] * v[1],
-        u[2] * v[0] - u[0] * v[2],
-        u[0] * v[1] - u[1] * v[0],
-      ];
-      const length = Math.hypot(...normal);
-      return (p: Point3) =>
-        Math.abs(p.reduce((sum, value, axis) => sum + (value - o[axis]) * normal[axis], 0)) /
-        length;
-    });
     const off = flaps.flatMap(({ rows }) =>
       rows.flat().map((p) => Math.min(...planes.map((plane) => plane(p)))),
     );
-    expect(worst(off)).toBeLessThan(0.15);
+    expect(worst(off)).toBeLessThan(0.35);
   });
+
+test("a strap's allowance nests in the panel's corner, past its allowance on the rib", () => {
+  // Its straps run along the ribs' contour, and it has no other V-rib.
+  const { design, airfoils } = project('oracle/designs/gnu-test-3.19');
+  const pieces = assembly(design, airfoils);
+  const cell = pieces.cells.find((c) => pieces.model(c, new Set(['vrib'])).fills.length)!;
+  const model = pieces.model(cell, new Set(['rib', 'vrib', 'extrados', 'intrados']));
+  const planes = ribPlanes(model);
+  const colors = new Set(model.fills.map(({ color }) => color));
+  const flapsOf = (strap: boolean) =>
+    model.surfaces.filter((s) => s.kind === 'flap' && colors.has(s.color) === strap);
+  const straps = flapsOf(true).filter(({ color }) => color !== model.fills[0].color);
+  expect(straps.length).toBeGreaterThan(0);
+  const side = (row: readonly Point3[]) => {
+    const middle = row[row.length >> 1];
+    return planes[0](middle) < planes[1](middle) ? 0 : 1;
+  };
+  const off = (row: readonly Point3[]) => planes[side(row)](row[row.length >> 1]);
+  for (const r of [0, 1]) {
+    const panels = flapsOf(false).filter(
+      ({ rows }) => side(rows[1]) === r && off(rows[1]) < 0.5 && rows[0].length > 20,
+    );
+    const own = straps.filter(({ rows }) => side(rows[1]) === r);
+    expect(panels.length).toBeGreaterThan(0);
+    expect(own.length).toBeGreaterThan(0);
+    expect(Math.min(...own.map(({ rows }) => off(rows[1])))).toBeGreaterThan(
+      Math.max(...panels.map(({ rows }) => off(rows[1]))),
+    );
+  }
+});
 
 test('a model draws only its visible layers', () => {
   const { design, airfoils } = project('oracle/designs/swoop2');
