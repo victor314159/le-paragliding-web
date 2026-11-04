@@ -74,6 +74,23 @@ circle.selected {
   stroke: var(--mat-sys-surface);
   stroke-width: 1;
 }
+circle.mark {
+  fill: var(--mat-sys-primary);
+  stroke: none;
+}
+circle.numeral {
+  fill: var(--mat-sys-on-surface-variant);
+  stroke: none;
+}
+circle.table-mark {
+  fill: var(--mat-sys-error);
+  stroke: none;
+}
+path.table-mark {
+  fill: none;
+  stroke: var(--mat-sys-error);
+  stroke-width: 1;
+}
 .rib-number {
   fill: var(--mat-sys-on-surface-variant);
   text-anchor: middle;

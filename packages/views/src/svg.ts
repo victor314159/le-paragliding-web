@@ -17,6 +17,10 @@ text { fill: #1b1b1f; font-family: sans-serif }
 .inlet { stroke: #8e4585; stroke-dasharray: 4 3 }
 .inlet-point { fill: #d04b47 }
 .hole-center { fill: #fff; stroke: #8e4585 }
+circle.mark { fill: #3f5aa8; stroke: none }
+circle.numeral { fill: #44474f; stroke: none }
+circle.table-mark { fill: #d04b47; stroke: none }
+path.table-mark { fill: none; stroke: #d04b47; stroke-width: 1 }
 .band-0 { fill: #e7e8ee; stroke: none }
 .band-1 { fill: #b8dce2; stroke: none }
 .band-2 { fill: #e8dbb3; stroke: none }

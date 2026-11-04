@@ -30,6 +30,8 @@ import {
   type PreprocessorFormTree,
 } from './preprocessor-draft';
 
+export type EditorView = 'editor' | '3d' | '2d';
+
 export interface DesignEditorData {
   /** The project as read: it may have errors, which the editor shows. */
   readonly project: LepProject;
@@ -165,7 +167,8 @@ export class EditorState {
   });
   /** The navigation is open, on narrow screens. */
   readonly navOpen = signal(false);
-  readonly overviewOpen = signal(this.data.overview ?? false);
+  /** The parameter editor, or the assembled wing in 3D or its cutting patterns in 2D. */
+  readonly view = signal<EditorView>(this.data.overview ? '3d' : 'editor');
   readonly previewCollapsed = signal(false);
   /** The height set by dragging the preview divider; null for the default. */
   readonly previewHeight = signal<number | null>(null);
@@ -303,7 +306,7 @@ export class EditorState {
   select(selection: Selection): boolean {
     this.navOpen.set(false);
     if (selection !== this.selection() && this.focusUnparsed()) return false;
-    this.overviewOpen.set(false);
+    this.view.set('editor');
     this.selection.set(selection);
     return true;
   }

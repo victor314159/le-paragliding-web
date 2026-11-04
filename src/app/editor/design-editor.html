@@ -3,7 +3,7 @@
     matButton
     type="button"
     class="nav-toggle"
-    [hidden]="editor.overviewOpen()"
+    [hidden]="editor.view() !== 'editor'"
     [attr.aria-expanded]="editor.navOpen()"
     aria-controls="editor-navigation"
     (click)="editor.navOpen.set(!editor.navOpen())"
@@ -15,7 +15,7 @@
       #nav
       id="editor-navigation"
       aria-label="Sections and airfoils"
-      [hidden]="editor.overviewOpen()"
+      [hidden]="editor.view() !== 'editor'"
       [class.open]="editor.navOpen()"
     >
       @for (group of navigation(); track group.title) {
@@ -25,7 +25,7 @@
             matButton
             type="button"
             [attr.aria-current]="
-              !editor.overviewOpen() && editor.selection() === item.id ? 'true' : null
+              editor.view() === 'editor' && editor.selection() === item.id ? 'true' : null
             "
             (click)="editor.select(item.id)"
           >
@@ -37,7 +37,7 @@
         }
       }
     </nav>
-    <div class="editor-content" [hidden]="editor.overviewOpen()">
+    <div class="editor-content" [hidden]="editor.view() !== 'editor'">
       <section #content aria-labelledby="editor-section-title">
         <div class="section-heading">
           <h3 id="editor-section-title" tabindex="-1">{{ title() }}</h3>
@@ -85,33 +85,30 @@
         <app-editor-preview />
       }
     </div>
-    @if (overviewVisited()) {
-      <app-wing-overview [active]="editor.overviewOpen()" [hidden]="!editor.overviewOpen()" />
+    @if (visited().has('3d')) {
+      <app-wing-overview [active]="editor.view() === '3d'" [hidden]="editor.view() !== '3d'" />
+    }
+    @if (visited().has('2d')) {
+      <app-patterns-overview [active]="editor.view() === '2d'" [hidden]="editor.view() !== '2d'" />
     }
   </div>
   <footer>
     <div class="editor-label">
       <button matButton="outlined" type="button" [matMenuTriggerFor]="viewMenu">
-        {{ editor.overviewOpen() ? '3D Preview' : 'Editor' }}
+        {{ viewLabel() }}
         <mat-icon svgIcon="arrow_drop_down" iconPositionEnd />
       </button>
       <mat-menu #viewMenu="matMenu">
-        <button
-          mat-menu-item
-          role="menuitemradio"
-          [attr.aria-checked]="!editor.overviewOpen()"
-          (click)="setOverview(false)"
-        >
-          Editor
-        </button>
-        <button
-          mat-menu-item
-          role="menuitemradio"
-          [attr.aria-checked]="editor.overviewOpen()"
-          (click)="setOverview(true)"
-        >
-          3D Preview
-        </button>
+        @for (view of views; track view[0]) {
+          <button
+            mat-menu-item
+            role="menuitemradio"
+            [attr.aria-checked]="editor.view() === view[0]"
+            (click)="setView(view[0])"
+          >
+            {{ view[1] }}
+          </button>
+        }
       </mat-menu>
       <span
         class="warning-badge mat-font-label-sm"

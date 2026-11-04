@@ -42,7 +42,10 @@ design is edited: scenes skip them.
 number, with its views and whether a view draws a chosen rib. Two scenes
 draw files instead: `airfoilScene(name, airfoil, point)` and
 `preprocessorScene(result, input, view, focus)`, the geometry pre-data.txt
-generates. `toSvg(scene)`
+generates. `cuttingScene(design, airfoils, group, enlarged)` lays out the
+pieces of a group of `PATTERN_GROUPS` flat, the sewing lines, cut lines, holes
+and marks of the cutting patterns of the 2D preview, the marks at their size
+on the fabric or `enlarged`. `toSvg(scene)`
 writes an SVG document, with a light default style for the kinds of its items. The helpers the scenes build on are exported too: rib profiles
 (`ribProfile`, `frontPoint`, `offsetProfile`), line trees, rod curves,
 reinforcement attachments, color cuts, skin tension curves, vents, wing tips
@@ -50,8 +53,8 @@ and holes.
 
 A `PreviewModel` is a 3D drawing, at Wing scale in the engine's coordinates
 (Z down) of [`@lepara/geometry`](../geometry/README.md), whose
-`enhanced-v1` model it draws (the engine's geometry, with an improved skin
-ballooning): grids of skin, some
+`enhanced-v1` model it draws (the engine's geometry, its bugs corrected, with an improved
+skin ballooning): grids of skin, some
 colored over it, planar fills with holes, lines and dots. A section with one
 gives it as the `model` of its `SECTION_SCENES` entry, for its `MODEL_VIEW`
 view: `wingModel` (sections 1 to 3 and 30, the skin open at the inlets of

@@ -41,6 +41,7 @@ import { ModelPreview } from './model-preview';
       </button>
     </div>
     <app-model-preview
+      class="preview"
       [model]="model()"
       [fitRequest]="fitRequest()"
       [skinCoverage]="skinCoverage()"
@@ -104,62 +105,8 @@ import { ModelPreview } from './model-preview';
       }
     </app-model-preview>
   `,
+  styleUrl: './overview.css',
   styles: `
-    :host {
-      display: flex;
-      flex: 1;
-      flex-direction: column;
-      min-width: 0;
-      min-height: 0;
-      background: var(--mat-sys-surface-container-low);
-    }
-    :host([hidden]) {
-      display: none;
-    }
-    .toolbar {
-      display: flex;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 8px 16px;
-      padding: 12px 24px;
-    }
-    h3 {
-      flex: 1;
-      margin: 0;
-      font: var(--mat-sys-title-medium);
-    }
-    select {
-      cursor: pointer;
-      font: var(--mat-sys-body-medium);
-      max-width: 100%;
-      padding: 6px;
-      border: 1px solid var(--mat-sys-outline);
-      border-radius: 4px;
-      color: var(--mat-sys-on-surface);
-      background: var(--mat-sys-surface);
-    }
-    .layers {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      width: max-content;
-      max-width: 100%;
-      text-shadow:
-        0 0 2px var(--mat-sys-surface-container-low),
-        0 0 4px var(--mat-sys-surface-container-low);
-      margin-block: 8px;
-    }
-    label {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      min-height: 28px;
-      min-width: 0;
-      padding: 2px 0;
-      font: var(--mat-sys-body-small);
-      cursor: pointer;
-      pointer-events: auto;
-    }
     .skin-cut {
       display: flex;
       align-items: center;
@@ -178,29 +125,9 @@ import { ModelPreview } from './model-preview';
       text-align: right;
       font-variant-numeric: tabular-nums;
     }
-    input {
-      accent-color: var(--mat-sys-primary);
-    }
-    app-model-preview {
-      flex: 1;
-      min-height: 0;
-      padding: 0 24px 12px;
-    }
     .empty {
       margin: 0 0 8px;
       color: var(--mat-sys-on-surface-variant);
-    }
-    @media (max-width: 700px) {
-      .toolbar {
-        padding: 8px 16px;
-        gap: 8px;
-      }
-      h3 {
-        flex-basis: 100%;
-      }
-      app-model-preview {
-        padding-inline: 16px;
-      }
     }
   `,
 })

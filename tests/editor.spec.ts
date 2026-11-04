@@ -1695,6 +1695,42 @@ test('A8 colored fabric stays visible from different cameras with full and cutaw
   }
 });
 
+test('2D preview draws the cutting patterns of the draft, by group of pieces', async ({ page }) => {
+  await openExample(page, 'swoop2');
+  await opener(page).click();
+  await selectEditorView(page, '2D Preview');
+  const patterns = page.locator('app-patterns-overview');
+  await expect(
+    patterns.getByRole('heading', { name: 'Cutting patterns', exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Sections and airfoils' })).toBeHidden();
+  await expect(patterns.locator('figcaption')).toHaveText('Extrados panels');
+  const panels = patterns.locator('path.outline');
+  const count = await panels.count();
+  expect(count).toBeGreaterThan(10);
+  await expect(panels.first().locator('title')).toHaveText(/^Panel \d+$/);
+  await patterns.getByRole('combobox', { name: 'Pieces', exact: true }).selectOption('intrados');
+  await expect(patterns.locator('figcaption')).toHaveText('Intrados panels');
+  await expect(panels).toHaveCount(count);
+  await patterns.getByRole('combobox', { name: 'Pieces', exact: true }).selectOption('ribs');
+  await expect(patterns.locator('figcaption')).toHaveText('Ribs');
+  await expect(panels.first().locator('title')).toHaveText('Rib 1');
+  await patterns.getByRole('combobox', { name: 'Pieces', exact: true }).selectOption('vribs');
+  await expect(patterns.locator('figcaption')).toHaveText('H straps and V-ribs');
+  await expect(panels.first().locator('title')).toHaveText(/^H strap \d+-\d+$/);
+  await expect(patterns.locator('path:has(title:text-is("Hole"))').first()).toBeAttached();
+  await patterns.screenshot({ path: 'build/test-results/patterns-overview.png' });
+  await patterns
+    .getByRole('combobox', { name: 'Pieces', exact: true })
+    .selectOption('reinforcements');
+  await expect(patterns.locator('figcaption')).toHaveText('Rod pockets and mylars');
+  // Rib 1 of swoop2 holds a nose rod and an extrados rod.
+  await expect(panels.first().locator('title')).toHaveText('Rod pocket 1a, type 1');
+  await selectEditorView(page, 'Editor');
+  await expect(patterns).toBeHidden();
+  await expect(page.getByRole('heading', { name: '1 · Geometry', exact: true })).toBeVisible();
+});
+
 for (const width of [1440, 390]) {
   test(`wing overview preserves the draft and section, camera and layers at ${width}px`, async ({
     page,

@@ -31,9 +31,11 @@ import {
   EditorState,
   fieldAt,
   type DesignEditorResult,
+  type EditorView,
   type PreprocessorStatus,
   type Selection,
 } from './editor-state';
+import { PatternsOverview } from './patterns-overview';
 import { SECTION_FORMS } from './sections';
 import { WingOverview } from './wing-overview';
 
@@ -76,6 +78,7 @@ interface NavigationItem {
     MatTooltip,
     NgComponentOutlet,
     EditorPreview,
+    PatternsOverview,
     WingOverview,
   ],
   templateUrl: './design-editor.html',
@@ -235,13 +238,22 @@ export class DesignEditor {
     return `${status} · ${preprocessor.exists ? 'Modified' : 'Created'}`;
   }
 
-  protected readonly overviewVisited = signal(this.editor.overviewOpen());
+  protected readonly views: readonly (readonly [EditorView, string])[] = [
+    ['editor', 'Editor'],
+    ['3d', '3D Preview'],
+    ['2d', '2D Preview'],
+  ];
+  protected readonly viewLabel = computed(
+    () => this.views.find(([view]) => view === this.editor.view())![1],
+  );
+  /** The previews opened once, kept while hidden. */
+  protected readonly visited = signal<ReadonlySet<EditorView>>(new Set([this.editor.view()]));
 
-  protected setOverview(open: boolean): void {
-    if (open === this.editor.overviewOpen() || this.editor.focusUnparsed()) return;
-    this.overviewVisited.set(true);
+  protected setView(view: EditorView): void {
+    if (view === this.editor.view() || this.editor.focusUnparsed()) return;
+    this.visited.update((visited) => new Set(visited).add(view));
     this.editor.navOpen.set(false);
-    this.editor.overviewOpen.set(open);
+    this.editor.view.set(view);
   }
 
   protected showFirstError(): void {
