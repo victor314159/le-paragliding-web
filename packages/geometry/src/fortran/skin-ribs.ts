@@ -50,6 +50,32 @@ function datProfile(
 }
 
 /**
+ * The airfoil of rib `index` (from 0) as the engine's arrays hold it,
+ * `u(i,j,1)`, `v(i,j,1)`: a .txt airfoil and its counts, scaled by section
+ * 33; a .dat one as datair moves its points, unscaled.
+ */
+export function ribStations(
+  design: Pick<LepDesign, 'airfoils' | 'thickness'>,
+  airfoils: ReadonlyMap<string, LepAirfoil>,
+  index: number,
+  round: (value: number) => number = Math.fround,
+) {
+  const profile = ribAirfoil(design, airfoils, index);
+  if (!profile.foil) return undefined;
+  return profile.foil.format === 'txt'
+    ? { points: profile.points, upper: profile.foil.extrados, inlet: profile.foil.inlet }
+    : datProfile(
+        profile.foil,
+        design.airfoils[index].intakeStart,
+        design.airfoils[index].intakeEnd,
+        round,
+      );
+}
+
+/** How a model reads a rib's airfoil stations: the engine's, `ribStations`, by default. */
+export type Stations = typeof ribStations;
+
+/**
  * Native airfoil stations, with the engine's rib numbering and mirror rib 0.
  * The reference rounds datair's implicit reals; improved models can reuse
  * the same station conventions with double arithmetic.
@@ -58,20 +84,12 @@ export function skinRibs(
   design: Pick<LepDesign, SkinProfileSections>,
   airfoils: ReadonlyMap<string, LepAirfoil>,
   round: (value: number) => number = Math.fround,
+  stations: Stations = ribStations,
 ): SkinRib[] {
   const ribs: SkinRib[] = [];
   design.geometry.ribs.forEach((_, index) => {
-    const profile = ribAirfoil(design, airfoils, index);
-    if (!profile.foil) return;
-    const data =
-      profile.foil.format === 'txt'
-        ? { points: profile.points, upper: profile.foil.extrados, inlet: profile.foil.inlet }
-        : datProfile(
-            profile.foil,
-            design.airfoils[index].intakeStart,
-            design.airfoils[index].intakeEnd,
-            round,
-          );
+    const data = stations(design, airfoils, index, round);
+    if (!data) return;
     if (data.upper < 2 || data.inlet < 1 || data.upper + data.inlet - 1 > data.points.length)
       return;
     const points: Point3[] = [[0, 0, 0]];

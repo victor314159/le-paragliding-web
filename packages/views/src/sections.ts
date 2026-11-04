@@ -25,6 +25,7 @@ import {
   miniribsModel,
   ventsModel,
   ventsScene,
+  vRibCuts,
   wingTipModel,
   wingTipScene,
 } from './special.ts';
@@ -174,7 +175,8 @@ export const SECTION_SCENES: ReadonlyMap<number, SectionScene> = new Map([
     {
       views: [['planform', 'Planform'], ['front', 'Front'], MODEL_VIEW],
       draw: reinforcementScene,
-      model: (c: PreviewContext) => reinforcementModel(c.design, c.airfoils, c.selected),
+      model: (c: PreviewContext) =>
+        reinforcementModel(c.design, c.airfoils, c.selected, vRibCuts(c.design, c.airfoils).cut),
     },
   ],
   [15, colorsSection(true)],

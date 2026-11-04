@@ -9,11 +9,7 @@ import {
 } from '../../packages/views/src/index.ts';
 import { DESIGNS, project } from '../format/helpers';
 import { ANCHOR_COLORS } from '../../packages/views/src/profile.ts';
-import {
-  brakeLines,
-  suspensionLines,
-  suspensionTriangles,
-} from '../../packages/geometry/src/index.ts';
+import { brakeLines, suspensionLines, suspensionTriangles } from '@lepara/geometry/enhanced-v1';
 
 test('overview shows connected attachment points without spanwise tracks', () => {
   const { design, airfoils } = project('oracle/designs/swoop2');

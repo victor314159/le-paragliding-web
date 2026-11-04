@@ -234,6 +234,18 @@ export const VARIANTS: readonly Variant[] = [
     }),
   },
   {
+    name: 'hv-ribs-15-ellipses',
+    covers: 'H V ribs of type 15 cut out by ellipses, with holes, ribs and V-ribs sewn apart',
+    base: 'A8',
+    edit: sections({
+      6: line('15\tribs (mm)', '10\tribs (mm)'),
+      12: rows(/^\d+\s+15\s/, (l) => l.replace(/80\.(\s+2\.1)/, '130.$1')),
+      38: replaceAll('1', '1', '1\t15\t1\t3\t45.\t25.\t0.6\t0.0\t0.0'),
+      // Read with section 38 active.
+      39: replaceAll('0', '6', ...[1, 2, 3, 4, 5, 6].map((type) => `vrib_type${type}\t1.0\t1.0`)),
+    }),
+  },
+  {
     name: 'hv-ribs-2-4-12-13-14',
     covers: 'H V ribs of types 2, 4, 12, 13 and 14',
     base: 'gnuC-27',

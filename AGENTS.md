@@ -31,9 +31,10 @@ Setup, build and test commands are in [README.md](README.md).
   | rest of `src/app/`       | `inputs compute previews editor` |
 
 - The equivalence tests `tests/oracle.spec.ts` and `tests/format/engine.spec.ts`
-  check one design; every design and variant with `-e ORACLE_ALL=1`, as CI
-  does. Use it when changing the engine or how `packages/format/` reads or
-  writes.
+  check one design, and the geometry's comparisons that run the engine
+  (`oracleCases`, `tests/geometry/`) a few cases; every design and variant
+  with `-e ORACLE_ALL=1`, as CI does. Use it when changing the engine or how
+  `packages/format/` reads or writes.
 - Use the Playwright MCP to see frontend changes (`docker compose up`).
 - Before saying a change is done, run `npm run check` and the tests of what
   you changed.
@@ -102,9 +103,10 @@ Setup, build and test commands are in [README.md](README.md).
 - `packages/geometry/` ports the engine's 3D geometry (rib placement,
   trim, suspension and brake lines, V and VH ribs, skin), quirks included, at
   Wing scale; its tests compare it with `lep-out.txt` in `oracle/reference/`,
-  the V and VH ribs with the `lep-3d.dxf` of the engine, and their holes and
-  the H straps with its `leparagliding.dxf`, which they run (`build/engine/`). What the engine computes in
-  space goes there, typed on the sections it reads, not in `views`. The port
+  the V and VH ribs with the `lep-3d.dxf` of the engine, and their holes,
+  the H straps and the pieces laid flat (panels, ribs, miniribs, V-ribs) with
+  its `leparagliding.dxf`, which they run (`build/engine/`). What the engine computes in
+  space or lays flat goes there, typed on the sections it reads, not in `views`. The port
   is the `fortran-3.29` model (the package root); `enhanced-v1` improves on
   it, and the previews draw it: follow `packages/geometry/MODELS.md` and log
   there each quirk found.

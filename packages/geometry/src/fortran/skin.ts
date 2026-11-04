@@ -1,15 +1,18 @@
 import type { LepAirfoil, LepDesign } from '@lepara/format';
 import type { BalloonedPanel, SkinSections } from '../shared/skin-types.ts';
-import { buildSkin, skinHeights } from '../shared/skin-mesh.ts';
+import { buildSkin, skinHeights, type SkinModel } from '../shared/skin-mesh.ts';
+import { shapingCuts } from './skin-shaping.ts';
 import { add, sub, cross, unit } from '../shared/vectors.ts';
 import type { Point3 } from '../shared/points.ts';
+import { panelOutlines, type SkinPanel, type SkinPanelSections } from './skin-panels.ts';
 import { skinPatterns } from './skin-patterns.ts';
 import { skinRibs } from './skin-ribs.ts';
 export type { BalloonedPanel, SkinSections } from '../shared/skin-types.ts';
 export { skinSubdivisions } from '../shared/skin-mesh.ts';
+export type { SkinPanel, SkinPanelSections } from './skin-panels.ts';
 
 /** panels3d: retain the original 301-step search and its 0.01 cm flat threshold. */
-function arcHeight(s: number, sm: number): number {
+export function arcHeight(s: number, sm: number): number {
   const max = 0.5 * Math.sqrt(Math.abs(sm * sm - s * s));
   const q = (sm * s) / (8 * max + 0.00001);
   const range = q - max;
@@ -21,6 +24,21 @@ function arcHeight(s: number, sm: number): number {
   }
   return 0;
 }
+
+/** panels3d: in-plane normals, by a point 10 cm off the median extrados plane. */
+const normals: SkinModel['normals'] = (median, _inner, _outer, upper) => {
+  const first = median[1],
+    mid = median[Math.trunc((1 + upper) / 2)],
+    last = median[upper];
+  const plane = unit(cross(sub(mid, first), sub(last, first)));
+  return median.map((p, j) => {
+    if (j === 0) return [0, 0, 0] as Point3;
+    const prev = median[Math.max(1, j - 1)],
+      next = median[Math.min(j + 1, median.length - 1)];
+    const origin = j === median.length - 1 ? prev : p;
+    return unit(cross(sub(next, prev), sub(add(origin, plane, 10), prev)));
+  });
+};
 
 /** The verified Fortran 3.29 surface model, including its thresholds and central-cell copy. */
 export function balloonedSkin(
@@ -48,18 +66,22 @@ export function balloonedSkin(
       }
       return { span, lift };
     },
-    normals(median, _inner, _outer, upper) {
-      const first = median[1],
-        mid = median[Math.trunc((1 + upper) / 2)],
-        last = median[upper];
-      const plane = unit(cross(sub(mid, first), sub(last, first)));
-      return median.map((p, j) => {
-        if (j === 0) return [0, 0, 0] as Point3;
-        const prev = median[Math.max(1, j - 1)],
-          next = median[Math.min(j + 1, median.length - 1)];
-        const origin = j === median.length - 1 ? prev : p;
-        return unit(cross(sub(next, prev), sub(add(origin, plane, 10), prev)));
-      });
-    },
+    normals,
   });
+}
+
+/**
+ * The panels laid flat (§8.2 to §8.4) as the engine draws them (§8.6), split
+ * at the 3D-shaping cuts, whose seams take each cell's own heights (czinf).
+ */
+export function skinPanels(
+  design: Pick<LepDesign, SkinPanelSections>,
+  airfoils: ReadonlyMap<string, LepAirfoil>,
+): SkinPanel[] {
+  const ribs = skinRibs(design, airfoils);
+  if (!ribs.length) return [];
+  const patterns = skinPatterns(design, ribs);
+  const heights = skinHeights(ribs, patterns, arcHeight);
+  const cuts = shapingCuts(design, ribs, heights, normals, Math.fround);
+  return panelOutlines(design, ribs, patterns, cuts, Math.fround);
 }

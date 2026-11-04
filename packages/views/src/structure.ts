@@ -239,7 +239,8 @@ export function reinforcementModel(
   model.title = 'Wing 3D model · V and VH ribs';
   model.note =
     `${ribs.length} V and VH ribs a side between ribs, as the engine draws them in its 3D ` +
-    `model (§16), and ${straps.length} H straps (type 1), which it computes but leaves out ` +
+    `model (§16)${pieces.some(({ grids }) => grids) ? ', cut out as it cuts them laid flat' : ''}, ` +
+    `and ${straps.length} H straps (type 1), which it computes but leaves out ` +
     'of it; with the lines that reach the anchors, as the engine places ' +
     'them before load (§12). At Wing scale, ribs placed as the engine places them, without ' +
     'the skin. Drag to rotate, scroll to zoom.';

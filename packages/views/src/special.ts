@@ -1,5 +1,6 @@
 import type { HvrHoleRow, LepAirfoil, LepDesign } from '@lepara/format';
 import {
+  cutoutPoint,
   flatAt,
   flatToRib,
   holeOutline,
@@ -7,6 +8,7 @@ import {
   ribPoint,
   vRibHoles,
   type BalloonedPanel,
+  type FlatCutout,
   type LineSections,
   type HoledVRib,
   type Point3,
@@ -501,15 +503,28 @@ export function hvrHolesScene(context: PreviewContext<ProfileSections | 'hvrHole
   return scene;
 }
 
+const closed = (ring: readonly Point[]) => [...ring, ring[0]];
+
+/** The edge of a type 5 cutout laid flat: its ellipse, or its parabola from P1 to P2. */
+function cutoutOutline(cutout: FlatCutout): Point[] {
+  const { ellipse, p1, p2 } = cutout;
+  if (ellipse) return closed(holeOutline({ ...ellipse, angle: 0, row: -1 }));
+  const n = 40;
+  return Array.from({ length: n + 1 }, (_, k) =>
+    cutoutPoint(cutout, p1[1] + ((p2[1] - p1[1]) * k) / n),
+  );
+}
+
 /** Cells across a strip of a V-rib that a hole reaches. */
 const ACROSS = 32;
 
 /**
- * A V-rib cut by its `holes` as grids of skin in its own coordinates (`s`
- * along its rows, `t` across): row strips (finer for long rows, about 1 cm)
- * that no hole reaches whole, as the V-rib is straight across, the others
- * in cells, their corners in a hole moved onto its edge, laid flat, and
- * the cells all in a hole left out. A corner whose hole edge is off the
+ * A V-rib cut by its holes and cutouts as grids of skin in its own
+ * coordinates (`s` along its rows, `t` across): row strips (finer for long
+ * rows, about 1 cm) that no cut reaches whole, as the V-rib is straight
+ * across, the others in cells, their corners in a cut moved onto its edge
+ * (radially in an ellipse, across in x onto a parabola), laid flat, and
+ * the cells all in a cut left out. A corner whose cut edge is off the
  * V-rib, where a hole overflows it, leaves its cells out.
  */
 function cutGrids(vrib: HoledVRib): Point[][][] {
@@ -521,27 +536,37 @@ function cutGrids(vrib: HoledVRib): Point[][][] {
   );
   const steps = Math.max(1, Math.round(length / last));
   const rows = Array.from({ length: last * steps + 1 }, (_, k) => k / steps);
-  /** The hole `p` is in, its normalized radius there and its center. */
-  const holeAt = (p: Point) => {
-    const q = flatAt(vrib, p);
-    for (const hole of vrib.holes) {
+  const ellipses = [
+    ...vrib.holes,
+    ...vrib.cutouts.flatMap(({ ellipse }) => (ellipse ? [{ ...ellipse, angle: 0 }] : [])),
+  ];
+  const parabolas = vrib.cutouts.filter(({ ellipse }) => !ellipse);
+  /** Whether the flat point `q` is cut out, and the point of the cut's edge it moves to; none at an ellipse's center. */
+  const cutAt = (q: Point): { edge?: Point } | undefined => {
+    for (const hole of ellipses) {
       const [dx, dy] = [q[0] - hole.center[0], q[1] - hole.center[1]];
       const [c, s] = [Math.cos(hole.angle), Math.sin(hole.angle)];
       const radius = Math.hypot((dx * c + dy * s) / hole.a, (-dx * s + dy * c) / hole.b);
-      if (radius < 1) return { radius, q, hole };
+      if (radius < 1)
+        return radius < 1e-6
+          ? {}
+          : { edge: [hole.center[0] + dx / radius, hole.center[1] + dy / radius] };
+    }
+    for (const cutout of parabolas) {
+      // Between the parabola and the anchor rib's edge, which its vertex faces away from.
+      const edge = cutoutPoint(cutout, q[1]);
+      const away = Math.sign(cutout.vertex[0] - cutout.p1[0]);
+      if (q[1] > cutout.p1[1] && q[1] < cutout.p2[1] && (q[0] - edge[0]) * away < 0)
+        return { edge };
     }
     return undefined;
   };
-  /** A corner: on the V-rib, or on the edge of the hole it is in; `undefined` off the V-rib. */
+  /** A corner: on the V-rib, or on the edge of the cut it is in; `undefined` off the V-rib. */
   const corner = (p: Point): { point?: Point; inside: boolean } => {
-    const found = holeAt(p);
+    const found = cutAt(flatAt(vrib, p));
     if (!found) return { point: p, inside: false };
-    const { radius, q, hole } = found;
-    if (radius < 1e-6) return { inside: true };
-    const edge = flatToRib(vrib, [
-      hole.center[0] + (q[0] - hole.center[0]) / radius,
-      hole.center[1] + (q[1] - hole.center[1]) / radius,
-    ]);
+    if (!found.edge) return { inside: true };
+    const edge = flatToRib(vrib, found.edge);
     const on = edge[0] >= 0 && edge[0] <= last && edge[1] >= 0 && edge[1] <= 1;
     return { point: on ? edge : undefined, inside: true };
   };
@@ -589,11 +614,30 @@ function cutGrids(vrib: HoledVRib): Point[][][] {
 }
 
 /**
+ * The V-ribs with holes or cutouts (`vRibHoles`), and `reinforcementModel`'s
+ * `cut` giving each its grids in 3D.
+ */
+export function vRibCuts(
+  design: Pick<LepDesign, ProfileSections | 'hvRibs' | 'hvrHoles'>,
+  airfoils: ReadonlyMap<string, LepAirfoil>,
+) {
+  // By the first points of their edges.
+  const key = ([a, b]: VRib['edges']) => `${a[0].join()}/${b[0].join()}`;
+  const holed = new Map(vRibHoles(design, airfoils).map((vrib) => [key(vrib.rib.edges), vrib]));
+  const cut = (rib: VRib) => {
+    const vrib = holed.get(key(rib.edges));
+    return vrib && cutGrids(vrib).map((grid) => grid.map((row) => row.map((p) => ribAt(vrib, p))));
+  };
+  return { holed: [...holed.values()], cut };
+}
+
+/**
  * Section 38: the V and VH ribs of section 12 in 3D, with the holes of
- * types 5 and 6 cut out of them as the engine cuts them on the V-ribs laid
- * flat (`vRibHoles`), carried onto each V-rib row by row: a hole that
- * overflows its V-rib, as the engine's may, notches it; and the miniribs
- * (`placedMiniribs`), with those of type 9. The row `selected` highlighted, if it
+ * types 5 and 6 and the cutouts of type 5 between its anchors cut out of
+ * them as the engine cuts them on the V-ribs laid flat (`vRibHoles`),
+ * carried onto each V-rib row by row: a hole that overflows its V-rib, as
+ * the engine's may, notches it; and the miniribs (`placedMiniribs`), with
+ * those of type 9. The row `selected` highlighted, if it
  * is the one the engine keeps.
  */
 export function hvrHolesModel(
@@ -602,21 +646,8 @@ export function hvrHolesModel(
   selected: number,
   layer?: PreviewModel,
 ): PreviewModel {
-  // The V-ribs with holes by the first points of their edges.
-  const key = ([a, b]: VRib['edges']) => `${a[0].join()}/${b[0].join()}`;
-  const holed = new Map(vRibHoles(design, airfoils).map((vrib) => [key(vrib.rib.edges), vrib]));
-  const model = reinforcementModel(
-    design,
-    airfoils,
-    -1,
-    (rib) => {
-      const vrib = holed.get(key(rib.edges));
-      return (
-        vrib && cutGrids(vrib).map((grid) => grid.map((row) => row.map((p) => ribAt(vrib, p))))
-      );
-    },
-    layer,
-  );
+  const { holed, cut } = vRibCuts(design, airfoils);
+  const model = reinforcementModel(design, airfoils, -1, cut, layer);
   model.title = 'Wing 3D model · HVR holes';
   // Own the minirib contours here as well as their fills, including when drawing a layer.
   model.lines = model.lines.filter((line) => line.kind !== 'minirib');
@@ -639,19 +670,23 @@ export function hvrHolesModel(
           selected: row === selected,
         });
     }
-  for (const vrib of holed.values())
-    for (const hole of vrib.holes) {
-      const ring = holeOutline(hole).map((p) => ribAt(vrib, flatToRib(vrib, p)));
+  for (const vrib of holed) {
+    const rings = [
+      ...vrib.holes.map((hole) => ({ ring: closed(holeOutline(hole)), row: hole.row })),
+      ...vrib.cutouts.map((cutout) => ({ ring: cutoutOutline(cutout), row: -1 })),
+    ];
+    for (const { ring, row } of rings)
       for (const side of [mirror, (p: Point3) => p])
         model.lines.push({
-          points: [...ring, ring[0]].map(side),
+          points: ring.map((p) => side(ribAt(vrib, flatToRib(vrib, p)))),
           kind: 'hole',
-          selected: hole.row === selected,
+          selected: row >= 0 && row === selected,
         });
-    }
+  }
   model.note =
     'The holes of the type 5 and 6 V-ribs cut out as the engine cuts them on the V-ribs laid ' +
-    'flat, from the last row of each type with holes, carried onto each V-rib row by row; one ' +
+    'flat, from the last row of each type with holes, and the type 5 V-ribs cut out between ' +
+    'their anchors, carried onto each V-rib row by row; a hole ' +
     'that overflows its V-rib, as the engine allows, notches it. The selected row highlighted ' +
     'if it is the one kept; the miniribs, which the engine leaves out of its 3D model, midway ' +
     'across their cells, with the holes of type 9. ' +

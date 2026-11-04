@@ -5,6 +5,7 @@ export const add = (a: Point3, b: Point3, k = 1): Point3 => [
   a[1] + k * b[1],
   a[2] + k * b[2],
 ];
+export const dot = (a: Point3, b: Point3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 export const cross = (a: Point3, b: Point3): Point3 => [
   a[1] * b[2] - a[2] * b[1],
   a[2] * b[0] - a[0] * b[2],

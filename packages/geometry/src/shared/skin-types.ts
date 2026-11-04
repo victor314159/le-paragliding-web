@@ -16,7 +16,7 @@ export interface SkinRib {
 }
 
 export type SkinPatternSections =
-  'geometry' | 'skinTension' | 'skinTensionGroups' | 'sewingAllowances';
+  'geometry' | 'skinTension' | 'skinTensionGroups' | 'sewingAllowances' | 'glueVents';
 
 /** A panel laid flat: its edges on its left and right ribs, by the engine's point indices. */
 export interface Flat {
@@ -24,8 +24,7 @@ export interface Flat {
   right: Point[];
 }
 
-export type SkinSections =
-  SkinProfileSections | SkinPatternSections | 'specialParameters' | 'glueVents';
+export type SkinSections = SkinProfileSections | SkinPatternSections | 'specialParameters';
 
 /** A right-half panel of the engine's skin mesh, rows from its inner rib outwards. */
 export interface BalloonedPanel {
@@ -40,7 +39,14 @@ export interface BalloonedPanel {
 }
 
 export interface SkinPatterns {
+  /** Sewing lines (the engine's vectors 9 and 10). */
   readonly upper: readonly Flat[];
   readonly lower: readonly Flat[];
   readonly inlet: readonly Flat[];
+  /** Cut lines along the ribs, sewing allowance included (vectors 11 and 12). */
+  readonly seams: {
+    readonly upper: readonly Flat[];
+    readonly lower: readonly Flat[];
+    readonly inlet: readonly Flat[];
+  };
 }

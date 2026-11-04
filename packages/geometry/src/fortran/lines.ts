@@ -1,7 +1,7 @@
 // Section 12 of the engine: the suspension lines in space, from the main
 // karabiners to the anchors (§12.2 to 12.8), with its quirks.
 import type { LepAirfoil, LepDesign } from '@lepara/format';
-import { anchorPoint, turnedAnchor, turnsAnchor } from './anchors.ts';
+import { anchorPoint, engineLines, turnedAnchor, turnsAnchor, type LineSteps } from './anchors.ts';
 import { branch, lineList, placeLines, type ListedLine, type SuspensionLine } from './network.ts';
 import { finite, ribChord, type Point3 } from './ribs.ts';
 import { karabiner } from './trim.ts';
@@ -51,6 +51,7 @@ function anchorLoads(design: Pick<LepDesign, LineSections>) {
 export function suspensionLines(
   design: Pick<LepDesign, LineSections>,
   airfoils: ReadonlyMap<string, LepAirfoil>,
+  steps: LineSteps = engineLines,
 ): SuspensionLine[] {
   const start = karabiner(design);
   if (!start) return [];
@@ -60,7 +61,7 @@ export function suspensionLines(
   const anchors = new Map<string, Point3 | undefined>();
   const anchor = (rib: number, row: number) => {
     const key = `${rib}/${row}`;
-    if (!anchors.has(key)) anchors.set(key, anchorPoint(design, airfoils, rib, row));
+    if (!anchors.has(key)) anchors.set(key, anchorPoint(design, airfoils, rib, row, steps));
     return anchors.get(key);
   };
   const load = anchorLoads(design);
@@ -77,20 +78,21 @@ export function suspensionLines(
         if (level !== line.level || order !== line.order) continue;
         const point = anchor(path.anchorRib, path.anchorRow);
         if (!point) return undefined;
-        // Weightings 1 and 2 take the line's own rib, for every anchor.
+        // The engine's weightings 1 and 2 take the line's own rib, for every anchor.
+        const rib = steps.ownWeights ? path.anchorRib : line.rib;
         const factor =
           weighting === 3
             ? load(path.anchorRib, path.anchorRow)
             : weighting === 2
-              ? chord(line.rib) * relative(line.rib)
+              ? chord(rib) * relative(rib)
               : weighting === 1
-                ? chord(line.rib)
+                ? chord(rib)
                 : 1;
         point.forEach((value, axis) => (sum[axis] += value * factor));
         weights += factor;
       }
     // Weighting 0 divides by the count of identification (`corda(i,4)`), not of anchors.
-    const divisor = weighting === 0 ? line.paths : weights;
+    const divisor = weighting === 0 && !steps.ownWeights ? line.paths : weights;
     const point = sum.map((value) => value / divisor) as [number, number, number];
     return point.every(finite) ? point : undefined;
   };
@@ -105,12 +107,15 @@ export function suspensionLines(
     paths,
     action,
     first: (line) => [start, riser(line.plan)],
-    fromFirst: true,
+    fromFirst: !steps.ownRisers,
     anchor: (line) => anchor(line.rib, line.row),
     ramifications: [lines3.l2 * scale, lines4.l3 * scale, lines4.l2 * scale],
+    toward: steps.toward,
   });
   if (design.geometry.paragliderType !== 'ss') return placed;
   return placed.map((line) =>
-    turnsAnchor(line) ? { ...line, end: turnedAnchor(design, airfoils, line) ?? line.end } : line,
+    turnsAnchor(line)
+      ? { ...line, end: turnedAnchor(design, airfoils, line, steps) ?? line.end }
+      : line,
   );
 }

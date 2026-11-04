@@ -1,6 +1,6 @@
 // The anchors of the lines and brakes in space (§9.1, 12.3, 12.4, 12.7).
 import type { BrakePath, LepAirfoil, LepDesign } from '@lepara/format';
-import type { SuspensionLine } from './network.ts';
+import { toward, type SuspensionLine } from './network.ts';
 import { finite, ribAirfoil, ribChord, ribPoint, type Point, type Point3 } from './ribs.ts';
 
 export type AnchorDesign = Pick<
@@ -21,18 +21,45 @@ export interface SuspensionTriangle {
   readonly points: readonly [Point3, Point3, Point3];
 }
 
+/** A single-skin triangle's tip, turned from the anchor `p3` about its base `p1`, `p2` to `line`. */
+export type TriangleTurn = (
+  design: AnchorDesign,
+  [p1, p2, p3]: readonly [Point3, Point3, Point3],
+  line: Pick<SuspensionLine, 'level' | 'rib' | 'start' | 'end'>,
+) => Point3;
+
+/**
+ * The steps of the anchors and lines each model takes its own way, the
+ * engine's when false: anchors found in double, else at the intrados'
+ * nearer end (`exactAnchors`); the single-skin triangles' `turn`; each
+ * anchor weighted by its own rib, over the weights summed (`ownWeights`);
+ * each line of level 2 from its own riser (`ownRisers`); the brake
+ * distribution's ends beyond its spans, a fractional anchor rib taken
+ * for its path alone (`ownBrakes`); `toward`.
+ */
+export interface LineSteps {
+  readonly exactAnchors: boolean;
+  readonly turn: TriangleTurn;
+  readonly ownWeights: boolean;
+  readonly ownRisers: boolean;
+  readonly ownBrakes: boolean;
+  readonly toward: typeof toward;
+}
+
 /**
  * Anchor `row` of rib number `rib` on its airfoil, at Wing scale: from the
  * inlet, on the last segment that spans its position, else at the leading
  * edge (§9.1), placed as its rib (§12.3); `above`, the extrados point after
  * its position (`anccont`, from the trailing edge), and the airfoil;
- * `local`, the anchor rib-local.
+ * `local`, the anchor rib-local. `exact`: compared in double, else at the
+ * intrados' nearer end.
  */
 function anchorOnRib(
   design: AnchorDesign,
   airfoils: ReadonlyMap<string, LepAirfoil>,
   rib: number,
   row: number,
+  exact = false,
 ) {
   const index = rib - 1;
   const position = design.anchors[index]?.positions[row - 1];
@@ -41,14 +68,21 @@ function anchorOnRib(
   const x = position / 100;
   // The engine compares in single precision, at Wing scale.
   const chord = ribChord(design, index);
-  const single = (value: number) => Math.fround(value * chord);
-  // Without such a segment, the engine keeps the initial zeros: the leading edge.
-  let local: Point = [0, 0];
-  for (let j = Math.max(extrados - 1, 0); j < points.length - 1; j++) {
+  const single = exact ? (value: number) => value : (value: number) => Math.fround(value * chord);
+  const first = Math.max(extrados - 1, 0);
+  let local: Point | undefined;
+  for (let j = first; j < points.length - 1; j++) {
     const [p, q] = [points[j], points[j + 1]];
     if (single(p[0]) <= single(x) && single(q[0]) >= single(x))
       local = [x, p[1] + ((q[1] - p[1]) * (x - p[0])) / (q[0] - p[0])];
   }
+  // Without such a segment, the engine keeps the initial zeros: the leading edge.
+  if (!local && exact && points.length - first < 2) return undefined;
+  local ??= exact
+    ? [points[first], points[points.length - 1]].reduce((a, b) =>
+        Math.abs(b[0] - x) < Math.abs(a[0] - x) ? b : a,
+      )
+    : [0, 0];
   let above: number | undefined;
   for (let j = extrados - 1; j >= 1; j--) if (points[j][0] <= x && points[j - 1][0] >= x) above = j;
   return { point: ribPoint(design, index, local, true), local, above, points };
@@ -71,8 +105,9 @@ export function anchorPoint(
   airfoils: ReadonlyMap<string, LepAirfoil>,
   rib: number,
   row: number,
+  steps: LineSteps = engineLines,
 ): Point3 | undefined {
-  const anchor = anchorOnRib(design, airfoils, rib, row);
+  const anchor = anchorOnRib(design, airfoils, rib, row, steps.exactAnchors);
   if (!anchor || !virtualAnchor(design, rib, row)) return anchor?.point;
   const { above, points } = anchor;
   const ends = above === undefined ? [] : [points[above], points[above - 1]];
@@ -104,26 +139,10 @@ export const turnsAnchor = (line: Pick<SuspensionLine, 'level' | 'levels'>) =>
   line.level === line.levels && line.level >= 3;
 
 /**
- * §12.7: on a single skin, the triangle of the anchor of `line`, at the
- * last level (3 or 4) of its path, turned towards the line: the triangle of
- * the extrados points three before and after the anchor and the anchor on
- * its airfoil, about its base, by the angle between the line and the rib
- * (beta). The engine's formulas, signs included, differ between levels.
- * None where the turn is not finite.
+ * §12.7: the engine's turn, about the base by the angle between the line
+ * and the rib (beta). Its formulas, signs included, differ between levels.
  */
-function turnedTriangle(
-  design: AnchorDesign,
-  airfoils: ReadonlyMap<string, LepAirfoil>,
-  line: Pick<SuspensionLine, 'level' | 'rib' | 'row' | 'start' | 'end'>,
-): SuspensionTriangle | undefined {
-  const { rib, row } = line;
-  const anchor = anchorOnRib(design, airfoils, rib, row);
-  if (!anchor?.point || anchor.above === undefined) return undefined;
-  const { above, points, local, point: p3 } = anchor;
-  const [a, b] = [points[above - 3], points[above + 3]];
-  const p1 = a && ribPoint(design, rib - 1, a);
-  const p2 = b && ribPoint(design, rib - 1, b);
-  if (!p1 || !p2) return undefined;
+const engineTurn: TriangleTurn = (design, [p1, p2, p3], line) => {
   const d21 = unit(sub(p1, p2));
   const d31 = sub(p1, p3);
   const xt = d21[0] * d31[0] + d21[1] * d31[1] + d21[2] * d31[2];
@@ -139,21 +158,53 @@ function turnedTriangle(
   ]);
   // phi0: the line's angle to the vertical, in the span plane, less the rib's beta.
   const phi1 = Math.atan((line.end[0] - line.start[0]) / (line.start[2] - line.end[2]));
-  const phi = phi1 - (design.geometry.ribs[rib - 1].beta * Math.PI) / 180;
+  const phi = phi1 - (design.geometry.ribs[line.rib - 1].beta * Math.PI) / 180;
   const across = length * Math.sin(phi);
   const down = length * Math.cos(phi);
-  const turned: Point3 =
-    line.level === 4
-      ? [
-          d45[0] * across + d45[2] * down + p4[0],
-          d41[0] * across - d41[2] * down + p4[1],
-          d43[0] * across + d43[2] * down + p4[2],
-        ]
-      : [
-          d45[0] * across + d45[2] * down + p4[0],
-          d21[0] * across - d21[2] * down + p4[1],
-          d43[0] * across + d43[2] * down + p4[2],
-        ];
+  return line.level === 4
+    ? [
+        d45[0] * across + d45[2] * down + p4[0],
+        d41[0] * across - d41[2] * down + p4[1],
+        d43[0] * across + d43[2] * down + p4[2],
+      ]
+    : [
+        d45[0] * across + d45[2] * down + p4[0],
+        d21[0] * across - d21[2] * down + p4[1],
+        d43[0] * across + d43[2] * down + p4[2],
+      ];
+};
+
+export const engineLines: LineSteps = {
+  exactAnchors: false,
+  turn: engineTurn,
+  ownWeights: false,
+  ownRisers: false,
+  ownBrakes: false,
+  toward,
+};
+
+/**
+ * §12.7: on a single skin, the triangle of the anchor of `line`, at the
+ * last level (3 or 4) of its path, turned towards the line: the triangle of
+ * the extrados points three before and after the anchor and the anchor on
+ * its airfoil, about its base (`steps.turn`). None where the turn is not
+ * finite.
+ */
+function turnedTriangle(
+  design: AnchorDesign,
+  airfoils: ReadonlyMap<string, LepAirfoil>,
+  line: Pick<SuspensionLine, 'level' | 'rib' | 'row' | 'start' | 'end'>,
+  steps: LineSteps,
+): SuspensionTriangle | undefined {
+  const { rib, row } = line;
+  const anchor = anchorOnRib(design, airfoils, rib, row, steps.exactAnchors);
+  if (!anchor?.point || anchor.above === undefined) return undefined;
+  const { above, points, local, point: p3 } = anchor;
+  const [a, b] = [points[above - 3], points[above + 3]];
+  const p1 = a && ribPoint(design, rib - 1, a);
+  const p2 = b && ribPoint(design, rib - 1, b);
+  if (!p1 || !p2) return undefined;
+  const turned = steps.turn(design, [p1, p2, p3], line);
   return turned.every(finite)
     ? { rib, row, base: [a[0], b[0]], anchor: local, points: [p1, p2, turned] }
     : undefined;
@@ -169,9 +220,10 @@ export function turnedAnchor(
   design: AnchorDesign,
   airfoils: ReadonlyMap<string, LepAirfoil>,
   line: Pick<SuspensionLine, 'level' | 'rib' | 'row' | 'start' | 'end'>,
+  steps: LineSteps = engineLines,
 ): Point3 | undefined {
   if (keepsAnchor(design, airfoils, line)) return line.end;
-  return turnedTriangle(design, airfoils, line)?.points[2];
+  return turnedTriangle(design, airfoils, line, steps)?.points[2];
 }
 
 /**
@@ -183,12 +235,13 @@ export function suspensionTriangles(
   design: AnchorDesign,
   airfoils: ReadonlyMap<string, LepAirfoil>,
   lines: readonly SuspensionLine[],
+  steps: LineSteps = engineLines,
 ): SuspensionTriangle[] {
   return lines.flatMap((line) => {
     if (!turnsAnchor(line) || keepsAnchor(design, airfoils, line)) return [];
     // The turn starts from the line's end before it, the anchor as the lines reach it.
-    const end = anchorPoint(design, airfoils, line.rib, line.row);
-    const triangle = end && turnedTriangle(design, airfoils, { ...line, end });
+    const end = anchorPoint(design, airfoils, line.rib, line.row, steps);
+    const triangle = end && turnedTriangle(design, airfoils, { ...line, end }, steps);
     return triangle ? [triangle] : [];
   });
 }
@@ -200,19 +253,26 @@ export function suspensionTriangles(
  * beyond the spans keeps the previous rib's lengthening, as the engine
  * does. Then, path by path, an anchor rib of fractional part f takes
  * (1 - f) of its anchor and f of the next rib's: in place, as the engine
- * does, so that later paths on these ribs take the moved anchors.
+ * does, so that later paths on these ribs take the moved anchors; with
+ * `steps.ownBrakes`, the distribution's ends beyond its spans, and no
+ * anchor moved.
  */
 export function brakeAnchors(
   design: AnchorDesign & Pick<LepDesign, 'brakes'>,
   airfoils: ReadonlyMap<string, LepAirfoil>,
   paths: readonly BrakePath[],
+  steps: LineSteps = engineLines,
 ) {
   const { ribs, wingScale: scale } = design.geometry;
   const { distributionSpans: spans, distributionIncrements: increments } = design.brakes;
   const anchors = new Map<number, Point3 | undefined>();
   let [across, down] = [0, 0];
   ribs.forEach((rib, index) => {
-    const span = (rib.x / ribs[ribs.length - 1].x) * 100;
+    const relative = (rib.x / ribs[ribs.length - 1].x) * 100;
+    // Beyond the spans, their ends' increments.
+    const span = steps.ownBrakes
+      ? Math.min(Math.max(relative, spans[0]), spans[spans.length - 1])
+      : relative;
     for (let k = 0; k < 4; k++)
       if (span >= spans[k] && (k === 3 ? span <= spans[k + 1] : span < spans[k + 1])) {
         const slope = (increments[k + 1] - increments[k]) / (spans[k + 1] - spans[k]);
@@ -220,9 +280,10 @@ export function brakeAnchors(
         const beta = (rib.beta * Math.PI) / 180;
         [across, down] = [length * Math.sin(beta), length * Math.cos(beta)];
       }
-    const point = anchorOnRib(design, airfoils, index + 1, 6)?.point;
+    const point = anchorOnRib(design, airfoils, index + 1, 6, steps.exactAnchors)?.point;
     anchors.set(index + 1, point && [point[0] + across, point[1], point[2] - down]);
   });
+  if (steps.ownBrakes) return anchors;
   for (const { anchorRib } of paths) {
     const rib = Math.trunc(anchorRib);
     const fraction = anchorRib - rib;

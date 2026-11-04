@@ -4,7 +4,7 @@ The 3D geometry of LEparagliding 3.29 designs as its engine computes it, in
 its coordinates at Wing scale (X′ along the span, Y along the chord, Z
 down), from the typed design of [`@lepara/format`](../format/README.md):
 the ribs, the trim estimate, the suspension lines, the brakes and the V and VH
-ribs. A port of
+ribs, and the pieces laid flat, in cm. A port of
 parts of the engine, quirks included, checked against its outputs. No other
 runtime dependency and no file access; runs in browsers, Workers and Node.
 GPL-3.0-only.
@@ -24,7 +24,7 @@ if (design.ok) {
 
 Two models export the same functions: `@lepara/geometry/fortran-3.29`, the
 port above, which the root aliases, and `@lepara/geometry/enhanced-v1`, which
-improves the skin ballooning. See [the model contracts](MODELS.md) for their
+corrects its bugs and improves the skin ballooning. See [the model contracts](MODELS.md) for their
 differences and the engine quirks found so far.
 
 Each function takes the sections it reads (`Pick<LepDesign, ...>`): a whole
@@ -97,12 +97,32 @@ of its polyline.
 `vRibHoles(design, airfoils)` gives the holes of section 38 in the V-ribs of
 types 5 and 6, as the engine cuts them on the V-ribs laid flat (`flatten`,
 its `flatt`: row after row, each quadrilateral of the same sides and
-diagonal), from the last row of each type with holes: type 5 turned along
-its edge on the anchor rib, a hole at each anchor sized by the distance
-across in x to the other edge, as the engine measures it; type 6 holes
+diagonal), from the last row of each type with holes: type 5 turned so its
+right edge runs along y (`laidContinuous`), a hole at each anchor, found at
+its length along the airfoil (`flatAnchors`), sized by the distance across
+in x to the other edge, as the engine measures it; type 6 holes
 evenly along it (`vhholes`). `flatToRib`, `flatAt` and `ribAt` carry a point
 between the V-rib laid flat, its rows (along) and fraction across, and 3D. A
 hole may overflow its V-rib, as the engine's do.
+
+## Cutting patterns
+
+The pieces laid flat as the engine draws them in `leparagliding.dxf`, in cm,
+each with its sewing line, its cut lines, its holes, its marks and its number
+in roman numerals of dots, or none without valid ribs and airfoils:
+
+- `skinPanels(design, airfoils)`: the extrados and intrados panels, split at
+  the 3D-shaping cuts (section 29), with the air inlets glued to them
+  (section 26), the anchors and the unloaded ribs' seams.
+- `ribPatterns(design, airfoils)`: the ribs, with their holes (section 4),
+  nylon rods and their pockets (section 21), nose mylars (section 22), the
+  seams of the V and VH ribs, and the marks of the cutting table.
+- `miniribPatterns(design, airfoils)`: the miniribs of section 2, eased by
+  code 3001 of section 37, with the holes of section 38.
+- `unloadedRibPatterns(design, airfoils)`: the unloaded ribs of section 2,
+  stretched to their cell's panels.
+- `vRibPatterns(design, airfoils)`: the H straps and the V and VH ribs of
+  section 12, with their holes and the cutouts of type 5.
 
 ## Build and test
 
@@ -124,7 +144,9 @@ their place in their V-ribs laid flat and their semi-axes, with the ellipses
 the engine draws in `leparagliding.dxf` for Swoop2, the one example with
 such holes. The H straps are compared, laid flat, with the engine's drawing
 of them in the same file, by the vectors from their first row to their last
-along each edge, which its tension does not change.
+along each edge, which its tension does not change. The cutting patterns are
+compared with the engine's drawings in `leparagliding.dxf`, on the smallest
+cases, or on all of them with `ORACLE_ALL=1`.
 
 ## Skin ballooning
 

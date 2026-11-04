@@ -6,7 +6,7 @@ import {
   suspensionTriangles,
   type Point3,
   type SuspensionTriangle,
-} from '../../packages/geometry/src/index.ts';
+} from '@lepara/geometry/enhanced-v1';
 import { holedRib } from '../../packages/views/src/model.ts';
 import { contourPoint, ribProfile } from '../../packages/views/src/profile.ts';
 import { suspendedRib } from '../../packages/views/src/suspended-rib.ts';

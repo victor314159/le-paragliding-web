@@ -1,7 +1,9 @@
 // Section 16 of the engine: the V and VH ribs in space (§16.2, 16.3, 16.6),
 // as it draws them in its 3D model.
 import type { HvRib, LepAirfoil, LepDesign } from '@lepara/format';
-import { finite, ribAirfoil, ribChord, ribPoint, type Point3 } from './ribs.ts';
+import { markOffset } from './marks.ts';
+import { finite, ribChord, ribPoint, type Point3 } from './ribs.ts';
+import { ribStations, type Stations } from './skin-ribs.ts';
 
 export type VRibSections = 'geometry' | 'wingTip' | 'airfoils' | 'thickness' | 'anchors' | 'hvRibs';
 
@@ -24,10 +26,32 @@ export interface VRib {
   readonly color: number;
   /** Its edges at Wing scale, as many points each: 21, or 121 for type 5. */
   readonly edges: readonly [readonly Point3[], readonly Point3[]];
+  /** Type 5: what its cut between anchors takes (§16.3.2.5). */
+  readonly continuous?: Continuous;
+}
+
+/** The cutouts of a type 5 V-rib between its anchors, laid flat. */
+export interface Continuous {
+  /**
+   * The lengths along its rib's intrados from the end of its edge there
+   * (point 4) back to each anchor, as the engine measures them on the
+   * airfoil (`rib(i,130+klz) − rib(i,104)`).
+   */
+  readonly anchors: readonly number[];
+  /** Column 9: the cutouts' depth, % of the way to the other edge; over 100, ellipses. */
+  readonly depth: number;
+  /**
+   * The length of its neighbour's extrados from the trailing edge to the
+   * end of its edge there (point 11, `rib(i,105)`), where its marks start;
+   * none without that point.
+   */
+  readonly extrados?: number;
+  /** Column 10 at Wing scale: the band left about each anchor, in cm. */
+  readonly margin: number;
 }
 
 /** A point of a rib in the engine's `u(i,j,3)`, `v(i,j,3)`: cm at Wing scale along the chord and up. */
-type Local = readonly [number, number];
+export type Local = readonly [number, number];
 
 /**
  * The airfoil of rib number `rib` in these units, points numbered from 1
@@ -38,8 +62,9 @@ function contour(
   design: Pick<LepDesign, VRibSections>,
   airfoils: ReadonlyMap<string, LepAirfoil>,
   rib: number,
+  stations: Stations = ribStations,
 ) {
-  const { points, extrados } = ribAirfoil(design, airfoils, rib - 1);
+  const { points = [], upper: extrados = 0 } = stations(design, airfoils, rib - 1) ?? {};
   const chord = ribChord(design, rib - 1);
   const point = (j: number): Local => {
     const p = points[j - 1];
@@ -55,7 +80,7 @@ function contour(
     v: (j: number) => point(j)[1],
   };
 }
-type Contour = ReturnType<typeof contour>;
+export type Contour = ReturnType<typeof contour>;
 
 /** The height at `x` of the line through points `j` and `j + 1`, as the engine computes it. */
 function across(c: Contour, j: number, x: number) {
@@ -128,13 +153,23 @@ function straight([u1, v1]: Local, [u2, v2]: Local): Local[] {
   return points;
 }
 
+/** A band's ends on its rib (points 2 and 4, or 9 and 11) and their profile points (`jcon`). */
+interface Ends {
+  readonly ends: readonly [Local, Local];
+  readonly jcon: readonly [number, number];
+}
+
 /**
  * Types 2 to 4 on their anchor ribs (§16.2.1, 16.3.1.1, 16.4.1): the intrados from
  * `center − half` to `center + half` at 21 even chord positions, between
  * the profile points of the segments found. Where no segment spans a
  * position, the engine keeps the line of the last one it took.
  */
-function intradosBand(c: Contour, center: number, half: number): Local[] | undefined {
+function intradosBand(
+  c: Contour,
+  center: number,
+  half: number,
+): ({ points: Local[] } & Ends) | undefined {
   const [u2, u4] = [center - half, center + half];
   let xm = Number.NaN;
   let xb = Number.NaN;
@@ -179,7 +214,14 @@ function intradosBand(c: Contour, center: number, half: number): Local[] | undef
     }
     points.push([x, v]);
   }
-  return points;
+  return {
+    points,
+    ends: [
+      [u2, p2.v],
+      [u4, p4.v],
+    ],
+    jcon: [j2, j4],
+  };
 }
 
 /**
@@ -212,7 +254,13 @@ function along(
 function extradosBand(c: Contour, u9: number, u11: number) {
   const [p9, p11] = [upper(c, u9), upper(c, u11)];
   if (!p9 || !p11) return undefined;
-  return along(c, [u9, p9.v], [u11, p11.v], p9.j, p9.j - p11.j + 1, -1, 21);
+  const points = along(c, [u9, p9.v], [u11, p11.v], p9.j, p9.j - p11.j + 1, -1, 21);
+  if (!points) return undefined;
+  const ends: [Local, Local] = [
+    [u9, p9.v],
+    [u11, p11.v],
+  ];
+  return { points, ends, jcon: [p9.j, p11.j] as const };
 }
 
 /**
@@ -228,9 +276,19 @@ function heightLine(c: Contour, center: number, half: number, height: number, an
   };
   const [v6, v7, v8] = [at(center - half), at(center), at(center + half)];
   if (![v6, v7, v8].every(finite)) return undefined;
-  if (angle === 90) return straight([center - half, v6], [center + half, v8]);
   const [cos, sin] = [Math.cos((Math.PI / 180) * angle), Math.sin((Math.PI / 180) * angle)];
-  return straight([center - half * cos, v7 - half * sin], [center + half * cos, v7 + half * sin]);
+  // Points 6 and 8.
+  const ends: [Local, Local] =
+    angle === 90
+      ? [
+          [center - half, v6],
+          [center + half, v8],
+        ]
+      : [
+          [center - half * cos, v7 - half * sin],
+          [center + half * cos, v7 + half * sin],
+        ];
+  return { points: straight(...ends), ends };
 }
 
 /** The intersection of the lines through `r` and `s` (`xrxs`), by their slopes. */
@@ -268,7 +326,7 @@ function extradosHit(c: Contour, from: Local, direction: number, angle: number, 
  * converted, then read again, as the engine reads the section twice: its
  * widths stay the numbers given, in cm, and unscaled.
  */
-function columns(design: Pick<LepDesign, 'geometry' | 'hvRibs'>) {
+export function columns(design: Pick<LepDesign, 'geometry' | 'hvRibs'>) {
   const { ribs, wingScale: scale } = design.geometry;
   // Rib 0 is the engine's copy of the central rib.
   const chord = (rib: number) => {
@@ -323,22 +381,38 @@ function columns(design: Pick<LepDesign, 'geometry' | 'hvRibs'>) {
   });
 }
 
+/** Type 5 (§16.3.2.2): the length along the extrados of `c` from its trailing edge to `hit`. */
+function extradosLength(c: Contour, hit: { point: Local; j: number }) {
+  let length = 0;
+  for (let j = 1; j <= hit.j - 2; j++)
+    length += Math.hypot(c.u(j + 1) - c.u(j), c.v(j + 1) - c.v(j));
+  return length + Math.hypot(c.u(hit.j - 1) - hit.point[0], c.v(hit.j - 1) - hit.point[1]);
+}
+
 /**
- * The suspension anchors of rib number `rib` on its intrados, at Wing
- * scale, where type 5 takes them (§16.3.2.5): the anchor rows of section
- * 3, without the brake.
+ * Type 5 (§6, 16.3.2.1): the lengths along the intrados of rib `c` from
+ * `end` (point 4, after its point `j`) back to its anchors, each measured
+ * from the trailing edge as the engine does; anchors on no segment left out.
  */
-export function intradosAnchors(
-  design: Pick<LepDesign, VRibSections>,
-  airfoils: ReadonlyMap<string, LepAirfoil>,
-  rib: number,
-): Point3[] {
-  const c = contour(design, airfoils, rib);
-  const count = design.anchors[rib - 1]?.count ?? 0;
-  return (design.anchors[rib - 1]?.positions ?? []).slice(0, Math.min(count, 5)).flatMap((x) => {
-    const point = lower(c, (c.chord * x) / 100);
-    const placed = point && ribPoint(design, rib - 1, [x / 100, -point.v / c.chord]);
-    return placed ? [placed] : [];
+function anchorLengths(
+  design: Pick<LepDesign, 'anchors'>,
+  c: Contour,
+  end: { point: Local; j: number },
+) {
+  // From the last point down to point `j`, then to `p`.
+  const fromEnd = (j: number, [u, v]: Local) => {
+    let length = 0;
+    for (let jj = c.count; jj >= j + 1; jj--)
+      length += Math.hypot(c.u(jj) - c.u(jj - 1), c.v(jj) - c.v(jj - 1));
+    return length + Math.hypot(c.u(j) - u, c.v(j) - v);
+  };
+  const four = fromEnd(end.j + 1, end.point);
+  const { count = 0, positions = [] } = design.anchors[c.rib - 1] ?? {};
+  return positions.slice(0, count).flatMap((position) => {
+    const x = (c.chord * position) / 100;
+    let found: number | undefined;
+    for (let j = c.count; j >= 2; j--) if (c.u(j - 1) <= x && c.u(j) > x && c.u(j) >= 0) found = j;
+    return found ? [fromEnd(found, [x, across(c, found - 1, x)]) - four] : [];
   });
 }
 
@@ -369,12 +443,93 @@ export function intradosAnchors(
 export function vRibs(
   design: Pick<LepDesign, VRibSections>,
   airfoils: ReadonlyMap<string, LepAirfoil>,
+  steps: TraceSteps = engineTraces,
 ): VRib[] {
+  return model(design, airfoils, 0, false, steps).vribs;
+}
+
+export type VRibTraceSections = VRibSections | 'marks' | 'markTypes' | 'specialParameters';
+
+/** What the engine draws of the V-ribs on a rib (§16.2.5.3, 16.3.1.5.3, 16.3.2.5.3, 16.4.5, 16.6.5). */
+export interface VRibTrace {
+  /** Segments on its printed drawing: where a V-rib's edge is sewn. */
+  readonly lines: Local[][];
+  /** On its cutting table: segments, and dots. */
+  readonly tableLines: Local[][];
+  readonly dots: Local[];
+}
+
+/** The slope of airfoil `c` about its point `j` (`jcon`): from point j − 1 to j + 1. */
+const airfoilSlope = (c: Contour, j: number) => {
+  const [[u0, v0], [u1, v1]] = [c.point(j - 1), c.point(j + 1)];
+  return Math.atan((v0 - v1) / (u0 - u1));
+};
+
+/** The steps of the V-ribs' traces each model takes its own way. */
+export interface TraceSteps {
+  /** How far type 2 moves the end dots on its left neighbour inwards, in mark offsets. */
+  readonly leftInwards: number;
+  /** The angle type 4 turns the dots of its middle rib `c` by, from its line's ends. */
+  middleAngle(c: Contour, ends: readonly [Local, Local]): number;
+  /** Whether type 5 turns the dots on its own rib by its left neighbour's lines. */
+  readonly neighbourTurn: boolean;
+  /** The airfoil stations the V-ribs lie on. */
+  readonly stations: Stations;
+  /**
+   * Whether type 6 marks and joins the next rib only, whatever rib it goes
+   * to (the engine's, with what it kept for the next rib), or its own.
+   */
+  readonly nextRibOnly: boolean;
+}
+
+/**
+ * The engine's: type 2's left dots 2·`xdes` in; type 4's turned by points 6
+ * and 8's `jcon`, never set: 0; type 5's by its left neighbour's lines.
+ */
+export const engineTraces: TraceSteps = {
+  leftInwards: 2,
+  middleAngle: (c) => airfoilSlope(c, 0),
+  neighbourTurn: true,
+  nextRibOnly: true,
+  stations: ribStations,
+};
+
+/**
+ * The traces of the V and VH ribs of section 12 on each rib (by number,
+ * from 1), in the rib's `u(i,j,3)`, `v(i,j,3)` (cm along the chord and up):
+ * the segment between a V-rib's ends, and dots `xdes` off it: 3 across the
+ * airfoil at a band's ends, or along the segment. Quirks kept: type 2
+ * moves its left dots 2·`xdes` inwards along the segment; type 4 turns the
+ * dots of its middle ribs by a `jcon` never set (0, the trailing edge's
+ * slope from the origin); type 5 turns the dots on its rib by its left
+ * neighbour's lines. Not ported: a type 6 to another rib than the next,
+ * which the engine marks on the next rib with whatever it kept there.
+ */
+export function vRibTraces(
+  design: Pick<LepDesign, VRibTraceSections>,
+  airfoils: ReadonlyMap<string, LepAirfoil>,
+  steps: TraceSteps = engineTraces,
+): ReadonlyMap<number, VRibTrace> {
+  const { specialParameters: special } = design;
+  // Section 37, code 2006: the type 6 segments also on the cutting table.
+  const code2006 =
+    special.mode === 1 && special.entries.some((p) => p.code === 2006 && p.value === 1);
+  return model(design, airfoils, markOffset(design), code2006, steps).traces;
+}
+
+function model(
+  design: Pick<LepDesign, VRibSections>,
+  airfoils: ReadonlyMap<string, LepAirfoil>,
+  xdes: number,
+  code2006: boolean,
+  steps: TraceSteps,
+) {
   const count = design.geometry.ribs.length;
   const contours = new Map<number, Contour | undefined>();
   const rib = (number: number) => {
     if (!Number.isInteger(number) || number < 1 || number > count) return undefined;
-    if (!contours.has(number)) contours.set(number, contour(design, airfoils, number));
+    if (!contours.has(number))
+      contours.set(number, contour(design, airfoils, number, steps.stations));
     return contours.get(number);
   };
   const anchorCount = (number: number) => design.anchors[number - 1]?.count;
@@ -400,6 +555,45 @@ export function vRibs(
   const nine = new Map<number, { point: Local; j: number }>();
   const eleven = new Map<number, { point: Local; j: number }>();
   const result: VRib[] = [];
+  const traces = new Map<number, VRibTrace>();
+  /** Rib `number`'s traces: `line` on its drawing, on the table too if `table`, and table dots. */
+  const trace = (
+    number: number,
+    line: [Local, Local] | undefined,
+    table: boolean,
+    dots: Local[],
+  ) => {
+    if (number < 1 || number > count) return;
+    if (!traces.has(number)) traces.set(number, { lines: [], tableLines: [], dots: [] });
+    const t = traces.get(number)!;
+    if (line) t.lines.push(line);
+    if (line && table) t.tableLines.push(line);
+    // A V-rib of no width has no direction: the engine's dots are NaN.
+    t.dots.push(...dots.filter((p) => p.every(Number.isFinite)));
+  };
+  /**
+   * `n` dots across the airfoil at a band's end `p`, the
+   * first `xdes` inside: `side` 1 on the intrados, −1 on the extrados.
+   */
+  const acrossAt = (p: Local, alpha: number, side: number, n = 3) =>
+    Array.from({ length: n }, (_, k): Local => [
+      p[0] + side * (xdes - k) * Math.sin(alpha),
+      p[1] - side * (xdes - k) * Math.cos(alpha),
+    ]);
+  /** Dots at a segment's ends and middle, `xdes` above it; `inwards` moves the ends 2·`xdes` in. */
+  const alongSegment = ([p6, p8]: readonly [Local, Local], inwards: number): Local[] => {
+    const alpha = Math.atan((p8[1] - p6[1]) / (p8[0] - p6[0]));
+    const [sin, cos] = [Math.sin(alpha), Math.cos(alpha)];
+    const off = (p: Local, sign: number): Local => [
+      p[0] - xdes * sin + sign * inwards * xdes * cos,
+      p[1] + xdes * cos + sign * inwards * xdes * sin,
+    ];
+    const [a, b] = [off(p6, 1), off(p8, -1)];
+    return [a, [0.5 * (a[0] + b[0]), 0.5 * (a[1] + b[1])], b];
+  };
+  // Type 5: points 2 (row 1) and 4 (by row) of the neighbours, `ucnt(i±1,ii,2|4)`.
+  const twos = new Map<string, Local>();
+  const fours = new Map<string, Local>();
   // The type 5 rows of each rib, from its first anchor row.
   const group = new Map<number, number[]>();
   const draw = (
@@ -409,36 +603,80 @@ export function vRibs(
     ribs: [number, number],
     a?: Point3[],
     b?: Point3[],
+    continuous?: Continuous,
   ) => {
-    if (a && b) result.push({ rows, type: h[2], ribs, color, edges: [a, b] });
+    if (a && b) result.push({ rows, type: h[2], ribs, color, edges: [a, b], continuous });
   };
   columns(design).forEach((h, k, rows) => {
     const [type, r, row] = [h[2], Math.trunc(h[3]), Math.trunc(h[4])];
     if (type === 2 || type === 3) {
       const [here, left, right] = [rib(r), rib(r - 1), rib(r + 1)];
       if (!here) return;
-      keep(2, r, row, place(here, intradosBand(here, anchor(here, row), h[7])));
-      const neighbour = (c: Contour | undefined, increment: number) => {
+      const band = intradosBand(here, anchor(here, row), h[7]);
+      keep(2, r, row, place(here, band?.points));
+      trace(r, band?.ends && [...band.ends], false, []);
+      // On the left (`side` −1) or right neighbour, when that side is drawn.
+      const neighbour = (c: Contour | undefined, increment: number, side: number) => {
         if (!c) return undefined;
         const center = anchor(c, row);
         const half = h[8] + increment;
-        return type === 3
-          ? extradosBand(c, center - half, center + half)
-          : heightLine(c, center, half, h[9], h[10]);
+        const drawn = h[side < 0 ? 5 : 6] === 1;
+        if (type === 2) {
+          const line = heightLine(c, center, half, h[9], h[10]);
+          if (line && drawn)
+            trace(
+              c.rib,
+              [...line.ends],
+              true,
+              alongSegment(line.ends, side < 0 ? steps.leftInwards : 0),
+            );
+          return line?.points;
+        }
+        const band = extradosBand(c, center - half, center + half);
+        if (band && drawn) {
+          const [p9, p11] = band.ends;
+          trace(c.rib, [p9, p11], true, [
+            ...acrossAt(p9, airfoilSlope(c, band.jcon[0]), -1),
+            ...acrossAt(p11, airfoilSlope(c, band.jcon[1]), -1),
+            ...[0, 2].map((k) => alongSegment(band.ends, side < 0 ? steps.leftInwards : 0)[k]),
+          ]);
+        }
+        return band?.points;
       };
-      if (left) keep(1, r, row, place(left, neighbour(left, h[15])));
-      if (right) keep(3, r, row, place(right, neighbour(right, type === 2 ? h[17] : h[16])));
+      if (left) keep(1, r, row, place(left, neighbour(left, h[15], -1)));
+      if (right) keep(3, r, row, place(right, neighbour(right, type === 2 ? h[17] : h[16], 1)));
       const [colors, line] = [type === 2 ? [5, 1] : [4, 3], kept(2, r, row)];
       if (h[5] === 1) draw([k + 1], h, colors[0], [r, r - 1], line, kept(1, r, row));
       if (h[6] === 1) draw([k + 1], h, colors[1], [r, r + 1], line, kept(3, r, row));
     }
     if (type === 4) {
       const [a, b, c, d] = [r - 1, r, r + 1, r + 2].map(rib);
-      const band = (e: Contour | undefined, increment: number) =>
-        e && place(e, intradosBand(e, anchor(e, row), h[7] + increment));
-      const middle = (e: Contour | undefined) =>
-        e && place(e, heightLine(e, anchor(e, row), h[8], h[9], h[10]));
-      const edges = [band(a, h[15]), middle(b), middle(c), band(d, h[16])];
+      const band = (e: Contour | undefined, increment: number, drawn: boolean) => {
+        const b = e && intradosBand(e, anchor(e, row), h[7] + increment);
+        if (e && b && drawn)
+          trace(e.rib, [...b.ends], true, [
+            ...acrossAt(b.ends[0], airfoilSlope(e, b.jcon[0]), 1),
+            ...acrossAt(b.ends[1], airfoilSlope(e, b.jcon[1]), 1),
+          ]);
+        return e && place(e, b?.points);
+      };
+      const middle = (e: Contour | undefined, drawn: boolean) => {
+        const line = e && heightLine(e, anchor(e, row), h[8], h[9], h[10]);
+        if (e && line && drawn)
+          trace(
+            e.rib,
+            [...line.ends],
+            true,
+            line.ends.flatMap((p) => acrossAt(p, steps.middleAngle(e, line.ends), -1, 1)),
+          );
+        return e && place(e, line?.points);
+      };
+      const edges = [
+        band(a, h[15], h[5] === 1),
+        middle(b, true),
+        middle(c, h[6] === 1),
+        band(d, h[16], h[6] === 1),
+      ];
       if (h[5] === 1) draw([k + 1], h, 3, [r - 1, r], edges[0], edges[1]);
       draw([k + 1], h, 2, [r, r + 1], edges[1], edges[2]);
       if (h[6] === 1) draw([k + 1], h, 1, [r + 1, r + 2], edges[2], edges[3]);
@@ -469,6 +707,8 @@ export function vRibs(
           lower(c, middle + h[10]),
           upper(c, middle),
         ];
+        if (q2) twos.set(`${c.rib}/${row}`, [middle - h[10], q2.v]);
+        if (q4) fours.set(`${c.rib}/${row}`, [middle + h[10], q4.v]);
         if (row === 1 && q2 && q10) {
           const hit = extradosHit(c, [middle - h[10], q2.v], -1, h[7], q10.j);
           if (hit) nine.set(c.rib, hit);
@@ -484,11 +724,70 @@ export function vRibs(
       };
       neighbour(left, 1);
       neighbour(right, 3);
+      if (row === anchorCount(r)) {
+        // From a neighbour's point 9 to its point 2 of row 1, and from 11 to its 4 of this row.
+        const lines = (n: number) => {
+          const [p9, p2, p11, p4] = [
+            nine.get(n)?.point,
+            twos.get(`${n}/1`),
+            eleven.get(n)?.point,
+            fours.get(`${n}/${row}`),
+          ];
+          return p9 && p2 && p11 && p4 ? { p9, p2, p11, p4 } : undefined;
+        };
+        const klz = [1, 2, 3].map((k) => 1 - k + xdes);
+        const turn = ({ p9, p2, p11, p4 }: NonNullable<ReturnType<typeof lines>>) => [
+          -Math.atan((p9[1] - p2[1]) / (p9[0] - p2[0])),
+          Math.atan((p11[1] - p4[1]) / (p11[0] - p4[0])),
+        ];
+        const own = lines(r - 1);
+        if (!steps.neighbourTurn && a && b)
+          trace(r, undefined, false, [
+            ...acrossAt(a.point, airfoilSlope(here, a.j), 1),
+            ...acrossAt(b.point, airfoilSlope(here, b.j), 1),
+          ]);
+        else if (own && a && b) {
+          const [alpha, beta] = turn(own);
+          const [[x2, y2], [x4, y4]] = [a.point, b.point];
+          trace(r, undefined, false, [
+            ...klz.flatMap((d): Local[] => [
+              [x2 + d * Math.cos(alpha), y2 - d * Math.sin(alpha)],
+              [x4 - d * Math.cos(beta), y4 - d * Math.sin(beta)],
+            ]),
+          ]);
+        }
+        for (const [n, drawn] of [
+          [r - 1, h[5] === 1],
+          [r + 1, h[6] === 1],
+        ] as const) {
+          const side = lines(n);
+          if (!side || !drawn) continue;
+          const [alpha, beta] = turn(side);
+          trace(n, [side.p9, side.p2], false, []);
+          trace(n, [side.p11, side.p4], false, [
+            ...klz.flatMap((d): Local[] => [
+              [side.p9[0] - d * Math.cos(alpha), side.p9[1] + d * Math.sin(alpha)],
+              [side.p11[0] + d * Math.cos(beta), side.p11[1] + d * Math.sin(beta)],
+            ]),
+          ]);
+        }
+      }
       const drawn = [r - 1, r, r + 1].every((number) => row === anchorCount(number));
+      const continuous = (n: Contour | undefined) => {
+        const hit = n && eleven.get(n.rib);
+        return drawn && b
+          ? {
+              anchors: anchorLengths(design, here, b),
+              depth: h[9],
+              margin: h[10],
+              extrados: hit && extradosLength(n, hit),
+            }
+          : undefined;
+      };
       if (drawn && h[5] === 1)
-        draw(group.get(r)!, h, 5, [r, r - 1], kept(2, r, row), kept(1, r, row));
+        draw(group.get(r)!, h, 5, [r, r - 1], kept(2, r, row), kept(1, r, row), continuous(left));
       if (drawn && h[6] === 1)
-        draw(group.get(r)!, h, 1, [r, r + 1], kept(2, r, row), kept(3, r, row));
+        draw(group.get(r)!, h, 1, [r, r + 1], kept(2, r, row), kept(3, r, row), continuous(right));
     }
     if (type === 6) {
       // The virtual row: 2 after a type 6 on the same rib, else 1.
@@ -505,8 +804,30 @@ export function vRibs(
         if (!c) return undefined;
         const center = (c.chord * position) / 100;
         const [u2, u4] = [center - minus, center + plus];
-        if (height === 100) return extradosBand(c, u2, u4);
         const [p2, p4, p9, p11] = [lower(c, u2), lower(c, u4), upper(c, u2), upper(c, u4)];
+        // §16.6.5 marks the next rib only, with what it kept for it.
+        const marked = steps.nextRibOnly ? c.rib === r + 1 : c.rib === end;
+        if (p2 && p4 && p9 && p11 && (c.rib === r || marked)) {
+          const at = (p: { v: number }, u: number): Local => [u, p.v];
+          if (height === 0)
+            trace(c.rib, [at(p2, u2), at(p4, u4)], code2006, [
+              ...acrossAt(at(p2, u2), airfoilSlope(c, p2.j), 1),
+              ...acrossAt(at(p4, u4), airfoilSlope(c, p4.j), 1),
+            ]);
+          if (height > 0 && height < 100) {
+            const ends: [Local, Local] = [
+              [u2, (p9.v - p2.v) * (height / 100) + p2.v],
+              [u4, (p11.v - p4.v) * (height / 100) + p4.v],
+            ];
+            trace(c.rib, ends, code2006, alongSegment(ends, 0));
+          }
+          if (height === 100)
+            trace(c.rib, [at(p9, u2), at(p11, u4)], code2006, [
+              ...acrossAt(at(p9, u2), airfoilSlope(c, p9.j), -1),
+              ...acrossAt(at(p11, u4), airfoilSlope(c, p11.j), -1),
+            ]);
+        }
+        if (height === 100) return extradosBand(c, u2, u4)?.points;
         if (!p2 || !p4 || !p9 || !p11) return undefined;
         return straight(
           [u2, (p9.v - p2.v) * (height / 100) + p2.v],
@@ -515,11 +836,19 @@ export function vRibs(
       };
       const [start, other] = [rib(r), rib(end)];
       if (start) keep(2, r, virtual, place(start, band(start, h[4], h[5], h[6], h[7])));
-      if (other) keep(3, end - 1, virtual, place(other, band(other, h[9], h[10], h[11], h[12])));
-      draw([k + 1], h, r % 2 === 1 ? 4 : 30, [r, end], kept(2, r, virtual), kept(3, r, virtual));
+      const far = other && place(other, band(other, h[9], h[10], h[11], h[12]));
+      if (other) keep(3, end - 1, virtual, far);
+      draw(
+        [k + 1],
+        h,
+        r % 2 === 1 ? 4 : 30,
+        [r, end],
+        kept(2, r, virtual),
+        steps.nextRibOnly ? kept(3, r, virtual) : far,
+      );
     }
   });
-  return result;
+  return { vribs: result, traces };
 }
 
 /** An H strap of section 12 (type 1) between two ribs: as a `VRib`, without color. */
@@ -537,14 +866,15 @@ export type HStrap = Omit<VRib, 'type' | 'color'>;
 export function hStraps(
   design: Pick<LepDesign, VRibSections>,
   airfoils: ReadonlyMap<string, LepAirfoil>,
+  steps: Pick<TraceSteps, 'stations'> = engineTraces,
 ): HStrap[] {
   const count = design.geometry.ribs.length;
   const edge = (number: number, row: number, half: number) => {
     const rib = Math.trunc(number);
     if (rib < 0 || rib > count) return undefined;
-    const c = contour(design, airfoils, Math.max(rib, 1));
+    const c = contour(design, airfoils, Math.max(rib, 1), steps.stations);
     const position = design.anchors[c.rib - 1]?.positions[Math.trunc(row) - 1];
-    const band = finite(position) && intradosBand(c, (c.chord * position) / 100, half);
+    const band = finite(position) && intradosBand(c, (c.chord * position) / 100, half)?.points;
     const placed = band
       ? band.map(([u, v]) => ribPoint(design, c.rib - 1, [u / c.chord, -v / c.chord]))
       : [];

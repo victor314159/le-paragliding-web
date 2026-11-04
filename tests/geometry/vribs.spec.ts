@@ -1,11 +1,12 @@
 // The V and VH ribs against the engine's 3D model, lep-3d.dxf, which it
 // begins with them: only the hash of the reference DXF is committed, so
-// each case runs the engine (a design by default, every one with
-// ORACLE_ALL=1, as CI does).
+// each case runs the engine (a few by default, every one with ORACLE_ALL=1,
+// as CI does).
 import { expect, test } from '@playwright/test';
 import { vRibs, type Point3 } from '@lepara/geometry/fortran-3.29';
-import { DESIGNS, designFiles, engine, project } from '../format/helpers';
+import { DAT_FIXTURE, DESIGNS, designFiles, engine, project } from '../format/helpers';
 import { VARIANTS, variantFiles } from '../format/variants';
+import { oracleCases } from './helpers';
 
 /** The LINE entities of a DXF: their ends and color. */
 function dxfLines(text: string) {
@@ -28,11 +29,12 @@ const cases = [
     name: `variant ${variant.name}`,
     files: () => variantFiles(variant),
   })),
+  // datair's points, unscaled by section 33.
+  { name: 'dat airfoil', files: () => designFiles(DAT_FIXTURE) },
 ];
-const all = process.env['ORACLE_ALL'] === '1';
-const chosen = ['gnuC-27', 'A8', 'variant hv-ribs-2-4-12-13-14'];
+const chosen = ['gnuC-27', 'A8', 'variant hv-ribs-2-4-12-13-14', 'dat airfoil'];
 
-for (const { name, files } of cases.filter((c) => all || chosen.includes(c.name))) {
+for (const { name, files } of oracleCases(cases, chosen)) {
   test(`${name}: V and VH ribs as the engine draws them in lep-3d.dxf`, async () => {
     const inputs = files();
     const { runLeparaglidingInWorker } = await engine();

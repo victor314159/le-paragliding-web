@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { LINE_TYPES_DEFAULTS, type LepDesign } from '../../packages/format/src/index.ts';
-import { brakeLines, suspensionLines } from '../../packages/geometry/src/index.ts';
+import { brakeLines, suspensionLines } from '@lepara/geometry/enhanced-v1';
 import {
   linesModel,
   wingOverviewLayers,

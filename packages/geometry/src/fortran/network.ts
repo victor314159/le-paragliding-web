@@ -20,6 +20,8 @@ export interface SuspensionLine {
   readonly levels: number;
   readonly row: number;
   readonly rib: number;
+  /** The anchor rib of that path, fractional for a brake. */
+  readonly anchorRib: number;
   readonly start: Point3;
   readonly end: Point3;
 }
@@ -48,6 +50,7 @@ export function lineList(plans: readonly { readonly paths: readonly PathLike[] }
         levels: path.levels,
         row: path.anchorRow,
         rib: Math.trunc(path.anchorRib),
+        anchorRib: path.anchorRib,
       });
       count = 1;
     };
@@ -105,6 +108,8 @@ export interface Network {
   anchor(line: ListedLine): Point3 | undefined;
   /** Ramification lengths at Wing scale: paths of 3 levels, then of 4 (l3, l2). */
   readonly ramifications: readonly [number, number, number];
+  /** The point a distance towards another: the engine's is `toward`. */
+  readonly toward: typeof toward;
 }
 
 /**
@@ -136,15 +141,15 @@ export function placeLines(network: Network): SuspensionLine[] {
       if (!target || !from) continue;
       const end =
         level === 1
-          ? toward(from, target, length)
+          ? network.toward(from, target, length)
           : level === line.levels
             ? network.anchor(line)
             : level === 2 && line.levels === 3
-              ? toward(from, target, distance(from, target) - three)
+              ? network.toward(from, target, distance(from, target) - three)
               : level === 2 && line.levels === 4
-                ? toward(from, target, distance(from, target) - four3)
+                ? network.toward(from, target, distance(from, target) - four3)
                 : level === 3 && line.levels === 4
-                  ? toward(from, target, four3 - four2)
+                  ? network.toward(from, target, four3 - four2)
                   : undefined;
       if (!end?.every(finite)) continue;
       ends.set(`${line.plan}/${level}/${line.order}`, end);
