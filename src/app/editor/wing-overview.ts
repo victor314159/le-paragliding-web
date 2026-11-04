@@ -9,7 +9,7 @@ import {
   wingOverviewModel,
   type OverviewLayer,
 } from '@lepara/views';
-import type { Point3 } from '@lepara/geometry';
+import { CAMERA_VIEWS } from './camera-views';
 import { EditorState } from './editor-state';
 import { ModelPreview } from './model-preview';
 
@@ -20,15 +20,10 @@ import { ModelPreview } from './model-preview';
   template: `
     <div class="toolbar">
       <h3>Wing overview</h3>
-      <select
-        aria-label="Camera view"
-        [value]="camera()"
-        (change)="setCamera($any($event.target).value)"
-      >
-        <option value="perspective">Three-quarter</option>
-        <option value="front">Front</option>
-        <option value="top">Top</option>
-        <option value="side">Side</option>
+      <select aria-label="Camera view" (change)="setCamera($any($event.target).value)">
+        @for (view of cameras; track view[0]) {
+          <option [value]="view[0]" [selected]="view[0] === camera()">{{ view[1] }}</option>
+        }
       </select>
       <button
         matIconButton
@@ -54,7 +49,7 @@ import { ModelPreview } from './model-preview';
             (change)="setSkinCoverage(skinCoverage() ? 0 : 100)"
           />Skin</label
         >
-        <div class="skin-cut">
+        <div class="range">
           <input
             type="range"
             min="0"
@@ -107,24 +102,6 @@ import { ModelPreview } from './model-preview';
   `,
   styleUrl: './overview.css',
   styles: `
-    .skin-cut {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      width: 190px;
-      margin: 0 0 4px 4px;
-      pointer-events: auto;
-      font: var(--mat-sys-body-small);
-    }
-    .skin-cut input {
-      width: 140px;
-      margin: 0;
-    }
-    .skin-cut output {
-      min-width: 38px;
-      text-align: right;
-      font-variant-numeric: tabular-nums;
-    }
     .empty {
       margin: 0 0 8px;
       color: var(--mat-sys-on-surface-variant);
@@ -135,6 +112,7 @@ export class WingOverview {
   readonly active = input.required<boolean>();
   private readonly editor = inject(EditorState);
   protected readonly layers = OVERVIEW_LAYERS.filter(([key]) => key !== 'skin');
+  protected readonly cameras = CAMERA_VIEWS;
   protected readonly visible = signal<ReadonlySet<OverviewLayer>>(
     new Set(['skin', 'colors', 'ribs', 'structure', 'lines', 'rods']),
   );
@@ -165,14 +143,7 @@ export class WingOverview {
   protected readonly model = computed(() => ({
     ...wingOverviewModel({ ...this.drawings(), ribs: this.ribs() }, this.visible()),
     title: this.drawings().skin.title,
-    camera: (
-      {
-        perspective: [1.3, -1, -0.2],
-        front: [0, -1, 0],
-        top: [0, 0, -1],
-        side: [1, 0, 0],
-      } as Record<string, Point3>
-    )[this.camera()],
+    camera: CAMERA_VIEWS.find(([key]) => key === this.camera())?.[2],
   }));
   protected setSkinCoverage(value: number): void {
     const coverage = Math.min(100, Math.max(0, value));

@@ -1,3 +1,4 @@
+export * from './assembly.ts';
 export * from './colors.ts';
 export * from './cutting.ts';
 export * from './geometry.ts';

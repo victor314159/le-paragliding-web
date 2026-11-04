@@ -31,6 +31,8 @@ export interface BalloonedPanel {
   /** Outer rib index from 0; 0 is the central half cell, if any. */
   readonly cell: number;
   readonly surface: 'extrados' | 'intrados' | 'inlet';
+  /** The airfoil point of the rows' first column. */
+  readonly from: number;
   readonly rows: readonly (readonly {
     readonly point: Point3;
     readonly span: number;

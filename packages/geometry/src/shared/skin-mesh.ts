@@ -120,7 +120,7 @@ export function buildSkin(
         );
       }
       if (right.every((row) => row.every((v) => v.point.every(Number.isFinite))))
-        panels.push({ cell: i - 1, surface, rows: right });
+        panels.push({ cell: i - 1, surface, from, rows: right });
     }
   }
   return panels;

@@ -74,8 +74,9 @@ function cutLine(
 
 /**
  * The engine's rib patterns in double arithmetic, with the corrected rods,
- * their cut lines' ends moved by the allowance alone; "pc" ribs cut with
- * the corners of their closed nose, and their mylars along it.
+ * their cut lines' ends moved by the allowance alone and joined across the
+ * trailing edge; "pc" ribs cut with the corners of their closed nose, and
+ * their mylars along it.
  */
 export function ribPatterns(
   design: Pick<LepDesign, RibPatternSections>,
@@ -94,12 +95,15 @@ export function ribPatterns(
     const contour = rib.local.slice(1).map(([u, v]): Point => [u, -v]);
     const lower = rib.upper + rib.inlet - 1;
     const cut = cutLine(contour, rib.upper, lower, type === 'ss', allowance);
+    // A whole line closes across the trailing edge, which the engine leaves uncut.
+    const across = (lines: Point[][]) =>
+      lines.length === 1 ? [[...lines[0], lines[0][0]]] : lines;
     return type === 'pc'
       ? {
           ...pattern,
-          cut: closedNose(contour, cut, rib.upper, lower, allowance),
+          cut: across(closedNose(contour, cut, rib.upper, lower, allowance)),
           mylar: ribMylar(design, index, pattern.sewing, rib.upper, rib.chord),
         }
-      : { ...pattern, cut: [cut] };
+      : { ...pattern, cut: across([cut]) };
   });
 }

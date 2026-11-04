@@ -17,3 +17,4 @@ export {
   isGeneratedGeometry,
   newPreData,
 } from './pre-data.ts';
+export { SEAM_CONVENTIONS, type EndSeam, type RibSeamLayer } from './seam-conventions.ts';

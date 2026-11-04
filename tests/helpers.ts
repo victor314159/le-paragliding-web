@@ -4,10 +4,10 @@ import { pathToFileURL } from 'node:url';
 import { expect, type Page } from '@playwright/test';
 import designIndex from '../oracle/designs/index.json' with { type: 'json' };
 
-/** Switch between the parameter editor, the assembled wing and its cutting patterns. */
+/** Switch between the parameter editor, the assembled wing, its cutting patterns and its pieces. */
 export async function selectEditorView(
   page: Page,
-  view: 'Editor' | '3D Preview' | '2D Preview',
+  view: 'Editor' | '3D Preview' | '2D Preview' | 'Assembly',
 ): Promise<void> {
   await page.locator('.editor-label button').click();
   await page.getByRole('menuitemradio', { name: view, exact: true }).click();

@@ -30,7 +30,7 @@ import {
   type PreprocessorFormTree,
 } from './preprocessor-draft';
 
-export type EditorView = 'editor' | '3d' | '2d';
+export type EditorView = 'editor' | '3d' | '2d' | 'assembly';
 
 export interface DesignEditorData {
   /** The project as read: it may have errors, which the editor shows. */

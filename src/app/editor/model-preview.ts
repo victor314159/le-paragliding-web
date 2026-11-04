@@ -79,6 +79,8 @@ import { themeColor } from '../shared/theme-color';
 export class ModelPreview {
   readonly model = input.required<PreviewModel>();
   readonly skinCoverage = input(100);
+  /** How far an `opening` model has opened, from 0 to 1. */
+  readonly opening = input(0);
   /** A standalone viewer can fit independently of the section preview dock. */
   readonly fitRequest = input(0);
   private readonly theme = inject(ThemeService);
@@ -124,5 +126,6 @@ export class ModelPreview {
     });
     // The cut moves in shader uniforms; the wing geometry and camera stay intact.
     effect(() => this.viewer()?.setSkinCoverage(this.skinCoverage()));
+    effect(() => this.viewer()?.setOpening(this.opening()));
   }
 }

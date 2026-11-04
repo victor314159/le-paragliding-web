@@ -26,6 +26,7 @@ import { confirm } from '../shared/confirm-dialog';
 import { diagnosticLabel, withSeverity } from '../shared/diagnostics';
 import { PRE_DATA_NOTE_TEXT } from '../shared/pre-data-note';
 import { AirfoilSection } from './airfoil-section';
+import { AssemblyOverview } from './assembly-overview';
 import { EditorPreview, PREVIEW_VIEWS } from './editor-preview';
 import {
   EditorState,
@@ -77,6 +78,7 @@ interface NavigationItem {
     MatMenuTrigger,
     MatTooltip,
     NgComponentOutlet,
+    AssemblyOverview,
     EditorPreview,
     PatternsOverview,
     WingOverview,
@@ -242,6 +244,7 @@ export class DesignEditor {
     ['editor', 'Editor'],
     ['3d', '3D Preview'],
     ['2d', '2D Preview'],
+    ['assembly', 'Assembly'],
   ];
   protected readonly viewLabel = computed(
     () => this.views.find(([view]) => view === this.editor.view())![1],

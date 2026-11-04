@@ -1695,6 +1695,31 @@ test('A8 colored fabric stays visible from different cameras with full and cutaw
   }
 });
 
+test('Assembly opens a cell of the draft, chosen by its number', async ({ page }) => {
+  await openExample(page, 'swoop2');
+  await opener(page).click();
+  await selectEditorView(page, 'Assembly');
+  const assembly = page.locator('app-assembly-overview');
+  await expect(assembly.getByRole('heading', { name: 'Assembly', exact: true })).toBeVisible();
+  await expect(assembly.locator('canvas')).toBeVisible();
+  const cell = assembly.getByRole('combobox', { name: 'Cell', exact: true });
+  // The middle cell at first, as its title says.
+  await expect(assembly.locator('figcaption')).toHaveText(
+    `${(await cell.locator('option:checked').innerText()).trim()} assembly`,
+  );
+  await cell.selectOption('Cell 3');
+  await expect(assembly.locator('figcaption')).toHaveText('Cell 3 assembly');
+  await assembly.getByRole('slider', { name: 'Assembled', exact: true }).fill('0');
+  await expect(assembly.locator('output')).toHaveText('0%');
+  await expect(assembly.getByText(/^Grid \d+ cm$/)).toBeVisible();
+  await expect(assembly.getByRole('checkbox', { name: 'Marks', exact: true })).not.toBeChecked();
+  await expect(assembly.getByText('Rib and shaping seams match within 2 mm.')).toBeVisible();
+  await expect(assembly.getByRole('button', { name: 'Fit view', exact: true })).toBeVisible();
+  await assembly.getByRole('combobox', { name: 'Camera view', exact: true }).selectOption('Top');
+  await assembly.getByRole('checkbox', { name: 'Ribs', exact: true }).uncheck();
+  await expect(assembly.getByRole('checkbox', { name: 'Ribs', exact: true })).not.toBeChecked();
+});
+
 test('2D preview draws the cutting patterns of the draft, by group of pieces', async ({ page }) => {
   await openExample(page, 'swoop2');
   await opener(page).click();

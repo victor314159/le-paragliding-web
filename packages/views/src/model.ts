@@ -26,20 +26,60 @@ import type { PreviewScene } from './scene.ts';
  * are grids whose consecutive rows are joined, those with a `color` drawn
  * over the skin in it, `fills` planar outlines,
  * concave or not, with `holes`, and `dots` points; `kind` and `color` style them as in
- * `PreviewScene`.
+ * `PreviewScene`. An `opening` gives where an item goes as the drawing
+ * opens, point for point (a fill's rings: its outline, then its holes).
  */
 export interface PreviewModel {
   title: string;
   note: string;
-  surfaces: { rows: Point3[][]; kind: string; color?: string; cutaway?: boolean }[];
-  fills: { points: Point3[]; holes?: Point3[][]; kind: string; cutaway?: boolean }[];
-  dots: { point: Point3; kind: string; selected: boolean; color?: string; cutaway?: boolean }[];
-  lines: { points: Point3[]; kind: string; selected: boolean; color?: string; cutaway?: boolean }[];
+  surfaces: {
+    rows: Point3[][];
+    kind: string;
+    color?: string;
+    cutaway?: boolean;
+    opening?: Opening<Point3[][]>;
+  }[];
+  fills: {
+    points: Point3[];
+    holes?: Point3[][];
+    kind: string;
+    color?: string;
+    cutaway?: boolean;
+    opening?: Opening<Point3[][]>;
+  }[];
+  dots: {
+    point: Point3;
+    kind: string;
+    selected: boolean;
+    color?: string;
+    cutaway?: boolean;
+    opening?: Opening<Point3>;
+  }[];
+  lines: {
+    points: Point3[];
+    kind: string;
+    selected: boolean;
+    color?: string;
+    cutaway?: boolean;
+    opening?: Opening<Point3[]>;
+  }[];
   legend: PreviewScene['legend'];
   /** The direction the view looks from, when not the default one. */
   camera?: Point3;
+  /** How far the drawing has opened, from 0 to 1, at each step of `opening`. */
+  openingAt?: readonly number[];
+  /** A grid on the table, its squares' `length` (cm), by pairs of points. */
+  grid?: { length: number; lines: Point3[] };
   /** X bounds and fade width (cm) for surfaces and markings tagged for a skin cutaway. */
   cutaway?: { min: number; max: number; feather: number };
+}
+
+/** An item's steps from its place: moved apart, opening there, opened, its way on, then laid flat. */
+export interface Opening<T> {
+  readonly before: readonly T[];
+  readonly apart: T;
+  readonly between: readonly T[];
+  readonly flat: T;
 }
 
 /** A right-half skin panel, sampled on the rendered mesh, with chord positions from TE. */

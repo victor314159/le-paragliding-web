@@ -1,4 +1,4 @@
-import type { PreviewModel } from '@lepara/views';
+import type { Opening, PreviewModel } from '@lepara/views';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
@@ -57,6 +57,27 @@ function triangulate(outline: readonly Point3[], holes: readonly (readonly Point
   return { vertices, faces: THREE.ShapeUtils.triangulateShape(contour, cutouts) };
 }
 
+/** How strong the table's grid is. */
+const GRID_OPACITY = 0.3;
+
+/** The steps of an item's `opening`, in order. */
+const stepsOf = <T>({ before, apart, between, flat }: Opening<T>): readonly T[] => [
+  ...before,
+  apart,
+  ...between,
+  flat,
+];
+
+/** An item's steps, as coordinates, added to those of a geometry's steps. */
+function addSteps<T>(
+  all: number[][],
+  opening: Opening<T> | undefined,
+  points: (step: T) => readonly Point3[],
+): void {
+  if (!opening) return;
+  stepsOf(opening).forEach((step, i) => (all[i] ??= []).push(...points(step).flat()));
+}
+
 /** Owns all GPU resources for a single dialog; renders only when the view changes. */
 export class PreviewScene {
   private readonly renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -73,6 +94,8 @@ export class PreviewScene {
   /** Half extents of the model on screen at zoom 1, in camera units. */
   private fit = { width: 1, height: 1 };
   private skinCoverage = 100;
+  private opening = 0;
+  private openingAt: readonly number[] = [1];
   private cutaway: PreviewModel['cutaway'];
   private readonly skinCutUniforms = { edge: { value: 0 }, feather: { value: 1 } };
 
@@ -189,21 +212,26 @@ export class PreviewScene {
                 surfaces: model.surfaces.filter(kind),
               },
             ]
-          : [undefined, ...new Set(model.surfaces.flatMap((s) => (s.color ? [s.color] : [])))].map(
-              (color) => ({
-                color,
-                fills: color ? [] : model.fills.filter(kind),
-                surfaces: model.surfaces.filter((s) => kind(s) && s.color === color),
-              }),
-            );
+          : [
+              undefined,
+              ...new Set(
+                [...model.surfaces, ...model.fills].flatMap((s) => (s.color ? [s.color] : [])),
+              ),
+            ].map((color) => ({
+              color,
+              fills: model.fills.filter((f) => kind(f) && f.color === color),
+              surfaces: model.surfaces.filter((s) => kind(s) && s.color === color),
+            }));
         for (const { color, fills, surfaces } of groups) {
           const positions: number[] = [];
           const indices: number[] = [];
+          const steps: number[][] = [];
           for (const fill of fills) {
             const start = positions.length / 3;
             const { vertices, faces } = triangulate(fill.points, fill.holes);
             for (const point of vertices) positions.push(...point);
             for (const face of faces) indices.push(...face.map((i) => start + i));
+            addSteps(steps, fill.opening, (rings) => rings.flatMap(open));
           }
           for (const { rows } of surfaces) {
             const width = rows[0].length;
@@ -216,11 +244,15 @@ export class PreviewScene {
                 indices.push(a, b, a + 1, a + 1, b, b + 1);
               }
           }
+          for (const { opening } of surfaces) addSteps(steps, opening, (rows) => rows.flat());
           if (!indices.length) continue;
           const geometry = new THREE.BufferGeometry();
           geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
           geometry.setIndex(indices);
           geometry.computeVertexNormals();
+          if (steps.length) this.addOpening(geometry, steps, indices);
+          // Pieces in their own color keep their seams in front of them.
+          const over = color && ![...fills, ...surfaces].some((item) => item.opening);
           const material = selected
             ? new THREE.MeshBasicMaterial({
                 color: colors.selected,
@@ -236,8 +268,8 @@ export class PreviewScene {
                 side: THREE.DoubleSide,
                 roughness: 0.8,
                 polygonOffset: true,
-                polygonOffsetFactor: color ? -1 : 1,
-                polygonOffsetUnits: color ? -1 : 1,
+                polygonOffsetFactor: over ? -1 : 1,
+                polygonOffsetUnits: over ? -1 : 1,
               });
           let materials: THREE.Material | THREE.Material[] = material;
           if (cutaway && !selected) {
@@ -262,6 +294,7 @@ export class PreviewScene {
           this.model.add(mesh);
         }
         const segments: number[] = [];
+        const segmentSteps: number[][] = [];
         const segmentColors: number[] = [];
         const color = new THREE.Color();
         for (const line of model.lines.filter(
@@ -271,6 +304,7 @@ export class PreviewScene {
           for (let i = 1; i < line.points.length; i++) {
             segments.push(...line.points[i - 1], ...line.points[i]);
             segmentColors.push(color.r, color.g, color.b, color.r, color.g, color.b);
+            addSteps(segmentSteps, line.opening, (step) => [step[i - 1], step[i]]);
           }
         }
         if (segments.length && selected) {
@@ -294,6 +328,7 @@ export class PreviewScene {
           const geometry = new THREE.BufferGeometry();
           geometry.setAttribute('position', new THREE.Float32BufferAttribute(segments, 3));
           geometry.setAttribute('color', new THREE.Float32BufferAttribute(segmentColors, 3));
+          if (segmentSteps.length) this.addOpening(geometry, segmentSteps);
           const material = new THREE.LineBasicMaterial({ vertexColors: true });
           this.applySkinCut(material, cutaway);
           const lines = new THREE.LineSegments(geometry, material);
@@ -329,6 +364,12 @@ export class PreviewScene {
               depthTest: !selected,
             }),
           );
+          if (dots.some((d) => d.opening)) {
+            const steps: number[][] = [];
+            for (const { opening } of dots) addSteps(steps, opening, (step) => [step]);
+            this.addOpening(geometry, steps);
+            points.updateMorphTargets();
+          }
           this.applySkinCut(points.material, cutaway);
           points.renderOrder = selected || cutaway ? 3 : 0;
           this.model.add(points);
@@ -337,8 +378,67 @@ export class PreviewScene {
     // Like the engine's DXFs, models are in Z-down coordinates.
     this.model.scale.z = -1;
     this.viewFrom = model.camera && { x: model.camera[0], y: model.camera[1], z: -model.camera[2] };
+    this.openingAt = model.openingAt ?? this.openingAt;
+    this.addGrid(model.grid?.lines, colors.line);
+    this.applyOpening();
     if (fit && this.model.children.length) this.reset();
-    else this.render();
+    this.render();
+  }
+
+  /** The table's grid, under the model. */
+  private addGrid(lines: readonly Point3[] | undefined, color: number): void {
+    if (!lines) return;
+    const geometry = new THREE.BufferGeometry().setAttribute(
+      'position',
+      new THREE.Float32BufferAttribute(lines.flat(), 3),
+    );
+    const material = new THREE.LineBasicMaterial({
+      color,
+      transparent: true,
+      opacity: GRID_OPACITY,
+      depthWrite: false,
+    });
+    this.model.add(new THREE.LineSegments(geometry, material));
+  }
+
+  /** The steps of a model's `opening`, as morph targets, with their normals on a mesh. */
+  private addOpening(
+    geometry: THREE.BufferGeometry,
+    steps: readonly number[][],
+    indices?: readonly number[],
+  ): void {
+    const targets = steps.map((step) => new THREE.Float32BufferAttribute(step, 3));
+    geometry.morphAttributes['position'] = targets;
+    if (!indices) return;
+    geometry.morphAttributes['normal'] = targets.map((target) => {
+      const shape = new THREE.BufferGeometry();
+      shape.setAttribute('position', target);
+      shape.setIndex([...indices]);
+      shape.computeVertexNormals();
+      return shape.getAttribute('normal');
+    });
+  }
+
+  /** Open the pieces, from 0 in place through the model's steps to 1, without rebuilding them. */
+  setOpening(value: number): void {
+    this.opening = Math.min(1, Math.max(0, value));
+    this.applyOpening();
+    this.render();
+  }
+
+  private applyOpening(): void {
+    // Between two steps, the first of them being the model as it stands.
+    const at = [0, ...this.openingAt];
+    let step = 0;
+    while (step < at.length - 2 && at[step + 1] < this.opening) step++;
+    const t = (this.opening - at[step]) / (at[step + 1] - at[step]);
+    this.model.traverse((object) => {
+      const { morphTargetInfluences: current } = object as Partial<THREE.Mesh>;
+      if (!current) return;
+      current.fill(0);
+      if (step) current[step - 1] = 1 - t;
+      current[step] = t;
+    });
   }
 
   /** Move only the skin's dissolved cut edge; its internals and the camera are unchanged. */
@@ -446,10 +546,13 @@ export class PreviewScene {
       }
       // Their positions are those of a quad; the model's other points frame them.
       if (object instanceof LineSegments2) return;
-      const positions = (object as Partial<THREE.Mesh>).geometry?.getAttribute('position');
+      const { geometry } = object as Partial<THREE.Mesh>;
+      const positions = geometry?.getAttribute('position');
       if (!positions) return;
-      for (let i = 0; i < positions.count; i++)
-        bounds.expandByPoint(point.fromBufferAttribute(positions, i).applyMatrix4(toView));
+      // An opening's steps too: the view holds the pieces all the way.
+      for (const step of [positions, ...(geometry!.morphAttributes['position'] ?? [])])
+        for (let i = 0; i < step.count; i++)
+          bounds.expandByPoint(point.fromBufferAttribute(step, i).applyMatrix4(toView));
     });
     return bounds;
   }

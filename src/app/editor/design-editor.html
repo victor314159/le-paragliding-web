@@ -91,6 +91,12 @@
     @if (visited().has('2d')) {
       <app-patterns-overview [active]="editor.view() === '2d'" [hidden]="editor.view() !== '2d'" />
     }
+    @if (visited().has('assembly')) {
+      <app-assembly-overview
+        [active]="editor.view() === 'assembly'"
+        [hidden]="editor.view() !== 'assembly'"
+      />
+    }
   </div>
   <footer>
     <div class="editor-label">

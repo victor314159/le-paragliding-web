@@ -217,7 +217,7 @@ function ribPieces(
     ...rib,
     number: `${rib.rib + 1}`,
     title: `Rib ${rib.rib + 1}`,
-    // The engine leaves a rib's cut line open at its trailing edge.
+    // Its cut line ends where it starts, or stays open on a "pc" nose without thickness.
     cuts: rib.cut,
     closedCut: false,
     references: [

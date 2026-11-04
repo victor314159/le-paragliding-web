@@ -323,11 +323,14 @@ test('enhanced 3D-shaping seams follow its ballooning, the pieces as the referen
   for (const panel of panels) expect(panel.cut.flat().every(Number.isFinite)).toBe(true);
 });
 
-test('enhanced cut lines end the rib allowance off the trailing edge', () => {
+test('enhanced cut lines end the rib allowance off the trailing edge, joined across it', () => {
   for (const id of [...DESIGNS, DAT_FIXTURE]) {
     const { design, airfoils } = project(id === DAT_FIXTURE ? id : `oracle/designs/${id}`);
     for (const rib of enhancedRibs(design, airfoils)) {
-      const [cut, sewing] = [rib.cut.flat(), rib.sewing];
+      expect(rib.cut).toHaveLength(1);
+      const [line, sewing] = [rib.cut[0], rib.sewing];
+      expect(line.at(-1), `${id} rib ${rib.rib + 1}`).toEqual(line[0]);
+      const cut = line.slice(0, -1);
       for (const [a, b] of [
         [cut[0], sewing[0]],
         [cut.at(-1)!, sewing.at(-1)!],
@@ -345,15 +348,21 @@ test('enhanced rib patterns are the reference ones in double precision', () => {
     const { design, airfoils } = project(`oracle/designs/${id}`);
     const reference = fortranRibs(design, airfoils),
       ribs = enhancedRibs(design, airfoils);
-    const points = (r: (typeof ribs)[number]) => [...r.sewing, ...r.cut.flat(), ...r.holes.flat()];
+    const points = (r: (typeof ribs)[number], cut: (typeof ribs)[number]['cut'] = r.cut) => [
+      ...r.sewing,
+      ...cut.flat(),
+      ...r.holes.flat(),
+    ];
+    // Without the line that closes the enhanced cut, which the engine does not draw.
+    const open = (r: (typeof ribs)[number]) => points(r, [r.cut[0].slice(0, -1)]);
     expect(
-      ribs.map((r) => points(r).length),
+      ribs.map((r) => open(r).length),
       id,
     ).toEqual(reference.map((r) => points(r).length));
     let worst = 0;
     ribs.forEach((rib, i) => {
       const expected = points(reference[i]);
-      points(rib).forEach((p, j) => (worst = Math.max(worst, distance(p, expected[j]))));
+      open(rib).forEach((p, j) => (worst = Math.max(worst, distance(p, expected[j]))));
     });
     expect(worst, id).toBeLessThan(1e-3);
   }
@@ -378,8 +387,10 @@ test('enhanced "pc" ribs cut their closed nose at its corners, their mylars clos
       if (pattern.sewing.every(([, v]) => v === 0)) return;
       expect(pattern.cut, `${id} rib ${i + 1}`).toHaveLength(1);
       const [cut] = pattern.cut;
-      // The extrados' and the intrados' points, then two corners on the nose's offset line.
-      expect(cut).toHaveLength(pattern.sewing.length + 2);
+      // The extrados' and the intrados' points, two corners on the nose's offset
+      // line, and its first point again, across the trailing edge.
+      expect(cut).toHaveLength(pattern.sewing.length + 3);
+      expect(cut.at(-1)).toEqual(cut[0]);
       const [a, b] = [pattern.sewing[upper - 1], pattern.sewing[upper]];
       const across = ([u, v]: readonly number[]) =>
         ((b[0] - a[0]) * (v - a[1]) - (b[1] - a[1]) * (u - a[0])) / distance(a, b);

@@ -41,6 +41,12 @@ export interface SkinPanel {
   readonly sewing: readonly Point[];
   /** Closed cut line, sewing allowances included. */
   readonly cut: readonly Point[];
+  /**
+   * Its sewing lines along its ribs, point by point from point `from` of
+   * their airfoils, its glued inlet included, as developed before any trim:
+   * where each lies on them. `cut`, their cut lines, point for point.
+   */
+  readonly ribEdges: Flat & { readonly from: number; readonly cut: Flat };
   /** Sewing lines across the panel, where an air inlet joins it. */
   readonly joins: readonly (readonly [Point, Point])[];
   /** Closed cut lines inside the panel: elliptical air inlets. */
@@ -65,7 +71,8 @@ export interface SkinPanel {
 }
 
 /** The lines of a panel, its joins and holes optional. */
-type Panel = Pick<SkinPanel, 'sewing' | 'cut'> & Partial<Pick<SkinPanel, 'joins' | 'holes'>>;
+type Panel = Pick<SkinPanel, 'sewing' | 'cut'> &
+  Partial<Pick<SkinPanel, 'joins' | 'holes' | 'ribEdges'>>;
 
 /**
  * The sewing marks of a surface's pieces, from its trailing edge (the last
@@ -768,6 +775,7 @@ export function panelOutlines(
           cell,
           surface,
           piece: k,
+          ribEdges: { ...piece.sewing, cut: piece.cut, from: from + bounds[k] },
           joins: [],
           holes: [],
           marks: marks[k],
@@ -828,6 +836,7 @@ export function panelOutlines(
         const m = last(both);
         return {
           ...closed(both, trailing, bracket(both, m, m - 1, upper.leadingEdge, 1, round, true)),
+          ribEdges: { ...both.sewing, cut: both.cut, from: rib.upper - n },
           joins,
           holes: type === 6 ? [ellipse(part(both, n), parameters)] : [],
         };
@@ -849,6 +858,7 @@ export function panelOutlines(
           ...reversed(keptRight.cut.right),
           ...reversed(trailing.cut),
         ],
+        ribEdges: { ...both.sewing, cut: both.cut, from: rib.upper - n },
         joins,
       };
     }
@@ -894,12 +904,14 @@ export function panelOutlines(
       if (type === -1 || type === -6)
         return {
           ...closed(both, bracket(both, 0, 1, lower.leadingEdge, -1, round, true), trailing),
+          ribEdges: { ...both.sewing, cut: both.cut, from: rib.upper },
           joins,
           holes: type === -6 ? [ellipse(part(both, 0, j + 1), parameters)] : [],
         };
       if (type === -2 || type === -3)
         return {
           ...diagonal(both, j, type === -2, lower.leadingEdge, trailing, round),
+          ribEdges: { ...both.sewing, cut: both.cut, from: rib.upper },
           joins,
         };
       const end = trimmed(
@@ -925,6 +937,7 @@ export function panelOutlines(
           ...reversed(keptRight.cut.right),
           ...reversed(end.cut),
         ],
+        ribEdges: { ...both.sewing, cut: both.cut, from: rib.upper },
         joins,
       };
     }
