@@ -228,8 +228,11 @@ export class PreviewScene {
           const steps: number[][] = [];
           for (const fill of fills) {
             const start = positions.length / 3;
-            const { vertices, faces } = triangulate(fill.points, fill.holes);
-            for (const point of vertices) positions.push(...point);
+            // On its pattern if it has one: in space, a piece can fold over its own outline.
+            const flat = fill.opening?.flat;
+            const { faces } = triangulate(flat?.[0] ?? fill.points, flat?.slice(1) ?? fill.holes);
+            for (const point of [fill.points, ...(fill.holes ?? [])].flatMap(open))
+              positions.push(...point);
             for (const face of faces) indices.push(...face.map((i) => start + i));
             addSteps(steps, fill.opening, (rings) => rings.flatMap(open));
           }

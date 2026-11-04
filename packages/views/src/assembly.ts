@@ -21,6 +21,7 @@ import {
   type SkinPanel,
   type SkinPanelSections,
   type SkinSections,
+  type VRib,
   type VRibPattern,
   type VRibPatternSections,
 } from '@lepara/geometry/enhanced-v1';
@@ -124,6 +125,8 @@ interface Piece {
   readonly faults: readonly boolean[];
   /** The lengths of a panel's sewing line across its ends, first and last. */
   readonly ends?: readonly [number, number];
+  /** A V-rib along the whole chord, in its own column on the table. */
+  readonly long?: boolean;
   /** Where a minirib is sewn on a panel. */
   readonly seam?: readonly Vertex[];
 }
@@ -879,7 +882,10 @@ function onStrip(left: readonly Vertex[], right: readonly Vertex[]) {
     };
     const inside = (corners: readonly Vertex[]) => Math.min(...weights(corners));
     const best = triangles.reduce((a, b) => (inside(b) > inside(a) ? b : a));
-    const [a, b, c] = weights(best);
+    // Past its edges, as an allowance of its teeth is: on them.
+    const kept = weights(best).map((weight) => Math.max(weight, 0));
+    const total = kept[0] + kept[1] + kept[2];
+    const [a, b, c] = kept.map((weight) => weight / total);
     const at = (axis: 0 | 1 | 2) =>
       a * best[0].point[axis] + b * best[1].point[axis] + c * best[2].point[axis];
     return [at(0), at(1), at(2)];
@@ -907,6 +913,7 @@ function vRibPiece(
   const right = flatRight.map((flat, k) => vertex(flat, right3D[k]));
   const place = onStrip(left, right);
   const middle = count >> 1;
+  const cuts = cut.slice(2);
   const flaps = [left, right].flatMap((edge, side): Flap[] => {
     const other = side ? left : right;
     // Its edge's rib, by which of the cell's ribs it runs nearest.
@@ -927,8 +934,10 @@ function vRibPiece(
         edge.map((v) => v.point),
       ),
     );
-    const line = cut[side + 2];
-    if (line?.length !== count + 2) return [];
+    const line = cuts.find(
+      (points) => points.length === count + 2 && distance(points[0], edge[0].flat) < 1e-6,
+    );
+    if (!line) return [];
     const flatEdge = edge.map((v) => v.flat);
     // In a rib's seam, nested in the panel's corner: under it, it would go through its allowance.
     const inSeam =
@@ -969,10 +978,17 @@ function vRibPiece(
     return [[rows.map((row) => row.seam), rows.map((row) => row.cut)]];
   });
   const mark = (flat: Point): Vertex => vertex(flat, place(flat));
+  // Type 5 is cut in teeth along one edge, sewn at their tips: its outline, not that edge.
+  const teeth = cuts.find(({ length }) => length !== count + 2);
+  const startsLeft = teeth && distance(teeth[0], left[0].flat) < 1e-6;
+  const outline = teeth
+    ? [...teeth.map(mark), ...[...(startsLeft ? right : left)].reverse()]
+    : [...left, ...[...right].reverse()];
   return {
     kind: 'vrib',
     side: 0,
-    vertices: [[...left, ...[...right].reverse()], ...pattern.holes.map((hole) => hole.map(mark))],
+    long: !!teeth,
+    vertices: [outline, ...pattern.holes.map((hole) => hole.map(mark))],
     axes: [left[0], left[count - 1], left[middle], right[middle]],
     flaps,
     marks: pattern.marks.map(mark),
@@ -988,19 +1004,22 @@ function vRibPiece(
  * the panels' sides on their ribs, their pieces between 3D-shaping cuts, the
  * trailing edge, the miniribs' seams on the cell's middle, and the edges of
  * straps and V-ribs on their ribs.
- * `panels`, those to assemble, by default the design's.
+ * `panels` and `strips`, those to assemble, by default the design's.
  */
 export function assembly(
   design: Pick<LepDesign, AssemblySections>,
   airfoils: ReadonlyMap<string, LepAirfoil>,
   panels: readonly SkinPanel[] = skinPanels(design, airfoils),
+  strips: readonly Pick<VRib, 'rows' | 'ribs' | 'edges'>[] = [
+    ...hStraps(design, airfoils),
+    ...vRibs(design, airfoils),
+  ],
 ) {
   const skin = balloonedSkin(design, airfoils);
   const patterns = ribPatterns(design, airfoils);
   const miniribs = miniribPatterns(design, airfoils);
   const seams = miniribSeams(design, airfoils);
   const flatRibs = vRibPatterns(design, airfoils);
-  const ribs3D = [...hStraps(design, airfoils), ...vRibs(design, airfoils)];
 
   const piecesOf = (cell: number) => {
     const checks: SeamCheck[] = [];
@@ -1052,13 +1071,12 @@ export function assembly(
     if (top?.ends && bottom?.ends) check('trailing edge', top.ends[0] - bottom.ends[1], 0);
     const minirib = miniribs.find(({ rib }) => rib - 1 === cell);
     const placed = minirib && inner && outer && cellMinirib(minirib, inner, outer);
-    // Type 5 is a strip its cut line runs through, past what a seam and its allowance draw.
-    const strips = flatRibs.flatMap((pattern) => {
+    const laid = flatRibs.flatMap((pattern) => {
       // Laid flat, its ribs can come the other way round.
       const key = ({ rows, ribs }: Pick<VRibPattern, 'rows' | 'ribs'>) =>
         `${rows.join()}:${Math.min(...ribs)}:${Math.max(...ribs)}`;
-      const built = ribs3D.find((rib) => key(rib) === key(pattern));
-      return inner && outer && built && pattern.type !== 5 && Math.min(...pattern.ribs) === cell
+      const built = strips.find((rib) => key(rib) === key(pattern));
+      return inner && outer && built && Math.min(...pattern.ribs) === cell
         ? [vRibPiece(pattern, built.edges, [inner, outer], check)]
         : [];
     });
@@ -1066,7 +1084,7 @@ export function assembly(
       inner && ribPiece(inner, -1),
       ...sewn,
       placed && ribPiece(placed, 0, 'minirib'),
-      ...strips,
+      ...laid,
       outer && ribPiece(outer, 1),
     ].filter((piece) => !!piece);
     return { pieces, checks };
@@ -1083,7 +1101,7 @@ export function assembly(
       const model: PreviewModel = {
         title: `Cell ${cell + 1} assembly`,
         note: pieces.length
-          ? 'Each piece is its pattern: laid flat lengthwise, turned as little as it can be from the wing, placed on the wing by the length of its fabric. Allowances folded by the seam conventions, thicker than fabric. Type 5 V-ribs are left out.'
+          ? 'Each piece is its pattern: laid flat lengthwise, turned as little as it can be from the wing, placed on the wing by the length of its fabric. Allowances folded by the seam conventions, thicker than fabric.'
           : 'The pieces need valid ribs and airfoils with matching points.',
         surfaces: [],
         fills: [],
@@ -1256,9 +1274,12 @@ function layOut(sewn: readonly Piece[], model: PreviewModel, visible: ReadonlySe
   const middleY = (piece: Piece) => centreOf(piece.vertices.flat().map((v) => v.point))[1];
   const columns = [
     pieces.filter(({ side }) => side < 0),
-    ...[['extrados'], ['minirib', 'vrib'], ['intrados']].map((kinds) =>
-      pieces.filter((piece) => kinds.includes(piece.kind)).sort((a, b) => middleY(b) - middleY(a)),
-    ),
+    ...[
+      (piece: Piece) => piece.kind === 'extrados',
+      (piece: Piece) => piece.kind === 'minirib' || (piece.kind === 'vrib' && !piece.long),
+      (piece: Piece) => !!piece.long,
+      (piece: Piece) => piece.kind === 'intrados',
+    ].map((own) => pieces.filter(own).sort((a, b) => middleY(b) - middleY(a))),
     pieces.filter(({ side }) => side > 0),
   ].filter((column) => column.length);
   const breadth = (piece: Piece) => {

@@ -1,10 +1,12 @@
 import { expect, test } from '@playwright/test';
 import {
+  hStraps,
   miniribPatterns,
   miniribSeams,
   ribPatterns,
   skinPanels,
   vRibPatterns,
+  vRibs,
   type Point3,
 } from '@lepara/geometry/enhanced-v1';
 import { SEAM_CONVENTIONS } from '@lepara/design';
@@ -65,6 +67,16 @@ function onPattern(points: readonly Flat[], pattern: readonly Flat[]) {
   const miss = (move: (typeof moves)[number]) => worst(points.map((p) => toRing(move(p), pattern)));
   return moves.reduce((best, move) => (miss(move) < miss(best) ? move : best));
 }
+/** A strap or V-rib's outline: of type 5, its teeth, then the edge it is cut along. */
+function stripOutline(strip: ReturnType<typeof vRibPatterns>[number]) {
+  if (strip.type !== 5) return strip;
+  const count = strip.sewing.length >> 1;
+  const teeth = strip.cut.slice(2).find(({ length }) => length !== count + 2)!;
+  const [start] = teeth;
+  const fromLeft = Math.hypot(start[0] - strip.sewing[0][0], start[1] - strip.sewing[0][1]) < 1e-9;
+  const edge = fromLeft ? strip.sewing.slice(count) : strip.sewing.slice(0, count).reverse();
+  return { ...strip, sewing: [...teeth, ...edge] };
+}
 const finite = (rings: readonly (readonly Point3[])[]) =>
   rings.every((ring) => ring.every((p) => p.every(Number.isFinite)));
 
@@ -111,7 +123,7 @@ for (const id of designs)
       const own2D = [
         ribs[Math.max(cell - 1, 0)],
         ...(minirib ? [minirib] : []),
-        ...strips.filter(({ ribs: on, type }) => type !== 5 && Math.min(...on) === cell),
+        ...strips.filter(({ ribs: on }) => Math.min(...on) === cell).map(stripOutline),
         ribs[cell],
       ];
       expect(model.fills).toHaveLength(own2D.length);
@@ -173,8 +185,7 @@ for (const id of designs)
       const shaping = own.filter((panel) => panel.piece > 0).length;
       const tail = new Set(own.map((panel) => panel.surface)).size > 1 ? 1 : 0;
       const miniribs = seams.filter((seam) => seam.cell === cell).length;
-      const edges =
-        2 * strips.filter(({ ribs, type }) => type !== 5 && Math.min(...ribs) === cell).length;
+      const edges = 2 * strips.filter(({ ribs }) => Math.min(...ribs) === cell).length;
       expect(found).toHaveLength(2 * own.length + shaping + tail + miniribs + edges);
       return found;
     });
@@ -384,6 +395,47 @@ test('a model draws only its visible layers', () => {
   expect(lines).toEqual([]);
   expect(surfaces.length).toBeGreaterThan(0);
   expect(pieces.model(cell, new Set(['lines'])).lines.length).toBeGreaterThan(0);
+});
+
+test('a V-rib off its line or longer than its pattern shows on that seam, and only there', () => {
+  const { design, airfoils } = project('oracle/designs/swoop2');
+  const strips = [...hStraps(design, airfoils), ...vRibs(design, airfoils)];
+  const target = strips.find((strip) => 'type' in strip && strip.type === 6)!;
+  const cell = Math.min(...target.ribs);
+  const changed = (edge: (points: readonly Point3[]) => Point3[]) =>
+    assembly(
+      design,
+      airfoils,
+      undefined,
+      strips.map((strip) =>
+        strip === target
+          ? { ...strip, edges: [edge(strip.edges[0]), strip.edges[1]] as const }
+          : strip,
+      ),
+    ).checks(cell);
+  const off = (checks: ReturnType<typeof changed>) =>
+    checks.filter(
+      ({ difference, marks }) =>
+        Math.abs(difference) > SEAM_CONVENTIONS.seamTolerance ||
+        marks > SEAM_CONVENTIONS.seamTolerance,
+    );
+  // Slid 1 cm along the chord, its edge keeps its length, and leaves where it is sewn.
+  const slid = off(changed((points) => points.map(([x, y, z]): Point3 => [x, y + 1, z])));
+  expect(slid).toHaveLength(1);
+  expect(slid[0].seam).toMatch(/^V-rib /);
+  expect(slid[0].marks).toBeGreaterThan(SEAM_CONVENTIONS.seamTolerance);
+  // Stretched 1 cm past its far end, it no longer has the length of its pattern.
+  const stretched = off(
+    changed((points) => {
+      const [a, b] = [points[points.length - 2], points[points.length - 1]];
+      const [dx, dy, dz] = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+      const length = Math.hypot(dx, dy, dz);
+      return [...points.slice(0, -1), [b[0] + dx / length, b[1] + dy / length, b[2] + dz / length]];
+    }),
+  );
+  expect(stretched).toHaveLength(1);
+  expect(Math.abs(stretched[0].difference)).toBeGreaterThan(0.9);
+  expect(off(assembly(design, airfoils).checks(cell))).toEqual([]);
 });
 
 test('a panel side longer than its rib shows on that seam, and only there', () => {
