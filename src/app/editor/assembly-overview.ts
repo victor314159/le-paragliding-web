@@ -111,7 +111,7 @@ export class AssemblyOverview {
       key === 'perspective' ? [key, label, [1.3, -1, -0.8]] : [key, label, direction],
   );
   protected readonly visible = signal<ReadonlySet<AssemblyLayer>>(
-    new Set(['extrados', 'intrados', 'rib', 'minirib', 'lines']),
+    new Set(['extrados', 'intrados', 'rib', 'minirib', 'vrib', 'lines']),
   );
   protected readonly camera = signal('perspective');
   protected readonly fitRequest = signal(0);

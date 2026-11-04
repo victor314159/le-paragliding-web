@@ -31,6 +31,11 @@ export const SEAM_CONVENTIONS = {
    * against its inside. No source says which way: to check on a wing.
    */
   minirib: 1 as 1 | -1,
+  /**
+   * A V-rib or strap, sewn on a rib's face (NOVA, "Needle-eye Ribs"), lies
+   * that way too: its allowance goes on the way the piece comes, a layer off
+   * the rib. No source says more: to check on a wing.
+   */
   /** The leading edge, its inlets included, hemmed into the inside. */
   leadingEdge: 'hem' as EndSeam,
   /** Practices vary: some builders roll it, some trim it. A hem, to check on a wing. */
