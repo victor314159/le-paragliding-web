@@ -239,3 +239,82 @@ path.intrados {
 path.intrados {
   stroke-dasharray: 6 4;
 }
+/* A legend of the drawn styles: framed, beside the drawing, or above it on a phone. */
+.stage {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+.keyed {
+  flex-direction: row;
+  gap: 12px;
+}
+.keyed > svg {
+  width: 0;
+  height: auto;
+}
+.keyed .legend {
+  order: 1;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-self: flex-start;
+  box-sizing: border-box;
+  flex: none;
+  width: 180px;
+  margin-block: 4px;
+  padding: 6px 8px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 4px;
+  color: var(--mat-sys-on-surface-variant);
+  background: var(--mat-sys-surface);
+}
+.keyed span {
+  display: flex;
+  gap: 6px;
+}
+.keyed span svg {
+  flex: none;
+  width: 24px;
+  height: 10px;
+  min-height: 0;
+  margin: 3px 0 0;
+}
+/* The grid behind a drawing, its pieces see-through, and the size of its squares. */
+.grid {
+  --grid-line: color-mix(in srgb, var(--mat-sys-outline-variant) 50%, transparent);
+  background-image:
+    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+}
+.grid .outline {
+  fill: color-mix(in srgb, var(--mat-sys-secondary-container) 55%, transparent);
+}
+.grid-size {
+  /* Its text changes with the zoom: the legend keeps its layout. */
+  min-width: 96px;
+}
+.grid-size i {
+  box-sizing: border-box;
+  flex: none;
+  width: 11px;
+  height: 11px;
+  margin: 2px 6px 0 7px;
+  border: 1px solid var(--mat-sys-outline);
+}
+@media (max-width: 700px) {
+  .keyed {
+    flex-direction: column;
+    gap: 0;
+  }
+  .keyed > svg {
+    width: 100%;
+    height: 0;
+  }
+  .keyed .legend {
+    order: 0;
+    flex-direction: row;
+    flex-wrap: wrap;
+    width: auto;
+  }
+}

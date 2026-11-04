@@ -1705,10 +1705,44 @@ test('2D preview draws the cutting patterns of the draft, by group of pieces', a
   ).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Sections and airfoils' })).toBeHidden();
   await expect(patterns.locator('figcaption')).toHaveText('Extrados panels');
-  const panels = patterns.locator('path.outline');
+  const panels = patterns.locator('svg[role="img"] path.outline');
   const count = await panels.count();
   expect(count).toBeGreaterThan(10);
   await expect(panels.first().locator('title')).toHaveText(/^Panel \d+$/);
+  const legend = patterns.locator('.keyed .legend');
+  await expect(legend).toContainText('Sewing line');
+  await expect(legend).toContainText('Cut line');
+  // The grid measures the drawing at the current zoom, from its origin.
+  const drawing = patterns.locator('svg[role="img"]');
+  const grid = legend.locator('.grid-size');
+  const measured = async () => ({
+    text: await grid.innerText(),
+    ...(await drawing.evaluate((svg: SVGSVGElement) => {
+      const matrix = svg.getScreenCTM()!;
+      const style = getComputedStyle(svg);
+      const { left } = svg.getBoundingClientRect();
+      const [width, height] = style.backgroundSize.split(',')[0].trim().split(' ');
+      return {
+        length: parseFloat(width) / matrix.a,
+        square: width === height,
+        offset: parseFloat(style.backgroundPositionX) + left - matrix.e,
+      };
+    })),
+  });
+  const fitted = await measured();
+  expect(fitted.text).toMatch(/^Grid \d+ cm$/);
+  expect(fitted.length).toBeCloseTo(parseFloat(fitted.text.slice(5)), 1);
+  expect(fitted.square).toBe(true);
+  expect(fitted.offset).toBeCloseTo(0, 1);
+  const width = await legend.evaluate((box) => box.getBoundingClientRect().width);
+  await drawing.hover();
+  await page.mouse.wheel(0, -500);
+  await expect.poll(async () => (await measured()).text).not.toBe(fitted.text);
+  const zoomed = await measured();
+  expect(zoomed.length).toBeCloseTo(parseFloat(zoomed.text.slice(5)), 1);
+  expect(zoomed.offset).toBeCloseTo(0, 1);
+  expect(await legend.evaluate((box) => box.getBoundingClientRect().width)).toBe(width);
+  await drawing.dblclick();
   await patterns.getByRole('combobox', { name: 'Pieces', exact: true }).selectOption('intrados');
   await expect(patterns.locator('figcaption')).toHaveText('Intrados panels');
   await expect(panels).toHaveCount(count);

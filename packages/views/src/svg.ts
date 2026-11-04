@@ -52,13 +52,20 @@ export function toSvg(scene: PreviewScene): string {
   // The legend takes a row of text above the drawing.
   const row = scene.legend.length ? scene.fontSize * 1.5 : 0;
   let offset = x;
-  const legend = scene.legend.map(({ text, color }) => {
-    const entry = `<text x="${offset}" y="${y - row / 3}"${paint('fill', color)}>● ${escape(text)}</text>`;
-    offset += (text.length + 3) * scene.fontSize * 0.6;
+  const legend = scene.legend.map(({ text, color, sample }) => {
+    const [size, middle] = [scene.fontSize, y - row / 2];
+    const entry = sample
+      ? `${
+          sample.dot
+            ? `<circle ${kind(sample.kind, false)} cx="${offset + size / 2}" cy="${middle}" r="${size / 4}"/>`
+            : `<path ${kind(sample.kind, false)} d="M${offset} ${middle}h${size}"/>`
+        }<text x="${offset + size * 1.3}" y="${y - row / 3}">${escape(text)}</text>`
+      : `<text x="${offset}" y="${y - row / 3}"${paint('fill', color)}>● ${escape(text)}</text>`;
+    offset += (text.length + 3) * size * 0.6;
     return entry;
   });
   return [
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${x} ${y - row} ${width} ${height + row}" font-size="${scene.fontSize}">`,
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${x} ${y - row} ${Math.max(width, offset - x)} ${height + row}" font-size="${scene.fontSize}">`,
     `<title>${escape(scene.title)}</title>`,
     `<desc>${escape(scene.note)}</desc>`,
     `<style>${STYLE}</style>`,

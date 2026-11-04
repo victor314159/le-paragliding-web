@@ -45,7 +45,8 @@ draw files instead: `airfoilScene(name, airfoil, point)` and
 generates. `cuttingScene(design, airfoils, group, enlarged)` lays out the
 pieces of a group of `PATTERN_GROUPS` flat, the sewing lines, cut lines, holes
 and marks of the cutting patterns of the 2D preview, the marks at their size
-on the fabric or `enlarged`. `toSvg(scene)`
+on the fabric or `enlarged`, its legend the styles it draws, its `unit` for
+the grid the editor draws behind it, which follows the zoom. `toSvg(scene)`
 writes an SVG document, with a light default style for the kinds of its items. The helpers the scenes build on are exported too: rib profiles
 (`ribProfile`, `frontPoint`, `offsetProfile`), line trees, rod curves,
 reinforcement attachments, color cuts, skin tension curves, vents, wing tips

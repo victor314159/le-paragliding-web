@@ -1,6 +1,7 @@
 import {
   afterNextRender,
   afterRenderEffect,
+  computed,
   DestroyRef,
   Directive,
   ElementRef,
@@ -41,6 +42,17 @@ export class PreviewViewport {
   private readonly svg = inject<ElementRef<SVGSVGElement>>(ElementRef).nativeElement;
   private readonly destroy = inject(DestroyRef);
   private readonly box = signal<Box>({ x: 0, y: 0, width: 1, height: 1 });
+  private readonly size = signal({ width: 0, height: 0 });
+  /** How the SVG fits its view box: pixels per unit, and the drawing's origin in pixels. */
+  readonly scale = computed(() => {
+    const [box, size] = [this.box(), this.size()];
+    const pixels = Math.min(size.width / box.width, size.height / box.height);
+    return {
+      pixels,
+      x: (size.width - box.width * pixels) / 2 - box.x * pixels,
+      y: (size.height - box.height * pixels) / 2 - box.y * pixels,
+    };
+  });
   protected readonly dragging = signal(false);
   private drag?: { x: number; y: number; box: Box; inverse: DOMMatrix };
   private fitted = true;
@@ -60,6 +72,7 @@ export class PreviewViewport {
     });
     afterNextRender(() => {
       const observer = new ResizeObserver(() => {
+        this.size.set(this.svg.getBoundingClientRect());
         if (this.fitted) this.fit();
       });
       observer.observe(this.svg);

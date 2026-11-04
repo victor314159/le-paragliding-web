@@ -20,7 +20,10 @@ export interface PreviewContext<K extends keyof LepDesign = keyof LepDesign> {
 /**
  * A drawing in its declared units. `kind` names the style of an item (its
  * CSS class); `color`, when set, is its stroke (paths) or fill (dots), for
- * colors that carry meaning, such as the anchor rows of `legend`.
+ * colors that carry meaning, such as the anchor rows of `legend`. A legend
+ * entry shows its color, or the `sample` of the style it explains: a dot or
+ * a line of that kind. `unit`, when set, is the true unit of the drawing's
+ * coordinates, for a grid.
  */
 export interface PreviewScene {
   title: string;
@@ -44,7 +47,8 @@ export interface PreviewScene {
     kind: string;
     selected: boolean;
   }[];
-  legend: { text: string; color: string }[];
+  legend: { text: string; color?: string; sample?: { kind: string; dot: boolean } }[];
+  unit?: string;
 }
 
 /** Drawing primitives shared by the input schematics, all in their declared units. */
@@ -146,6 +150,12 @@ export class PreviewDrawing {
     };
   }
 }
+/** The longest round length (1, 2 or 5 times a power of ten) up to `max`, for a grid. */
+export function gridLength(max: number): number {
+  const power = 10 ** Math.floor(Math.log10(max));
+  return Number(((max / power >= 5 ? 5 : max / power >= 2 ? 2 : 1) * power).toPrecision(1));
+}
+
 export const valueLabel = (value: number | null | undefined, unit = '') =>
   finite(value) ? `${Number(value.toPrecision(5))}${unit}` : '—';
 const fixed = (value: number) => value.toFixed(2);

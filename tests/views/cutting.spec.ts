@@ -6,7 +6,13 @@ import {
   unloadedRibPatterns,
   vRibPatterns,
 } from '@lepara/geometry/enhanced-v1';
-import { cuttingScene, panelNumber, PATTERN_GROUPS } from '../../packages/views/src/index.ts';
+import {
+  cuttingScene,
+  panelNumber,
+  PATTERN_GROUPS,
+  gridLength,
+  toSvg,
+} from '../../packages/views/src/index.ts';
 import { DESIGNS, project } from '../format/helpers';
 
 for (const id of DESIGNS)
@@ -190,4 +196,30 @@ test('a "pc" wing draws its ribs, their inlets closed', () => {
   // The inlet's inner points are left out of the sewing line.
   const [ds] = ribPatterns(input, airfoils);
   expect(ds.sewing.length - ribs[0].sewing.length).toBeGreaterThan(0);
+});
+
+test('the legend of the cutting patterns explains the styles each group draws', () => {
+  const { design, airfoils } = project(`oracle/designs/${DESIGNS[0]}`);
+  for (const [group] of PATTERN_GROUPS) {
+    const scene = cuttingScene(design, airfoils, group);
+    const kinds = new Set([...scene.paths, ...scene.dots].map((item) => item.kind));
+    expect(new Set(scene.legend.map((entry) => entry.sample?.kind))).toEqual(kinds);
+    expect(scene.legend.every((entry) => entry.text)).toBe(true);
+  }
+  const { legend } = cuttingScene(design, airfoils, 'extrados');
+  expect(legend[0]).toEqual({
+    text: 'Sewing line',
+    sample: { kind: 'outline', dot: false },
+  });
+  expect(legend.find((entry) => entry.sample?.kind === 'allowance')?.text).toContain('Cut line');
+  expect(legend.find((entry) => entry.sample?.kind === 'mark')?.sample?.dot).toBe(true);
+  expect(toSvg(cuttingScene(design, airfoils, 'extrados'))).toContain('>Sewing line</text>');
+});
+
+test('a grid takes a round length, and the patterns give their unit', () => {
+  expect([1, 1.9, 2, 4.9, 5, 9.9, 10, 73, 0.3].map(gridLength)).toEqual([
+    1, 1, 2, 2, 5, 5, 10, 50, 0.2,
+  ]);
+  const { design, airfoils } = project(`oracle/designs/${DESIGNS[0]}`);
+  expect(cuttingScene(design, airfoils, 'ribs').unit).toBe('cm');
 });

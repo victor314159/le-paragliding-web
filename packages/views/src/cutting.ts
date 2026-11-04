@@ -12,7 +12,7 @@ import {
   type VRibPatternSections,
 } from '@lepara/geometry/enhanced-v1';
 import type { Point } from './geometry.ts';
-import { PreviewDrawing } from './scene.ts';
+import { PreviewDrawing, type PreviewScene } from './scene.ts';
 
 /** The groups of cutting patterns: value and label. */
 export const PATTERN_GROUPS = [
@@ -143,7 +143,8 @@ export function cuttingScene(
         flip(points).map(([u, v]): Point => [x + u - box.left, y + v - box.top]);
       d.path(place(piece.sewing), 'outline', false, piece.title, true);
       // Over the piece: V-ribs are cut out inside it.
-      for (const cut of piece.cuts) d.path(place(cut), 'allowance', false, '', piece.closedCut);
+      for (const cut of piece.cuts)
+        d.path(place(cut), 'allowance', false, 'Cut line', piece.closedCut);
       for (const { title, lines } of piece.references)
         for (const line of lines) d.path(place(line), 'rib', false, title);
       for (const hole of piece.holes) d.path(place(hole), 'allowance', false, 'Hole', true);
@@ -168,7 +169,21 @@ export function cuttingScene(
     }
     y += Math.max(...row.map((i) => boxes[i].bottom - boxes[i].top)) + 2 * font + gap;
   }
-  return d.finish();
+  const scene = d.finish();
+  // A pocket or a mylar is drawn by its outline alone, without a sewing line.
+  const outline = group === 'reinforcements' ? 'Outline' : 'Sewing line';
+  return { ...scene, legend: cuttingLegend(scene, outline), unit: 'cm' };
+}
+
+/** One entry per style the scene draws, naming what its items show. */
+function cuttingLegend({ paths, dots }: PreviewScene, outline: string): PreviewScene['legend'] {
+  const shown = new Map<string, Set<string>>();
+  for (const { kind, title } of [...paths, ...dots])
+    shown.set(kind, (shown.get(kind) ?? new Set()).add(kind === 'outline' ? outline : title));
+  return [...shown].map(([kind, titles]) => ({
+    text: [...titles].join(' · '),
+    sample: { kind, dot: dots.some((dot) => dot.kind === kind) },
+  }));
 }
 
 function panelPieces(
@@ -301,16 +316,16 @@ function vRibPieces(
 }
 
 const PANELS =
-  'Laid flat, in cm: sewing lines, cut lines dashed, air inlets glued and 3D-shaping cuts as sections 26 and 29 set them; sewing marks every section 7 spacing and at the corners, the cell number in roman numerals of dots; on the intrados, the anchors as section 20 marks them on the cutting table; along the middle of a cell with an unloaded rib, where it is sewn.';
+  'Dots spell the cell number in roman numerals; red marks are made on the cutting table. A letter after a number: a piece between 3D-shaping cuts.';
 
 const DESCRIPTIONS: Record<PatternGroup, string> = {
   extrados: PANELS,
   intrados: PANELS,
-  ribs: 'Laid flat, in cm: airfoils, cut lines dashed, holes of section 4, sewing marks every section 7 spacing from the trailing edge, the rib number in roman numerals of dots, the edges of the nylon rods of section 21, the nose mylars of section 22 and the seams of the V-ribs of section 12; the anchors, the air inlet ends, the points of section 17, the ends of the rods and mylars and the V-rib marks as the engine marks them on the cutting table. Then the miniribs (m), cut on the airfoil of the rib before as far as section 2 sets, eased by code 3001 of section 37, with the holes of section 38; and the unloaded ribs (u) that section 2 sets in the cell before their rib, stretched to its panels, with the holes of type 11 of section 4.',
+  ribs: 'Dots spell the rib number in roman numerals; red marks are made on the cutting table. m: minirib, u: unloaded rib.',
   vribs:
-    'Laid flat, in cm, numbered by their ribs: sewing edges, cut lines dashed, holes of section 38 and cutouts between anchors; H straps shortened by their strain; sewing control points, and the numbers of their ribs and anchor rows in roman numerals of dots.',
+    'Numbered by their ribs. Dots spell the numbers of the ribs and anchor rows in roman numerals. H straps are shortened by their strain.',
   reinforcements:
-    'Laid flat, in cm, as on their ribs, numbered by them: the pockets of the nylon rods of section 21, lettered on a rib with several, and the nose mylars of section 22 (M), with the rib number in roman numerals of dots.',
+    'Numbered by their ribs, lettered on a rib with several rods. Dots spell the rib number in roman numerals. M: nose mylar.',
 };
 
 function emptyMessage(design: Pick<LepDesign, 'geometry'>, group: PatternGroup) {
