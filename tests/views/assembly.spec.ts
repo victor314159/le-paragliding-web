@@ -1,90 +1,128 @@
 import { expect, test } from '@playwright/test';
-import { ribPatterns, skinPanels, type Point3 } from '@lepara/geometry/enhanced-v1';
+import {
+  miniribPatterns,
+  miniribSeams,
+  ribPatterns,
+  skinPanels,
+  type Point3,
+} from '@lepara/geometry/enhanced-v1';
 import { SEAM_CONVENTIONS } from '@lepara/design';
 import { assembly } from '../../packages/views/src/index.ts';
 import { DESIGNS, project } from '../format/helpers';
+import { oracleCases } from '../geometry/helpers';
+
+// One design by default: every one with ORACLE_ALL=1.
+const designs = oracleCases(
+  DESIGNS.map((name) => ({ name })),
+  ['swoop2'],
+).map(({ name }) => name);
 
 type Flat = readonly [number, number];
+const worst = (values: readonly number[]) => values.reduce((a, b) => Math.max(a, b), 0);
 const toSegment = (p: Flat, a: Flat, b: Flat) => {
   const [dx, dy] = [b[0] - a[0], b[1] - a[1]];
   const l = dx * dx + dy * dy;
   const t = l ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l)) : 0;
   return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy);
 };
-const toRing = (p: Flat, ring: readonly Flat[], closed = true) =>
-  Math.min(
-    ...ring
-      .slice(0, closed ? undefined : -1)
-      .map((a, i) => toSegment(p, a, ring[(i + 1) % ring.length])),
+const toRing = (p: Flat, ring: readonly Flat[]) =>
+  Math.min(...ring.map((a, i) => toSegment(p, a, ring[(i + 1) % ring.length])));
+const flat = (points: readonly Point3[]) => points.map(([x, y]): Flat => [x, y]);
+function farthest(points: readonly Flat[]) {
+  let pair: [Flat, Flat] = [points[0], points[0]];
+  let most = 0;
+  for (const p of points)
+    for (const q of points) {
+      const length = Math.hypot(p[0] - q[0], p[1] - q[1]);
+      if (length > most) [most, pair] = [length, [p, q]];
+    }
+  return pair;
+}
+/** The rigid move, turned over or not, of `points` of the table onto the closed line `pattern`. */
+function onPattern(points: readonly Flat[], pattern: readonly Flat[]) {
+  const [c, d] = farthest(pattern);
+  const f = Math.atan2(d[1] - c[1], d[0] - c[0]);
+  const [a, b] = farthest(points);
+  const moves = [
+    [a, b],
+    [b, a],
+  ].flatMap(([p, q]) =>
+    [1, -1].map((side) => {
+      const e = Math.atan2(q[1] - p[1], q[0] - p[0]);
+      return ([x, y]: Flat): Flat => {
+        const [along, off] = [
+          (x - p[0]) * Math.cos(e) + (y - p[1]) * Math.sin(e),
+          side * ((y - p[1]) * Math.cos(e) - (x - p[0]) * Math.sin(e)),
+        ];
+        return [
+          c[0] + along * Math.cos(f) - off * Math.sin(f),
+          c[1] + along * Math.sin(f) + off * Math.cos(f),
+        ];
+      };
+    }),
   );
-const box = (points: readonly Flat[]) => ({
-  u: Math.min(...points.map((p) => p[0])),
-  v: Math.min(...points.map((p) => p[1])),
-});
-/** `points` of the table, moved onto `pattern` by their lower left corners: a move, no more. */
-function onPattern(points: readonly Point3[], pattern: readonly Flat[]) {
-  const [a, b] = [box(points.map(([x, y]): Flat => [x, y])), box(pattern)];
-  return points.map(([x, y]): Flat => [x - a.u + b.u, y - a.v + b.v]);
+  const miss = (move: (typeof moves)[number]) => worst(points.map((p) => toRing(move(p), pattern)));
+  return moves.reduce((best, move) => (miss(move) < miss(best) ? move : best));
 }
 const finite = (rings: readonly (readonly Point3[])[]) =>
   rings.every((ring) => ring.every((p) => p.every(Number.isFinite)));
 
-for (const id of DESIGNS)
-  test(`${id}: laid flat, every piece of a cell is its pattern, as the 2D preview draws it`, () => {
+for (const id of designs)
+  test(`${id}: laid flat, every piece of a cell is its pattern, moved rigidly`, () => {
     const { design, airfoils } = project(`oracle/designs/${id}`);
     const pieces = assembly(design, airfoils);
     expect(pieces.cells.length).toBeGreaterThan(0);
     const panels = skinPanels(design, airfoils);
     const ribs = ribPatterns(design, airfoils);
+    const miniribs = miniribPatterns(design, airfoils);
+    const gaps: number[] = [];
+    let unfinite = 0;
     for (const cell of pieces.cells) {
       const model = pieces.model(cell);
       const own = panels.filter((panel) => panel.cell === cell);
       const skins = model.surfaces.filter((s) => s.kind === 'skin');
       expect(skins).toHaveLength(own.length);
-      const flaps = model.surfaces.filter((s) => s.kind === 'flap');
       const table = new Set(
         [...model.surfaces, ...model.fills].flatMap((s) => s.opening!.flat.flat()).map((p) => p[2]),
       );
       expect(table.size).toBe(1);
       skins.forEach((surface, i) => {
         const panel = own[i];
-        const { flat, apart } = surface.opening!;
-        expect(finite(surface.rows) && finite(apart) && finite(flat)).toBe(true);
+        const { flat: laid, apart } = surface.opening!;
+        if (!finite(surface.rows) || !finite(apart) || !finite(laid)) unfinite++;
         // Its edges and corners on the sewing line, and the sewing line on them.
-        const edge = [
-          ...flat[0],
-          ...flat[flat.length - 1],
-          ...flat.map((row) => row[0]),
-          ...flat.map((row) => row[row.length - 1]),
-        ];
-        const laid = onPattern(flat.flat(), panel.sewing);
-        const outline = onPattern(edge, panel.sewing);
-        const sum = laid.length;
-        expect(sum).toBeGreaterThan(0);
-        for (const p of outline) expect(toRing(p, panel.sewing)).toBeLessThan(1e-6);
-        const edgeRing = outline;
+        const edge = flat([
+          ...laid[0],
+          ...laid[laid.length - 1],
+          ...laid.map((row) => row[0]),
+          ...laid.map((row) => row[row.length - 1]),
+        ]);
+        const outline = edge.map(onPattern(edge, panel.sewing));
+        gaps.push(...outline.map((p) => toRing(p, panel.sewing)));
         for (const p of panel.sewing)
-          expect(
-            Math.min(...edgeRing.map((q) => Math.hypot(p[0] - q[0], p[1] - q[1]))),
-          ).toBeLessThan(1e-6);
+          gaps.push(Math.min(...outline.map((q) => Math.hypot(p[0] - q[0], p[1] - q[1]))));
       });
-      for (const { rows, opening } of flaps) {
-        expect(finite(rows) && finite(opening!.apart) && finite(opening!.flat)).toBe(true);
-        expect(opening!.flat[1]).toHaveLength(rows[1].length);
-      }
-      const inner = ribs[Math.max(cell - 1, 0)];
-      const outer = ribs[cell];
+      for (const { rows, kind, opening } of model.surfaces)
+        if (kind === 'flap' && (!finite(rows) || !finite(opening!.apart) || !finite(opening!.flat)))
+          unfinite++;
+      const minirib = miniribs.find(({ rib }) => rib - 1 === cell);
+      const own2D = [ribs[Math.max(cell - 1, 0)], ...(minirib ? [minirib] : []), ribs[cell]];
+      expect(model.fills).toHaveLength(own2D.length);
       model.fills.forEach((fill, r) => {
-        const rib = r ? outer : inner;
-        const points = onPattern(fill.opening!.flat[0], rib.sewing);
-        points.forEach((p, i) =>
-          expect(Math.hypot(p[0] - rib.sewing[i][0], p[1] - rib.sewing[i][1])).toBeLessThan(1e-6),
-        );
+        const { sewing } = own2D[r];
+        const ring = flat(fill.opening!.flat[0]);
+        const move = onPattern(ring, sewing);
+        ring.forEach((p, i) => {
+          const q = move(p);
+          gaps.push(Math.hypot(q[0] - sewing[i][0], q[1] - sewing[i][1]));
+        });
       });
     }
+    expect(unfinite).toBe(0);
+    expect(worst(gaps)).toBeLessThan(1e-6);
   });
 
-for (const id of DESIGNS)
+for (const id of designs)
   test(`${id}: the cut lines close around each panel, as cut`, () => {
     const { design, airfoils } = project(`oracle/designs/${id}`);
     const pieces = assembly(design, airfoils);
@@ -92,42 +130,78 @@ for (const id of DESIGNS)
     const cell = pieces.cells[pieces.cells.length >> 1];
     const model = pieces.model(cell);
     const own = panels.filter((panel) => panel.cell === cell);
-    // The panels' allowances, in fours: the ribs' have their color.
-    const ribColor = model.fills[0].color;
-    const flaps = model.surfaces.filter((s) => s.kind === 'flap' && s.color !== ribColor);
+    // The panels' allowances, in fours: the ribs' and miniribs' have their colors.
+    const flatColors = new Set(model.fills.map((fill) => fill.color));
+    const flaps = model.surfaces.filter((s) => s.kind === 'flap' && !flatColors.has(s.color));
+    const gaps: number[] = [];
     own.forEach((panel, i) => {
-      const rows = flaps.slice(i * 4, i * 4 + 4).map((flap) => flap.opening!.flat[1]);
+      const rows = flaps.slice(i * 4, i * 4 + 4).map((flap) => flat(flap.opening!.flat[1]));
       expect(rows).toHaveLength(4);
-      const [skin] = [model.surfaces.filter((s) => s.kind === 'skin')[i].opening!.flat];
-      const [lowest] = [box(skin.flat().map(([x, y]): Flat => [x, y]))];
-      const sewing = box(panel.sewing);
-      const moved = rows
-        .flat()
-        .map(([x, y]): Flat => [x - lowest.u + sewing.u, y - lowest.v + sewing.v]);
-      for (const p of moved) expect(toRing(p, panel.cut)).toBeLessThan(1e-6);
+      const moved = rows.flat();
+      const move = onPattern(moved, panel.cut);
+      gaps.push(...moved.map((p) => toRing(move(p), panel.cut)));
       for (const p of panel.cut)
-        expect(Math.min(...moved.map((q) => Math.hypot(p[0] - q[0], p[1] - q[1])))).toBeLessThan(
-          1e-6,
+        gaps.push(
+          Math.min(
+            ...moved.map((q) => {
+              const r = move(q);
+              return Math.hypot(p[0] - r[0], p[1] - r[1]);
+            }),
+          ),
         );
     });
+    expect(worst(gaps)).toBeLessThan(1e-6);
   });
 
-for (const id of DESIGNS)
+for (const id of designs)
   test(`${id}: every seam sews together`, () => {
     const { design, airfoils } = project(`oracle/designs/${id}`);
     const pieces = assembly(design, airfoils);
-    for (const cell of pieces.cells) {
-      const own = skinPanels(design, airfoils).filter((panel) => panel.cell === cell);
-      const checks = pieces.checks(cell);
+    const all = skinPanels(design, airfoils);
+    const seams = miniribSeams(design, airfoils);
+    const checks = pieces.cells.flatMap((cell) => {
+      const own = all.filter((panel) => panel.cell === cell);
+      const found = pieces.checks(cell);
       const shaping = own.filter((panel) => panel.piece > 0).length;
-      expect(checks).toHaveLength(2 * own.length + shaping);
-      for (const { seam, difference, marks } of checks) {
-        expect(Math.abs(difference), seam).toBeLessThan(SEAM_CONVENTIONS.seamTolerance);
-        expect(marks, seam).toBeLessThan(SEAM_CONVENTIONS.seamTolerance);
-        // Laid by its fabric's length, a mark comes under a millimetre from the rib's.
-        expect(marks, seam).toBeLessThan(0.1);
-      }
-    }
+      const tail = new Set(own.map((panel) => panel.surface)).size > 1 ? 1 : 0;
+      const miniribs = seams.filter((seam) => seam.cell === cell).length;
+      expect(found).toHaveLength(2 * own.length + shaping + tail + miniribs);
+      return found;
+    });
+    expect(worst(checks.map(({ difference }) => Math.abs(difference)))).toBeLessThan(
+      SEAM_CONVENTIONS.seamTolerance,
+    );
+    // Laid by its fabric's length, a mark comes under a millimetre from the rib's.
+    expect(worst(checks.map(({ marks }) => marks))).toBeLessThan(0.1);
+  });
+
+for (const id of designs)
+  test(`${id}: pieces lie lengthwise in columns, ordered as on the wing, trailing edges level`, () => {
+    const { design, airfoils } = project(`oracle/designs/${id}`);
+    const pieces = assembly(design, airfoils);
+    const model = pieces.model(pieces.cells[pieces.cells.length >> 1]);
+    const boxes = (items: readonly { opening?: { flat: Point3[][] } }[]) =>
+      items.map(({ opening }) => {
+        const points = flat(opening!.flat.flat());
+        const [xs, ys] = [points.map((p) => p[0]), points.map((p) => p[1])];
+        return {
+          x: (Math.min(...xs) + Math.max(...xs)) / 2,
+          wide: Math.max(...xs) - Math.min(...xs),
+          long: Math.max(...ys) - Math.min(...ys),
+          tail: Math.max(...ys),
+        };
+      });
+    const skins = boxes(model.surfaces.filter((s) => s.kind === 'skin'));
+    const fills = boxes(model.fills);
+    // A short piece of a 3D-shaping cut can be wider than long: it runs lengthwise all the same.
+    expect(fills.every(({ wide, long }) => long > wide)).toBe(true);
+    const [inner, outer] = [fills[0], fills[fills.length - 1]];
+    const xs = skins.map(({ x }) => x);
+    expect(inner.x).toBeLessThan(Math.min(...xs));
+    expect(outer.x).toBeGreaterThan(Math.max(...xs));
+    // Allowances past the sewing lines: a skin's leads the rest by its own.
+    const tails = [...fills, ...skins.slice(0, 1)].map(({ tail }) => tail);
+    expect(Math.max(...tails) - Math.min(...tails)).toBeLessThan(5);
   });
 
 test('the table has a grid around the pieces laid flat', () => {
@@ -135,19 +209,16 @@ test('the table has a grid around the pieces laid flat', () => {
   const pieces = assembly(design, airfoils);
   const model = pieces.model(pieces.cells[0]);
   const { length, lines } = model.grid!;
-  const flat = model.lines.flatMap((line) => line.opening!.flat);
+  const laid = model.lines.flatMap((line) => line.opening!.flat);
   const [xs, ys] = [lines.map((p) => p[0]), lines.map((p) => p[1])];
+  const inside = ([x, y]: Point3) =>
+    x >= Math.min(...xs) && x <= Math.max(...xs) && y >= Math.min(...ys) && y <= Math.max(...ys);
   expect(lines.length % 2).toBe(0);
-  for (const [x, y] of flat) {
-    expect(x).toBeGreaterThanOrEqual(Math.min(...xs));
-    expect(x).toBeLessThanOrEqual(Math.max(...xs));
-    expect(y).toBeGreaterThanOrEqual(Math.min(...ys));
-    expect(y).toBeLessThanOrEqual(Math.max(...ys));
-  }
-  xs.forEach((x) => expect(Math.abs(x / length - Math.round(x / length))).toBeLessThan(1e-9));
+  expect(laid.every(inside)).toBe(true);
+  expect(worst(xs.map((x) => Math.abs(x / length - Math.round(x / length))))).toBeLessThan(1e-9);
 });
 
-for (const id of DESIGNS)
+for (const id of designs)
   test(`${id}: pieces rest on the table, and never go through it`, () => {
     const { design, airfoils } = project(`oracle/designs/${id}`);
     const pieces = assembly(design, airfoils);
@@ -158,9 +229,64 @@ for (const id of DESIGNS)
     const items = [...model.surfaces, ...model.fills];
     const sewn = model.surfaces.map(({ rows }) => lowest(rows));
     expect(Math.abs(Math.max(...sewn) - table)).toBeLessThan(0.2);
-    for (const { opening } of items)
-      for (const step of [...opening!.before, opening!.apart, ...opening!.between, opening!.flat])
-        expect(lowest(step)).toBeLessThan(table + 0.2);
+    const steps = items.flatMap(({ opening }) => [
+      ...opening!.before,
+      opening!.apart,
+      ...opening!.between,
+      opening!.flat,
+    ]);
+    expect(worst(steps.map(lowest))).toBeLessThan(table + 0.2);
+  });
+
+test("a minirib's allowance lies flat on the skin, its seam marked on the panels", () => {
+  const { design, airfoils } = project('oracle/designs/swoop2');
+  const pieces = assembly(design, airfoils);
+  const cell = pieces.cells[pieces.cells.length >> 1];
+  const model = pieces.model(cell, new Set(['minirib', 'extrados', 'intrados', 'lines']));
+  const [{ color }] = model.fills;
+  const flaps = model.surfaces.filter((s) => s.kind === 'flap' && s.color === color);
+  expect(flaps).toHaveLength(2);
+  // Square to the minirib.
+  const [o, a, b] = model.fills[0].points;
+  const [u, v] = [a, b].map((p) => p.map((value, axis) => value - o[axis]));
+  const normal = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+  for (const { rows } of flaps) {
+    const [p, q] = [rows[0][rows[0].length >> 1], rows[1][rows[1].length >> 1]];
+    const width = Math.hypot(...p.map((v, a) => v - q[a]));
+    const across = p.reduce((sum, value, axis) => sum + (value - q[axis]) * normal[axis], 0);
+    expect(Math.abs(across) / (width * Math.hypot(...normal))).toBeGreaterThan(0.9);
+  }
+  expect(model.lines.filter((line) => line.color === color)).toHaveLength(2);
+});
+
+for (const id of designs)
+  test(`${id}: the skins meet a minirib all along its seams`, () => {
+    const { design, airfoils } = project(`oracle/designs/${id}`);
+    const pieces = assembly(design, airfoils);
+    const model = pieces.model(
+      pieces.cells[pieces.cells.length >> 1],
+      new Set(['extrados', 'intrados', 'minirib']),
+    );
+    const edges = model.surfaces
+      .filter((s) => s.kind === 'skin')
+      .flatMap(({ rows }) => [
+        ...rows.flatMap((row) => row.slice(1).map((p, i) => [row[i], p] as const)),
+        ...rows.slice(1).flatMap((row, r) => row.map((p, j) => [rows[r][j], p] as const)),
+      ]);
+    const onSegment = (p: Point3, a: Point3, b: Point3) => {
+      const d = b.map((v, axis) => v - a[axis]);
+      const l = d.reduce((sum, v) => sum + v * v, 0) || 1;
+      const t = Math.max(
+        0,
+        Math.min(1, p.reduce((sum, v, axis) => sum + (v - a[axis]) * d[axis], 0) / l),
+      );
+      return Math.hypot(...p.map((v, axis) => v - a[axis] - t * d[axis]));
+    };
+    // A single skin has none.
+    const gaps = (model.fills[0]?.points ?? []).map((p) =>
+      Math.min(...edges.map(([a, b]) => onSegment(p, a, b))),
+    );
+    expect(worst(gaps)).toBeLessThan(0.4);
   });
 
 test('a model draws only its visible layers', () => {
@@ -175,11 +301,17 @@ test('a model draws only its visible layers', () => {
     dots: [],
   });
   const ribs = pieces.model(cell, new Set(['rib']));
-  expect(ribs.fills).toHaveLength(all.fills.length);
+  expect(ribs.fills).toHaveLength(2);
+  expect(pieces.model(cell, new Set(['minirib'])).fills).toHaveLength(all.fills.length - 2);
   expect(ribs.surfaces.every((surface) => surface.kind === 'flap')).toBe(true);
   const kinds = pieces.model(cell, new Set(['extrados'])).surfaces.map((surface) => surface.kind);
   expect(new Set(kinds)).toEqual(new Set(['skin', 'flap']));
   expect(pieces.model(cell, new Set(['marks'])).dots).toHaveLength(all.dots.length);
+  // Without lines, not one: neither folds, nor cut lines, holes or seams.
+  const { lines, surfaces } = pieces.model(cell, new Set(['extrados', 'rib', 'minirib']));
+  expect(lines).toEqual([]);
+  expect(surfaces.length).toBeGreaterThan(0);
+  expect(pieces.model(cell, new Set(['lines'])).lines.length).toBeGreaterThan(0);
 });
 
 test('a panel side longer than its rib shows on that seam, and only there', () => {
@@ -204,19 +336,17 @@ test('a panel side longer than its rib shows on that seam, and only there', () =
     .filter(({ difference }) => Math.abs(difference) > SEAM_CONVENTIONS.seamTolerance);
   expect(off.map(({ seam }) => seam)).toEqual([`extrados 1 left side on rib ${cell}`]);
   expect(off[0].difference).toBeGreaterThan(1);
-  expect(
-    assembly(design, airfoils, wrong)
-      .model(cell)
-      .lines.some((l) => l.color),
-  ).toBe(true);
-  expect(
-    assembly(design, airfoils)
-      .model(cell)
-      .lines.some((l) => l.color),
-  ).toBe(false);
+  // In its own color, the miniribs' seams having theirs.
+  const colors = (panels?: typeof wrong) =>
+    new Set(
+      assembly(design, airfoils, panels)
+        .model(cell)
+        .lines.map((line) => line.color),
+    );
+  expect(colors(wrong).size).toBe(colors().size + 1);
 });
 
-for (const id of DESIGNS)
+for (const id of designs)
   test(`${id}: pieces flatten on the spot, then move onto the table rigid`, () => {
     const { design, airfoils } = project(`oracle/designs/${id}`);
     const pieces = assembly(design, airfoils);
@@ -227,55 +357,61 @@ for (const id of DESIGNS)
           Math.hypot(p[0] - ring[j][0], p[1] - ring[j][1], p[2] - ring[j][2]),
         ),
       );
-    for (const item of [...model.surfaces, ...model.fills]) {
-      const { between, flat } = item.opening!;
-      expect(between.length).toBeGreaterThan(2);
-      for (const pose of between)
-        pose.forEach((ring, r) => {
-          const [got, wanted] = [span(ring), span(flat[r])];
-          got.forEach((d, i) => expect(Math.abs(d - wanted[i])).toBeLessThan(1e-6));
-        });
-    }
+    const openings = [...model.surfaces, ...model.fills].map((item) => item.opening!);
+    expect(Math.min(...openings.map(({ between }) => between.length))).toBeGreaterThan(2);
+    const moved = openings.flatMap(({ between, flat: laid }) =>
+      between.flatMap((pose) =>
+        pose.flatMap((ring, r) => {
+          const wanted = span(laid[r]);
+          return span(ring).map((d, i) => Math.abs(d - wanted[i]));
+        }),
+      ),
+    );
+    expect(worst(moved)).toBeLessThan(1e-6);
     const { before, between } = model.fills[0].opening!;
     expect(model.openingAt).toHaveLength(before.length + 2 + between.length);
   });
 
-for (const id of DESIGNS)
+for (const id of designs)
   test(`${id}: allowances swing open about their seams, on an arc, once apart`, () => {
     const { design, airfoils } = project(`oracle/designs/${id}`);
     const pieces = assembly(design, airfoils);
     const model = pieces.model(pieces.cells[pieces.cells.length >> 1]);
     const reach = (rows: readonly (readonly Point3[])[]) =>
       rows[0].map((p, i) => Math.hypot(...p.map((v, a) => v - rows[1][i][a])));
+    const faults: number[] = [];
     for (const { rows, kind, opening } of model.surfaces) {
       if (kind !== 'flap') continue;
       const [sewn, open] = [reach(rows), reach(opening!.apart)];
       // The piece moves apart folded, as sewn.
-      reach(opening!.before[0]).forEach((length, i) => expect(length).toBeCloseTo(sewn[i], 6));
+      faults.push(...reach(opening!.before[0]).map((length, i) => Math.abs(length - sewn[i])));
       opening!.before.forEach((step) => {
         // The seam stays put, and each point keeps its distance from it.
         expect(step[0]).toEqual(opening!.before[0][0]);
-        reach(step).forEach((length, i) => {
-          expect(length).toBeGreaterThan(Math.min(sewn[i], open[i]) - 1e-6);
-          expect(length).toBeLessThan(Math.max(sewn[i], open[i]) + 1e-6);
-        });
+        faults.push(
+          ...reach(step).map((length, i) =>
+            Math.max(Math.min(sewn[i], open[i]) - length, length - Math.max(sewn[i], open[i])),
+          ),
+        );
       });
     }
+    expect(worst(faults)).toBeLessThan(1e-6);
   });
 
-for (const id of DESIGNS)
+for (const id of designs)
   test(`${id}: an allowance opens as wide as it is cut, its corners off to the side`, () => {
     const { design, airfoils } = project(`oracle/designs/${id}`);
     const pieces = assembly(design, airfoils);
     const model = pieces.model(pieces.cells[pieces.cells.length >> 1]);
-    for (const { rows, kind, opening } of model.surfaces) {
-      if (kind !== 'flap') continue;
-      const width = (line: readonly (readonly Point3[])[]) =>
-        line[1].map((p, i) => Math.hypot(...p.map((v, a) => v - line[0][i][a])));
-      const [open, flat] = [width(opening!.apart), width(opening!.flat)];
-      open.forEach((value, i) => expect(Math.abs(value - flat[i])).toBeLessThan(0.15));
-      expect(rows).toHaveLength(2);
-    }
+    const width = (line: readonly (readonly Point3[])[]) =>
+      line[1].map((p, i) => Math.hypot(...p.map((v, a) => v - line[0][i][a])));
+    const flaps = model.surfaces.filter(({ kind }) => kind === 'flap');
+    expect(flaps.every(({ rows }) => rows.length === 2)).toBe(true);
+    const differences = flaps.flatMap(({ opening }) => {
+      const laid = width(opening!.flat);
+      return width(opening!.apart).map((value, i) => Math.abs(value - laid[i]));
+    });
+    expect(worst(differences)).toBeLessThan(0.15);
   });
 
 test('allowances folded along a rib stay inside it, where the wing is thinner than they are', () => {

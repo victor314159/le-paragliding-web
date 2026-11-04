@@ -15,6 +15,7 @@ test('the default stays Fortran and enhanced changes only its documented functio
         'brakeLines',
         'hStraps',
         'miniribPatterns',
+        'miniribSeams',
         'ribPatterns',
         'skinPanels',
         'suspensionLines',

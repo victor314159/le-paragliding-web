@@ -7,6 +7,7 @@
 import { expect, test } from '@playwright/test';
 import {
   miniribPatterns,
+  miniribSeams,
   skinPanels,
   unloadedRibPatterns,
   type Point,
@@ -105,6 +106,16 @@ for (const { name, directory, edit } of oracleCases(cases, ['A8', 'BHL7-22', 'co
       expect(missing ?? ['not found'], `minirib ${minirib.rib}`).toEqual([]);
       expect(minirib.numeral.length, `minirib ${minirib.rib} numeral`).toBeGreaterThan(0);
     }
+    // Their reference lines on the panels (§8.2.6), each in color 5, by its length and way.
+    const references = dxfSegments(text, 5).map(([c, d]): Point => [d[0] - c[0], d[1] - c[1]]);
+    const lost = miniribSeams(design, input.airfoils).filter(({ line: [a, b] }) => {
+      const [dx, dy] = [b[0] - a[0], b[1] - a[1]];
+      return (
+        Math.hypot(dx, dy) > 1e-9 &&
+        !references.some((v) => near(v, [dx, dy], 2e-3) || near(v, [-dx, -dy], 2e-3))
+      );
+    });
+    expect(lost).toEqual([]);
   });
 
 // The unloaded ribs (§9.9), in their own box: their cut line in colors 1

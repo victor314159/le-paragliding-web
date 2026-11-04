@@ -2,11 +2,16 @@ import { SEAM_CONVENTIONS, type EndSeam, type RibSeamLayer } from '@lepara/desig
 import type { LepAirfoil, LepDesign } from '@lepara/format';
 import {
   balloonedSkin,
+  miniribPatterns,
+  miniribSeams,
   ribChord,
   ribPatterns,
   ribPoint,
   skinPanels,
   type BalloonedPanel,
+  type MiniribPattern,
+  type MiniribSeam,
+  type MiniribSections,
   type Point3,
   type RibPattern,
   type RibPatternSections,
@@ -18,16 +23,18 @@ import type { Point } from './geometry.ts';
 import type { Opening, PreviewModel } from './model.ts';
 import { gridLength } from './scene.ts';
 
-export type AssemblySections = SkinSections | SkinPanelSections | RibPatternSections;
+export type AssemblySections =
+  SkinSections | SkinPanelSections | RibPatternSections | MiniribSections;
 
-type Kind = 'extrados' | 'intrados' | 'rib';
+type Kind = 'extrados' | 'intrados' | 'rib' | 'minirib';
 
 /** What a model of the assembly can draw, with its label: each piece with its allowances. */
 export const ASSEMBLY_LAYERS = [
   ['extrados', 'Extrados'],
   ['intrados', 'Intrados'],
   ['rib', 'Ribs'],
-  ['folds', 'Fold lines'],
+  ['minirib', 'Miniribs'],
+  ['lines', 'Lines'],
   ['marks', 'Marks'],
 ] as const;
 export type AssemblyLayer = (typeof ASSEMBLY_LAYERS)[number][0];
@@ -36,20 +43,19 @@ const COLORS: Record<Kind, string | undefined> = {
   extrados: undefined,
   intrados: '#6f9fd8',
   rib: '#d9a441',
+  minirib: '#6fb58a',
 };
 /** A seam whose edges or marks differ. */
 const FAULT = '#e5484d';
-/** How far pieces move apart, of the cell's chord, and their gap on the table. */
-const APART = 0.35;
-const GAP = 0.08;
-/** How much further the pieces of a surface spread along the chord, apart. */
-const SPREAD = 0.15;
+/** The gap between pieces on the table, and over it as they move, of the cell's chord. */
+const GAP = 0.02;
+const CLEARANCE = 0.08;
 /** The rows across a panel, at least, between its seam lines. */
 const ACROSS = 12;
 /**
- * The steps of a piece's opening: the piece moved apart, folded as sewn, its
- * allowances swung open about their seams, the piece flattened on the spot,
- * then moved rigidly onto the table.
+ * The steps of a piece's opening: the piece slid over its place on the table,
+ * folded as sewn, its allowances swung open about their seams, the piece
+ * flattened on the spot, then laid rigidly on the table.
  */
 const SWINGS = 6;
 const MOVED = 0.2;
@@ -95,12 +101,11 @@ type Flap = readonly [readonly Vertex[], readonly Vertex[]];
 /** A mark of a piece, sewn and on its pattern. */
 type Mark = Vertex;
 
-/** A piece of the cell: `vertices` a grid on a panel, on a rib its outline and its holes. */
+/** A piece of the cell: `vertices` a grid on a panel, on a rib or minirib its outline and its holes. */
 interface Piece {
   readonly kind: Kind;
-  /** Where it goes apart: its side of the cell, and of the wing's skin. */
+  /** Its side of the cell, for a rib. */
   readonly side: number;
-  readonly up: number;
   readonly vertices: readonly (readonly Vertex[])[];
   /** Pairs of points that orient it, along its chord, then across it. */
   readonly axes: readonly [Vertex, Vertex, Vertex, Vertex];
@@ -110,15 +115,19 @@ interface Piece {
   readonly faults: readonly boolean[];
   /** The lengths of a panel's sewing line across its ends, first and last. */
   readonly ends?: readonly [number, number];
+  /** Where a minirib is sewn on a panel. */
+  readonly seam?: readonly Vertex[];
 }
 
-/** A rib of the cell in 3D: its unit normal towards its side of the wing's tip, and its index. */
+/** A rib or minirib of the cell in 3D: its unit normal towards its side of the wing's tip, and its index. */
 interface CellRib {
   readonly index: number;
   readonly mirrored: boolean;
   readonly chord: number;
   readonly tipward: Point3;
-  readonly pattern: RibPattern;
+  readonly pattern: Pick<RibPattern, 'sewing' | 'holes' | 'marks'>;
+  /** Its allowances: each point of a cut line, with the point of the sewing line it folds on. */
+  readonly edges: readonly (readonly (readonly [number, Point])[])[];
   /** A point of its pattern in 3D. */
   readonly place: (point: Point) => Point3 | undefined;
   /** How far `direction`, a unit vector in its plane, runs from a point of it to its contour. */
@@ -436,13 +445,13 @@ function panelPiece(
   [inner, outer]: readonly [CellRib, CellRib],
   centre: Point3,
   check: (seam: string, difference: number, marks: number) => boolean,
+  minirib?: MiniribSeam,
 ): Piece | undefined {
   const { from, left, right, cut } = panel.ribEdges;
   const sewn = sidesOf(panel.sewing, left, right);
   const edge = sidesOf(panel.cut, cut.left, cut.right);
   if (!sewn || !edge || !grid.size) return undefined;
   const extrados = panel.surface === 'extrados';
-  const up = extrados ? -1 : 1;
 
   // Each side laid along its rib by its own length, from the trailing edge:
   // what it has more or less than its rib shows at its other end.
@@ -580,6 +589,10 @@ function panelPiece(
       apartMarks(onSide(1), outer),
     ),
   ];
+  // Its minirib's seam, on the cell's middle where the fabric puts it: how far off it runs.
+  const middle: Line = { points: stations.map((s) => flat(s, 0.5)), at: stations };
+  const onMiddle = (p: Point): Vertex => ({ point: wing(nearestOn(middle, p).f, 0.5), flat: p });
+  if (minirib) check(`${name} on minirib`, 0, nearestOn(middle, minirib.line[1]).gap);
   const cuts = [byPoint(edge.left), byPoint(edge.right), byLength(edge.first), byLength(edge.last)];
   const sides = [
     side(lines[0], cuts[0], 0, inner, ribLayer(inner.mirrored ? 'innerPanel' : 'outerPanel')),
@@ -589,7 +602,6 @@ function panelPiece(
   return {
     kind: panel.surface,
     side: 0,
-    up,
     vertices: rows,
     axes: [
       rows[rows.length >> 1][0],
@@ -605,6 +617,36 @@ function panelPiece(
     marks,
     faults,
     ends: [lengthOf(sewn.first), lengthOf(sewn.last)],
+    // In steps, to stay on the skin.
+    seam:
+      minirib &&
+      Array.from({ length: ACROSS + 1 }, (_, k) => onMiddle(lerp(...minirib.line, k / ACROSS))),
+  };
+}
+
+/** A flat piece of the cell in 3D, from its place. */
+function inPlane(
+  index: number,
+  mirrored: boolean,
+  chord: number,
+  pattern: CellRib['pattern'],
+  edges: CellRib['edges'],
+  place: CellRib['place'],
+): CellRib | undefined {
+  const [o, a, b] = [place([0, 0]), place([chord, 0]), place([0, chord / 10])];
+  if (!o || !a || !b) return undefined;
+  const [ex, ey] = [unit(minus(a, o)), unit(minus(b, o))];
+  const normal = unit(cross(ex, ey));
+  const onRib = (v: Point3): Point => [dot(v, ex), dot(v, ey)];
+  return {
+    index,
+    mirrored,
+    chord,
+    pattern,
+    edges,
+    tipward: normal[0] < 0 !== mirrored ? along([0, 0, 0], normal, -1) : normal,
+    place,
+    room: (from, direction) => rayToRing(pattern.sewing, onRib(minus(from, o)), onRib(direction)),
   };
 }
 
@@ -617,32 +659,55 @@ function cellRib(
   if (!pattern) return undefined;
   const index = pattern.rib;
   const chord = ribChord(design, index);
-  const place = ([u, v]: Point): Point3 | undefined => {
-    const placed = ribPoint(design, index, [u / chord, -v / chord]);
-    if (!placed) return undefined;
-    const [x, y, z] = placed;
-    return [mirrored ? -x : x, y, z];
-  };
-  const [o, a, b] = [place([0, 0]), place([chord, 0]), place([0, chord / 10])];
-  if (!o || !a || !b) return undefined;
-  const [ex, ey] = [unit(minus(a, o)), unit(minus(b, o))];
-  const normal = unit(cross(ex, ey));
-  const onRib = (v: Point3): Point => [dot(v, ex), dot(v, ey)];
-  return {
+  // A closed "pc" nose has no line of its own.
+  const line = pattern.cut[0].slice(0, pattern.sewing.length);
+  const edges = [line.map((flat, i) => [i, flat] as const)];
+  return inPlane(
     index,
     mirrored,
     chord,
     pattern,
-    tipward: normal[0] < 0 !== mirrored ? along([0, 0, 0], normal, -1) : normal,
-    place,
-    room: (from, direction) => rayToRing(pattern.sewing, onRib(minus(from, o)), onRib(direction)),
-  };
+    pattern.cut.length === 1 && line.length === pattern.sewing.length ? edges : [],
+    ([u, v]) => {
+      const placed = ribPoint(design, index, [u / chord, -v / chord]);
+      if (!placed) return undefined;
+      const [x, y, z] = placed;
+      return [mirrored ? -x : x, y, z];
+    },
+  );
 }
 
-/** A rib from its pattern. */
-function ribPiece(rib: CellRib, side: number): Piece | undefined {
-  const { pattern, place, tipward } = rib;
-  const { sewing, cut, holes } = pattern;
+/**
+ * A minirib in 3D, midway between its ribs, in its inner rib's frame. Its sewing
+ * line runs along the extrados to its front, then back along the intrados;
+ * each cut line starts and ends on it.
+ */
+function cellMinirib(pattern: MiniribPattern, inner: CellRib, outer: CellRib) {
+  const scale = outer.chord / inner.chord;
+  const extrados = pattern.cut[0].length - 2;
+  const last = pattern.sewing.length - 1;
+  const onSide = [(k: number) => k, (k: number) => last - k];
+  const size = [extrados, pattern.sewing.length - extrados];
+  const edges = pattern.cut.map((line, c) =>
+    line.map((flat, i) => [onSide[c](Math.max(0, Math.min(i - 1, size[c] - 1))), flat] as const),
+  );
+  return inPlane(
+    pattern.rib - 1,
+    false,
+    inner.chord,
+    { ...pattern, marks: [] },
+    edges,
+    ([u, v]) => {
+      const [a, b] = [inner.place([u, v]), outer.place([u * scale, v * scale])];
+      return a && b ? along(a, minus(b, a), 0.5) : undefined;
+    },
+  );
+}
+
+/** A rib or minirib from its pattern. */
+function ribPiece(rib: CellRib, side: number, kind: Kind = 'rib'): Piece | undefined {
+  const { pattern, place, tipward, edges } = rib;
+  const { sewing, holes } = pattern;
   const ring = (points: readonly Point[]) =>
     points.flatMap((flat): Vertex[] => {
       const point = place(flat);
@@ -650,41 +715,48 @@ function ribPiece(rib: CellRib, side: number): Piece | undefined {
     });
   const vertices = [sewing, ...holes].map(ring);
   if (vertices[0].length < 3) return undefined;
-  // The rib's edge turned back onto it, tipwards, up to its middle where it is
-  // thinner than that. A closed "pc" nose has no line of its own.
-  const line = cut[0].slice(0, sewing.length);
-  const flaps: Flap[] =
-    cut.length === 1 && line.length === sewing.length && vertices[0].length === sewing.length
-      ? [
-          [
-            vertices[0],
-            line.map((flat, i): Vertex => {
-              const edge = sewing[i];
-              const { point } = vertices[0][i];
-              const turned = place([2 * edge[0] - flat[0], 2 * edge[1] - flat[1]]) ?? point;
-              const inward = unit(minus(turned, point));
-              const width = distance(flat, edge);
-              return {
-                point: along(
-                  along(point, inward, Math.min(width, rib.room(point, inward) / 2)),
-                  tipward,
-                  ribLayer('ribFlap') * SEAM_CONVENTIONS.layerThickness,
-                ),
-                open: place(flat) ?? point,
-                hinge: point,
-                via: tipward,
-                flat: [...flat],
-              };
-            }),
-          ],
-        ]
+  // A rib's edge turned back onto it, tipwards, up to its middle where it is
+  // thinner than that; a minirib's laid on the skin, inside it.
+  const flaps =
+    vertices[0].length === sewing.length
+      ? edges.map((line): Flap => [
+          line.map(([i]) => vertices[0][i]),
+          line.map(([i, flat]): Vertex => {
+            const edge = sewing[i];
+            const { point } = vertices[0][i];
+            const turned = place([2 * edge[0] - flat[0], 2 * edge[1] - flat[1]]) ?? point;
+            const inward = unit(minus(turned, point));
+            const width = distance(flat, edge);
+            const layer = ribLayer('ribFlap') * SEAM_CONVENTIONS.layerThickness;
+            const open = place(flat) ?? point;
+            const hinged = { open, hinge: point, flat: [...flat] as Point };
+            return kind === 'minirib'
+              ? {
+                  ...hinged,
+                  point: along(
+                    along(point, tipward, SEAM_CONVENTIONS.minirib * width),
+                    inward,
+                    // Not past the other skin, where the wing is thinner than the layers.
+                    Math.min(layer, rib.room(point, inward) / 2),
+                  ),
+                }
+              : {
+                  ...hinged,
+                  point: along(
+                    along(point, inward, Math.min(width, rib.room(point, inward) / 2)),
+                    tipward,
+                    layer,
+                  ),
+                  via: tipward,
+                };
+          }),
+        ])
       : [];
   const by = (value: (v: Vertex) => number) =>
     vertices[0].reduce((best, v) => (value(v) < value(best) ? v : best));
   return {
-    kind: 'rib',
+    kind,
     side,
-    up: 0,
     vertices,
     axes: [
       by((v) => v.flat[0]),
@@ -704,10 +776,10 @@ function ribPiece(rib: CellRib, side: number): Piece | undefined {
 /**
  * A design taken apart from its patterns: `cells` holds the cells whose
  * pieces can be assembled (outer rib indices from 0, 0 the central cell);
- * `model` gives a cell's pieces, each opening to its pattern laid flat, as
- * the 2D preview draws it, the `visible` layers of them, and `checks` how
- * each of its seams sews together:
- * the panels' sides on their ribs, and their pieces between 3D-shaping cuts.
+ * `model` gives a cell's pieces, each opening to its pattern laid flat, the
+ * `visible` layers of them, and `checks` how each of its seams sews together:
+ * the panels' sides on their ribs, their pieces between 3D-shaping cuts, the
+ * trailing edge and the miniribs' seams on the cell's middle.
  * `panels`, those to assemble, by default the design's.
  */
 export function assembly(
@@ -717,6 +789,8 @@ export function assembly(
 ) {
   const skin = balloonedSkin(design, airfoils);
   const patterns = ribPatterns(design, airfoils);
+  const miniribs = miniribPatterns(design, airfoils);
+  const seams = miniribSeams(design, airfoils);
 
   const piecesOf = (cell: number) => {
     const checks: SeamCheck[] = [];
@@ -736,7 +810,19 @@ export function assembly(
     const middle = centreOf([...grid.values()].flat());
     const sewn = own.map((panel) =>
       inner && outer
-        ? panelPiece(design, panel, grid, count(panel.surface), [inner, outer], middle, check)
+        ? panelPiece(
+            design,
+            panel,
+            grid,
+            count(panel.surface),
+            [inner, outer],
+            middle,
+            check,
+            seams.find(
+              ({ cell: at, surface, piece }) =>
+                at === cell && surface === panel.surface && piece === panel.piece,
+            ),
+          )
         : undefined,
     );
     // Each 3D-shaping seam: the end of a piece on the start of the next.
@@ -749,9 +835,19 @@ export function assembly(
         0,
       );
     });
-    const pieces = [inner && ribPiece(inner, -1), ...sewn, outer && ribPiece(outer, 1)].filter(
-      (piece) => !!piece,
-    );
+    // The trailing edge: the extrados' first piece on the intrados' last.
+    const piece = (surface: SkinPanel['surface'], index: number) =>
+      sewn[own.findIndex((panel) => panel.surface === surface && panel.piece === index)];
+    const [top, bottom] = [piece('extrados', 0), piece('intrados', count('intrados') - 1)];
+    if (top?.ends && bottom?.ends) check('trailing edge', top.ends[0] - bottom.ends[1], 0);
+    const minirib = miniribs.find(({ rib }) => rib - 1 === cell);
+    const placed = minirib && inner && outer && cellMinirib(minirib, inner, outer);
+    const pieces = [
+      inner && ribPiece(inner, -1),
+      ...sewn,
+      placed && ribPiece(placed, 0, 'minirib'),
+      outer && ribPiece(outer, 1),
+    ].filter((piece) => !!piece);
     return { pieces, checks };
   };
 
@@ -766,7 +862,7 @@ export function assembly(
       const model: PreviewModel = {
         title: `Cell ${cell + 1} assembly`,
         note: pieces.length
-          ? 'Each piece is its pattern: laid flat as the 2D preview cuts it, placed on the wing by the length of its fabric. Allowances folded by the seam conventions, thicker than fabric.'
+          ? 'Each piece is its pattern: laid flat lengthwise, turned as little as it can be from the wing, placed on the wing by the length of its fabric. Allowances folded by the seam conventions, thicker than fabric.'
           : 'The pieces need valid ribs and airfoils with matching points.',
         surfaces: [],
         fills: [],
@@ -776,13 +872,14 @@ export function assembly(
           { text: 'Extrados' },
           { text: 'Intrados', color: COLORS.intrados },
           { text: 'Ribs', color: COLORS.rib },
+          { text: 'Miniribs', color: COLORS.minirib },
           { text: 'Seam off', color: FAULT },
         ],
         openingAt: OPENING_AT,
       };
       if (!pieces.length) return model;
       layOut(pieces, model, visible);
-      return model;
+      return visible.has('lines') ? model : { ...model, lines: [] };
     },
   };
 }
@@ -891,12 +988,38 @@ function bounds({ vertices, flaps }: Piece) {
   };
 }
 
-/** The pieces into `model`: each moved apart, then flat on the table as cut, panels between ribs. */
-function layOut(
-  pieces: readonly Piece[],
-  model: PreviewModel,
-  visible: ReadonlySet<AssemblyLayer>,
-) {
+/**
+ * A piece turned on the table, or over, for the least turn from the wing: its
+ * chord along Y and across it along X, each its way on the wing; the edges of
+ * a rib or minirib by the skin they are sewn to, in the columns of `layOut`.
+ */
+function turned(piece: Piece): Piece {
+  const [a, b, c, d] = piece.axes;
+  const [chordU, chordV] = [b.flat[0] - a.flat[0], b.flat[1] - a.flat[1]];
+  const length = Math.hypot(chordU, chordV) || 1;
+  const [eu, ev] = [chordU / length, chordV / length];
+  const y = Math.sign(b.point[1] - a.point[1]) || 1;
+  const across = (d.flat[0] - c.flat[0]) * -ev + (d.flat[1] - c.flat[1]) * eu;
+  const flat = piece.kind === 'rib' || piece.kind === 'minirib';
+  const wanted = !flat ? d.point[0] - c.point[0] : piece.kind === 'minirib' ? -1 : 1;
+  const x = Math.sign(across * wanted) || 1;
+  const turn = (v: Vertex): Vertex => ({
+    ...v,
+    flat: [x * (v.flat[1] * eu - v.flat[0] * ev), y * (v.flat[0] * eu + v.flat[1] * ev)],
+  });
+  return {
+    ...piece,
+    vertices: piece.vertices.map((ring) => ring.map(turn)),
+    axes: [turn(a), turn(b), turn(c), turn(d)],
+    flaps: piece.flaps.map(([sewing, cut]): Flap => [sewing.map(turn), cut.map(turn)]),
+    marks: piece.marks.map(turn),
+    seam: piece.seam?.map(turn),
+  };
+}
+
+/** The pieces into `model`: each moved apart, then flat on the table, in columns. */
+function layOut(sewn: readonly Piece[], model: PreviewModel, visible: ReadonlySet<AssemblyLayer>) {
+  const pieces = sewn.map(turned);
   const points = pieces.flatMap((piece) => piece.vertices.flat().map((v) => v.point));
   const centre = centreOf(points);
   const folded = pieces.flatMap((piece) => piece.flaps.flat(2).map((v) => v.point));
@@ -906,25 +1029,32 @@ function layOut(
   const table = Math.max(...[...points, ...folded].map((p) => p[2]));
   const gap = GAP * chord;
 
-  // Rows on the table: the inner rib, the panels side by side, the outer rib.
+  // Columns on the table, as on the wing from inner to outer rib, chords along Y.
   const boxes = pieces.map(bounds);
-  const panels = pieces.flatMap((piece, i) => (piece.kind === 'rib' ? [] : [i]));
-  const widths = panels.map((i) => boxes[i].right - boxes[i].left);
-  const row = widths.reduce((a, b) => a + b, 0) + (panels.length - 1) * gap;
-  const tall = Math.max(0, ...panels.map((i) => boxes[i].top - boxes[i].bottom));
-  let x = centre[0] - row / 2;
-  const origins = pieces.map((piece, i): Point => {
-    const box = boxes[i];
-    if (piece.kind === 'rib') {
-      const shift = (tall / 2 + gap + (box.top - box.bottom) / 2) * -piece.side;
-      return [
-        centre[0] - (box.left + box.right) / 2,
-        centre[1] + shift - (box.top + box.bottom) / 2,
-      ];
+  const middleY = (piece: Piece) => centreOf(piece.vertices.flat().map((v) => v.point))[1];
+  const columns = [
+    pieces.filter(({ side }) => side < 0),
+    ...(['extrados', 'minirib', 'intrados'] as const).map((kind) =>
+      pieces.filter((piece) => piece.kind === kind).sort((a, b) => middleY(b) - middleY(a)),
+    ),
+    pieces.filter(({ side }) => side > 0),
+  ].filter((column) => column.length);
+  const breadth = (piece: Piece) => {
+    const box = boxes[pieces.indexOf(piece)];
+    return box.right - box.left;
+  };
+  const widths = columns.map((column) => Math.max(...column.map(breadth)));
+  let x = centre[0] - (widths.reduce((a, b) => a + b, 0) + (columns.length - 1) * gap) / 2;
+  const origins: Point[] = pieces.map(() => [0, 0]);
+  columns.forEach((column, c) => {
+    // Their trailing edges level, under the wing's, each piece ahead of the one behind.
+    let y = Math.max(...ys);
+    for (const piece of column) {
+      const i = pieces.indexOf(piece);
+      origins[i] = [x + (widths[c] - breadth(piece)) / 2 - boxes[i].left, y - boxes[i].top];
+      y -= boxes[i].top - boxes[i].bottom + gap;
     }
-    const at: Point = [x - box.left, centre[1] - (box.top + box.bottom) / 2];
-    x += box.right - box.left + gap;
-    return at;
+    x += widths[c] + gap;
   });
   const xs = points.map((p) => p[0]);
   model.grid = tableGrid(
@@ -936,8 +1066,8 @@ function layOut(
         top: box.top + origins[i][1],
       })),
       {
-        left: Math.min(...xs) - APART * chord,
-        right: Math.max(...xs) + APART * chord,
+        left: Math.min(...xs),
+        right: Math.max(...xs),
         bottom: Math.min(...ys),
         top: Math.max(...ys),
       },
@@ -946,14 +1076,18 @@ function layOut(
   );
 
   pieces.forEach((piece, i) => {
-    const fromCentre = centreOf(piece.vertices.flat().map((v) => v.point))[1] - centre[1];
-    const moved = ([px, py, pz]: Point3): Point3 => [
-      px + piece.side * APART * chord,
-      py + fromCentre * SPREAD,
-      // Upwards, clear of the table for the allowances opening.
-      pz + (piece.up - 1) * APART * chord - gap,
-    ];
     const laid = ([u, v]: Point): Point3 => [u + origins[i][0], v + origins[i][1], table];
+    // Slid over its place on the table, clear of it for the allowances opening.
+    const body = piece.vertices.flat();
+    const [from, to] = [
+      centreOf(body.map((v) => v.point)),
+      laid([mean(body.map((v) => v.flat[0])), mean(body.map((v) => v.flat[1]))]),
+    ];
+    const moved = ([px, py, pz]: Point3): Point3 => [
+      px + to[0] - from[0],
+      py + to[1] - from[1],
+      pz - CLEARANCE * chord,
+    ];
     const move = rigidMove(piece, moved, laid, table);
     const poses = Array.from({ length: MOVES }, (_, k) => move(k / MOVES));
     const through = (v: Vertex): Opening<Point3> => ({
@@ -994,8 +1128,8 @@ function layOut(
     const color = COLORS[piece.kind];
     const sewn = sewnOf(piece.vertices);
     const opening = opened(piece.vertices);
-    if (piece.kind === 'rib') {
-      if (visible.has('rib')) {
+    if (piece.kind === 'rib' || piece.kind === 'minirib') {
+      if (visible.has(piece.kind)) {
         model.fills.push({
           points: sewn[0],
           holes: sewn.slice(1),
@@ -1010,20 +1144,25 @@ function layOut(
             model.lines.push(line(closed(ring), opening, (rows) => closed(rows[r + 1]))),
           );
       }
-      if (visible.has('folds'))
-        model.lines.push(line(closed(sewn[0]), opening, (rows) => closed(rows[0])));
+      model.lines.push(line(closed(sewn[0]), opening, (rows) => closed(rows[0])));
     } else {
       if (visible.has(piece.kind))
         model.surfaces.push({ rows: sewn, kind: 'skin', color, opening });
       const firstColumn = (rows: Point3[][]) => rows.map((row) => row[0]);
       const lastColumn = (rows: Point3[][]) => rows.map((row) => row[row.length - 1]);
-      if (visible.has('folds'))
-        model.lines.push(
-          line(sewn[0], opening, (rows) => rows[0], piece.faults[0]),
-          line(sewn.at(-1)!, opening, (rows) => rows.at(-1)!, piece.faults[1]),
-          line(firstColumn(sewn), opening, firstColumn),
-          line(lastColumn(sewn), opening, lastColumn),
-        );
+      model.lines.push(
+        line(sewn[0], opening, (rows) => rows[0], piece.faults[0]),
+        line(sewn.at(-1)!, opening, (rows) => rows.at(-1)!, piece.faults[1]),
+        line(firstColumn(sewn), opening, firstColumn),
+        line(lastColumn(sewn), opening, lastColumn),
+      );
+    }
+    if (piece.seam && visible.has('minirib')) {
+      const seamOpening = opened([piece.seam]);
+      model.lines.push({
+        ...line(sewnOf([piece.seam])[0], seamOpening, (rows) => rows[0]),
+        color: COLORS.minirib,
+      });
     }
     for (const flap of visible.has(piece.kind) ? piece.flaps : []) {
       const rows = sewnOf(flap);

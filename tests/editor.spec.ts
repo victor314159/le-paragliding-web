@@ -1703,17 +1703,18 @@ test('Assembly opens a cell of the draft, chosen by its number', async ({ page }
   await expect(assembly.getByRole('heading', { name: 'Assembly', exact: true })).toBeVisible();
   await expect(assembly.locator('canvas')).toBeVisible();
   const cell = assembly.getByRole('combobox', { name: 'Cell', exact: true });
-  // The middle cell at first, as its title says.
+  // The first cell at first, as its title says.
   await expect(assembly.locator('figcaption')).toHaveText(
     `${(await cell.locator('option:checked').innerText()).trim()} assembly`,
   );
   await cell.selectOption('Cell 3');
   await expect(assembly.locator('figcaption')).toHaveText('Cell 3 assembly');
-  await assembly.getByRole('slider', { name: 'Assembled', exact: true }).fill('0');
   await expect(assembly.locator('output')).toHaveText('0%');
+  await assembly.getByRole('slider', { name: 'Assembled', exact: true }).fill('100');
+  await expect(assembly.locator('output')).toHaveText('100%');
   await expect(assembly.getByText(/^Grid \d+ cm$/)).toBeVisible();
   await expect(assembly.getByRole('checkbox', { name: 'Marks', exact: true })).not.toBeChecked();
-  await expect(assembly.getByText('Rib and shaping seams match within 2 mm.')).toBeVisible();
+  await expect(assembly.getByText('All seams match within 2 mm.')).toBeVisible();
   await expect(assembly.getByRole('button', { name: 'Fit view', exact: true })).toBeVisible();
   await assembly.getByRole('combobox', { name: 'Camera view', exact: true }).selectOption('Top');
   await assembly.getByRole('checkbox', { name: 'Ribs', exact: true }).uncheck();

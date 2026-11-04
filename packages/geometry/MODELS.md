@@ -113,6 +113,7 @@ kept one says why below.
 | `miniribs.ts`                              | Section 37's code 3001 transition 2 (parabolic) sets none of the minirib's points: the engine draws lines of no length at the origin, with its holes and number.                                                                                                                              | bug      | parabola            |
 | `miniribs.ts`                              | A transition (code 3001) starts from `hautok(i − 1)`, the arc heights of the cell before the minirib's, rib 2's for the first two ribs, of the engine's patterns and arcs.                                                                                                                    | bug      | own cell            |
 | `miniribs.ts`                              | The holes of section 38 (type 9) centre `center` of the height below the trailing edge, whose v is 0 in the rib's frame.                                                                                                                                                                      | format   | kept                |
+| `miniribs.ts` `miniribSeams`               | §8.2.6 takes the way of a minirib's reference line by `atan`, with no quadrant: past a right angle, it runs off its panel. No oracle design goes there.                                                                                                                                       | bug      | its own way         |
 | `skin-panels.ts` `engineSides`             | The midline of an unloaded rib's cell (u44) takes vector 9 as §8.4.4 leaves it, reflected over the extrados' last point when the inlet has 2 points; on the inlet, vectors 9 and 10 hold zeros past the point §8.2.4 extrapolates, which turn the intrados seam's end.                        | bug      | sides as sewn       |
 | `unloaded-ribs.ts`                         | Every unloaded rib takes the holes of the last rib of the last section 4 row holding a type 11 (its "parameters for unloaded"), as a later row naming that rib leaves them, all drawn as ellipses.                                                                                            | bug      | type 11 only        |
 | `skin-panels.ts` `unloadedSeam`            | §9.9.10 draws the seam of an unloaded rib at the sheet's origin, not on its cell's panels (a layout, which no model has: both put it on them); its extrados marks turn the other way below the chord, its ends by unsigned angles, the intrados' by the inlet's zeros.                        | bug      | one side            |
@@ -271,15 +272,15 @@ cell and normals follow the table above.
   back from a rib a later row may override, with the row's other holes;
   enhanced v1 takes the type 11 holes of the last row holding them.
 - **Miniribs:** on double skins, a section 2 `minirib` in `(1, 100)` (percent
-  of chord from the trailing edge) sews both skins to the median profile:
-  stations within that length (by mean normalized chord) take two congruent
-  half-arcs, of chord `d/2`, fabric `L/2` and sagitta `h/2`, which conserve
-  the fabric length. Such cells round their subdivisions up to an even count,
-  at least 4. Inlets and single skins (whose markers describe attachment
+  of chord from the trailing edge) sews both skins to its edge: stations
+  within that length (by mean normalized chord) take two congruent arcs, of
+  half the fabric, meeting on the median profile, raised along section 37's
+  code 3001 transition as the minirib is. Ahead of its front, the skin frees
+  itself to the full arc over half the cell's width, the fabric conserved
+  throughout. Such cells round their subdivisions up to an even count, at
+  least 4. Inlets and single skins (whose markers describe attachment
   triangles) are unaffected; `miniribStrain` (section 8) is unrelated.
 
 This is a geometric model, not a pressure, strain or flying-equilibrium
-simulation. The minirib is idealized on the median profile: code 3001's
-contour modifications are not modeled, and the constraint starts abruptly at
-the first station within its length, which depends on the airfoil's station
-resolution.
+simulation. How far the skin takes to free itself past a minirib is a choice,
+not a measure.

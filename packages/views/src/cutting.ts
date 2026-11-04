@@ -1,6 +1,7 @@
 import type { LepAirfoil, LepDesign } from '@lepara/format';
 import {
   miniribPatterns,
+  miniribSeams,
   ribPatterns,
   skinPanels,
   unloadedRibPatterns,
@@ -187,23 +188,29 @@ function cuttingLegend({ paths, dots }: PreviewScene, outline: string): PreviewS
 }
 
 function panelPieces(
-  design: Pick<LepDesign, SkinPanelSections>,
+  design: Pick<LepDesign, SkinPanelSections | UnloadedRibSections>,
   airfoils: ReadonlyMap<string, LepAirfoil>,
   surface: SkinPanel['surface'],
 ): Piece[] {
   const panels = skinPanels(design, airfoils).filter((panel) => panel.surface === surface);
+  const seams = miniribSeams(design, airfoils).filter((seam) => seam.surface === surface);
   return panels.map((panel) => {
     const number = panelNumber(panels, panel);
+    const seam = seams.find(({ cell, piece }) => cell === panel.cell && piece === panel.piece);
     return {
       ...panel,
       number,
       title: `Panel ${number}`,
       cuts: [panel.cut],
       closedCut: true,
-      references: [{ title: 'Air inlet seam', lines: panel.joins }],
+      references: [
+        { title: 'Air inlet seam', lines: panel.joins },
+        { title: 'Minirib seam', lines: seam ? [seam.line] : [] },
+      ],
       table: [
         { title: 'Anchor', ...panel.anchors },
         { title: 'Unloaded rib seam', dots: panel.unloadedSeam, lines: [] },
+        { title: 'Minirib seam end', dots: seam?.dots ?? [], lines: [] },
       ],
     };
   });

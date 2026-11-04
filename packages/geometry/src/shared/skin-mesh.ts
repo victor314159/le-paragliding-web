@@ -14,7 +14,14 @@ export interface SkinModel {
     height: number,
     k: number,
     count: number,
-    station: { cell: number; surface: BalloonedPanel['surface']; chord: number },
+    station: {
+      cell: number;
+      surface: BalloonedPanel['surface'];
+      /** Its place along the chord, % from the trailing edge. */
+      chord: number;
+      /** The mean chord of its cell (cm). */
+      length: number;
+    },
   ): { span: number; lift: number };
   normals(
     median: readonly Point3[],
@@ -99,6 +106,7 @@ export function buildSkin(
             cell: i - 1,
             surface,
             chord: middleChord,
+            length: (innerChord + outerChord) / 2,
           });
           const point = add(add(a, sub(b, a), t), normals[j], lift);
           const chord =

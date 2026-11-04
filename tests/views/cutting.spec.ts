@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
   miniribPatterns,
+  miniribSeams,
   ribPatterns,
   skinPanels,
   unloadedRibPatterns,
@@ -23,6 +24,9 @@ for (const id of DESIGNS)
       if (group !== 'extrados' && group !== 'intrados') continue;
       const scene = cuttingScene(design, airfoils, group);
       const expected = panels.filter((panel) => panel.surface === group);
+      const seams = miniribSeams(design, airfoils).filter(
+        ({ surface }) => surface === group,
+      ).length;
       expect(scene.viewBox).not.toContain('NaN');
       const sewing = scene.paths.filter((path) => path.kind === 'outline');
       expect(sewing.map((path) => path.title)).toEqual(
@@ -35,13 +39,13 @@ for (const id of DESIGNS)
         scene.paths.filter((path) => path.kind !== 'rib').every((path) => path.d.endsWith('Z')),
       ).toBe(true);
       expect(scene.paths.filter((path) => path.kind === 'rib')).toHaveLength(
-        expected.reduce((sum, panel) => sum + panel.joins.length, 0),
+        expected.reduce((sum, panel) => sum + panel.joins.length, 0) + seams,
       );
       const dots = (kind: string) => scene.dots.filter((dot) => dot.kind === kind).length;
       expect(dots('mark')).toBe(expected.reduce((sum, panel) => sum + panel.marks.length, 0));
       expect(dots('numeral')).toBe(expected.reduce((sum, panel) => sum + panel.numeral.length, 0));
       const anchors =
-        dots('table-mark') + scene.paths.filter((p) => p.kind === 'table-mark').length;
+        dots('table-mark') + scene.paths.filter((p) => p.kind === 'table-mark').length - 2 * seams;
       expect(anchors).toBe(
         expected.reduce((sum, p) => sum + p.anchors.dots.length + p.anchors.lines.length, 0),
       );

@@ -195,11 +195,14 @@ test('miniribs sew both skins at mid-cell and conserve each half-panel fabric le
     for (let n = 0; n < panel.rows[0].length; n++) {
       const j = from + n;
       const chord = 100 * (1 - (a.local[j][0] / a.chord + b.local[j][0] / b.chord) / 2);
-      if (chord > 25) {
+      // Ahead of the minirib, the skin frees itself over half the cell's width.
+      const free = (100 * distance(a.points[j], b.points[j])) / (a.chord + b.chord);
+      if (chord > 25 + free) {
         for (let row = 0; row < panel.rows.length; row++)
           expect(panel.rows[row][n]).toEqual(original[index].rows[row][n]);
         continue;
       }
+      if (chord > 25) continue;
       const center = a.points[j].map((v, axis) => (v + b.points[j][axis]) / 2);
       expect(distance(panel.rows[middle][n].point, center)).toBeLessThan(1e-10);
       // Recover the outer half arc from its endpoints and measured midpoint sagitta.
@@ -218,6 +221,47 @@ test('miniribs sew both skins at mid-cell and conserve each half-panel fabric le
   expect(constrained).toEqual(before);
   // Section 2 miniribs must not change the faithful engine mesh.
   expect(fortranSkin(constrained, airfoils)).toEqual(fortranSkin(plain, airfoils));
+});
+
+test('the skin follows a minirib transition, its fabric conserved, then frees itself', () => {
+  const { design, airfoils } = project('oracle/designs/A8');
+  const draft = {
+    ...design,
+    specialParameters: {
+      mode: 1 as const,
+      entries: [
+        { code: 1291 as const, value: 97 },
+        { code: 3001 as const, transition: 3 as const, values: [6, 0.85] as const },
+      ],
+    },
+    airfoils: design.airfoils.map((r) => ({ ...r, minirib: 20 })),
+  };
+  const ribs = skinRibs(draft, airfoils, (v) => v);
+  const patterns = skinPatterns(draft, ribs, (v) => v, patternSteps);
+  const panel = enhancedSkin(draft, airfoils).find(
+    (p) => p.cell === 5 && p.surface === 'extrados',
+  )!;
+  const [a, b] = [ribs[5], ribs[6]];
+  const flat = patterns.upper[5];
+  const middle = (panel.rows.length - 1) / 2;
+  const off: number[] = [];
+  const stretched: number[] = [];
+  panel.rows[0].forEach((_, n) => {
+    const j = panel.from + n;
+    const across = panel.rows.map((row) => row[n].point);
+    const fabric = distance(flat.left[j], flat.right[j]);
+    if (fabric > distance(a.points[j], b.points[j])) {
+      const length = across.slice(1).reduce((sum, p, k) => sum + distance(across[k], p), 0);
+      stretched.push(Math.abs(length - fabric) / fabric);
+    }
+    const center = a.points[j].map((v, axis) => (v + b.points[j][axis]) / 2);
+    off.push(distance(across[middle], center));
+  });
+  expect(Math.max(...stretched)).toBeLessThan(1e-3);
+  // Sewn on the median at the tail, lifted along the transition, freed ahead.
+  const rising = off.slice(0, off.findIndex((v, n) => n > 1 && v > 0) + 6);
+  expect(off[0]).toBeLessThan(1e-10);
+  expect(rising.at(-1)!).toBeGreaterThan(0);
 });
 
 for (const count of [1, 5, 97]) {

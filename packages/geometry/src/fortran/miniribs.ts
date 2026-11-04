@@ -4,11 +4,11 @@
 // section 38 (type 9); in the rib's frame, cm, v up.
 import type { LepAirfoil, LepDesign } from '@lepara/format';
 import type { Point } from '../shared/points.ts';
-import { romanDots } from './marks.ts';
-import type { SkinPanelSections } from './skin-panels.ts';
+import { markOffset, polylineLength, romanDots } from './marks.ts';
+import type { SkinPanel, SkinPanelSections } from './skin-panels.ts';
 import { skinHeights } from '../shared/skin-mesh.ts';
 import { ellipsePolyline, ellipseSegments } from './rib-patterns.ts';
-import { arcHeight } from './skin.ts';
+import { arcHeight, skinPanels } from './skin.ts';
 import { skinPatterns } from './skin-patterns.ts';
 import { ribStations, skinRibs, type Stations } from './skin-ribs.ts';
 import type { SkinPatternSections, SkinRib } from '../shared/skin-types.ts';
@@ -27,6 +27,80 @@ export interface MiniribPattern {
   readonly holes: readonly (readonly Point[])[];
   /** Its number in roman numerals of dots, on the cutting table. */
   readonly numeral: readonly Point[];
+  /** The airfoil points its panels' seams aim at, on the extrados and the intrados. */
+  readonly aim: { readonly extrados: number; readonly intrados: number };
+}
+
+/** Where a minirib is sewn on a panel of its cell, from the trailing edge. */
+export interface MiniribSeam {
+  readonly cell: number;
+  readonly surface: SkinPanel['surface'];
+  /** The piece of its panel at the trailing edge, that holds it. */
+  readonly piece: number;
+  /** The reference line (§8.2.6): from the midline's end, as long as the minirib's side. */
+  readonly line: readonly [Point, Point];
+  /** The sewing marks at its ends, section 7's displacement aside. */
+  readonly dots: readonly [Point, Point];
+}
+
+/** The steps of `miniribSeams` each model takes its own way. */
+export interface MiniribSeamSteps {
+  readonly miniribs: readonly MiniribPattern[];
+  readonly panels: readonly SkinPanel[];
+  /** The way of a seam from `from` towards `to`, a unit vector, `sign` -1 on the intrados. */
+  readonly direction: (from: Point, to: Point, sign: number) => Point;
+}
+
+/** §8.2.6: an angle of `atan`, with no quadrant: past a right angle, the seam runs off its panel. */
+const engineDirection: MiniribSeamSteps['direction'] = ([x1, y1], [x2, y2], sign) => {
+  const alpha = Math.abs(x2 - x1) < 0.00001 ? Math.PI / 2 : Math.atan((y2 - y1) / (x2 - x1));
+  return [sign * Math.cos(alpha), sign * Math.sin(alpha)];
+};
+
+/**
+ * The miniribs' seams on the panels of their cells (§8.2.6): straight from
+ * the middle of the trailing edge towards the midline at the airfoil point
+ * the minirib's front reaches, as long as its side.
+ */
+export function miniribSeams(
+  design: Pick<LepDesign, MiniribSections>,
+  airfoils: ReadonlyMap<string, LepAirfoil>,
+  { miniribs, panels, direction }: MiniribSeamSteps = {
+    miniribs: miniribPatterns(design, airfoils),
+    panels: skinPanels(design, airfoils),
+    direction: engineDirection,
+  },
+): MiniribSeam[] {
+  const offset = markOffset(design);
+  return miniribs.flatMap(({ rib, sewing, cut, aim }): MiniribSeam[] => {
+    const cell = rib - 1;
+    const front = cut[0].length - 2;
+    const sides = [sewing.slice(0, front), sewing.slice(front)];
+    return (['extrados', 'intrados'] as const).flatMap((surface, s): MiniribSeam[] => {
+      const own = panels.filter((panel) => panel.cell === cell && panel.surface === surface);
+      const holding = (point: number) =>
+        own.find(({ ribEdges: { from, left } }) => point >= from && point < from + left.length);
+      const middleAt = (point: number, { ribEdges: { from, left, right } }: SkinPanel) => {
+        const [p, q] = [left[point - from], right[point - from]];
+        return [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2] as Point;
+      };
+      const ends = own.map(({ ribEdges: { from, left } }) => from + left.length - 1);
+      const [first, target] = [s ? Math.max(...ends) : 1, s ? aim.intrados : aim.extrados];
+      const [tail, ahead] = [holding(first), holding(target)];
+      if (!tail || !ahead) return [];
+      const [start, towards] = [middleAt(first, tail), middleAt(target, ahead)];
+      const [dx, dy] = direction(start, towards, s ? -1 : 1);
+      const length = polylineLength(sides[s]);
+      const end: Point = [start[0] + dx * length, start[1] + dy * length];
+      const alpha = Math.atan(dy / dx);
+      const aside = ([u, v]: Point): Point => [
+        u - offset * Math.sin(alpha),
+        v + offset * Math.cos(alpha),
+      ];
+      const { piece } = tail;
+      return [{ cell, surface, piece, line: [start, end], dots: [aside(start), aside(end)] }];
+    });
+  });
 }
 
 /**
@@ -34,7 +108,7 @@ export interface MiniribPattern {
  * (0 none, 1 linear, 3 cosine; 2 is read and not drawn), its length (% of
  * chord) and height (fraction of the panel's arc height).
  */
-function transition({ specialParameters: special }: Pick<LepDesign, 'specialParameters'>) {
+export function transition({ specialParameters: special }: Pick<LepDesign, 'specialParameters'>) {
   const entry =
     special.mode === 1
       ? special.entries.reduce<{ transition: number; values: readonly number[] } | undefined>(
@@ -47,6 +121,23 @@ function transition({ specialParameters: special }: Pick<LepDesign, 'specialPara
     length: entry?.values[0] ?? 0,
     height: entry?.values[1] ?? 0,
   };
+}
+
+/** The share of its height left of a transition of `kind` at fraction `t` of its length, from its front. */
+export const transitionShape =
+  (kind: number, parabola?: (fraction: number) => number) => (t: number) =>
+    kind === 1 ? 1 - t : kind === 2 && parabola ? parabola(t) : (1 + Math.cos(Math.PI * t)) / 2;
+
+/** The last airfoil points of `before` a minirib of `length` (cm) covers, 0 if none. */
+export function miniribFront(before: SkinRib, length: number) {
+  const u = (j: number) => before.local[j]?.[0] ?? 0;
+  const np1 = before.local.length - 1;
+  let [je, ji] = [0, 0];
+  for (let j = 1; j <= before.upper - 1; j++)
+    if (u(1) - u(j) < length && u(1) - u(j + 1) >= length) je = j;
+  for (let j = np1; j >= before.upper; j--)
+    if (u(1) - u(j) < length && u(1) - u(j - 1) >= length) ji = j;
+  return { je, ji };
 }
 
 /** The steps of `miniribPatterns` each model takes its own way. */
@@ -91,6 +182,7 @@ export function miniribPatterns(
   const ease = transition(design);
   const { parabola } = steps;
   const unset = ease.kind === 2 && !parabola;
+  const shape = transitionShape(ease.kind, parabola);
   const hautok = ease.kind === 0 ? () => 0 : steps.heights(design, ribs);
   const xrib = design.sewingAllowances.ribs * 0.1;
   const spacing = (design.markTypes[8]?.laser.offset ?? 0) * 0.1;
@@ -108,13 +200,9 @@ export function miniribPatterns(
     // The engine's u(i-1,j,3), v(i-1,j,3), from 1.
     const u = (j: number) => before.local[j]?.[0] ?? 0;
     const v = (j: number) => -(before.local[j]?.[1] ?? 0);
-    const [np1, np2] = [before.local.length - 1, before.upper];
+    const np1 = before.local.length - 1;
     const xminirib = (before.chord * minirib) / 100;
-    let [je, ji] = [0, 0];
-    for (let j = 1; j <= np2 - 1; j++)
-      if (u(1) - u(j) < xminirib && u(1) - u(j + 1) >= xminirib) je = j;
-    for (let j = np1; j >= np2; j--)
-      if (u(1) - u(j) < xminirib && u(1) - u(j - 1) >= xminirib) ji = j;
+    const { je, ji } = miniribFront(before, xminirib);
     if (!je || !ji) return [];
     const d107e = xminirib - (u(1) - u(je));
     const front: Point = [
@@ -134,11 +222,7 @@ export function miniribPatterns(
       if (ease.kind === 0) return 0;
       if (u(j) < u(1) - xminirib || u(j) > u(1) - xminirib + xminimod) return 0;
       const local = u(j) - x;
-      return ease.kind === 1
-        ? size * (1 - local / xminimod)
-        : ease.kind === 2 && parabola
-          ? size * parabola(local / xminimod)
-          : (size / 2) * (1 + Math.cos((Math.PI * local) / xminimod));
+      return size * shape(local / xminimod);
     };
     const end = ease.kind === 0 ? [0, 0] : [sup, inf];
     // Extrados, points 1 to je + 1: each point's next takes its easing first.
@@ -209,6 +293,7 @@ export function miniribPatterns(
           0,
           spacing,
         ),
+        aim: { extrados: je, intrados: ji },
       },
     ];
   });

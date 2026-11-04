@@ -1,10 +1,12 @@
 import type { LepAirfoil, LepDesign } from '@lepara/format';
 import {
   miniribPatterns as referenceMiniribs,
+  miniribSeams as referenceSeams,
   type MiniribPattern,
+  type MiniribSeam,
   type MiniribSections,
 } from '../fortran/miniribs.ts';
-import { cellHeights } from './skin.ts';
+import { cellHeights, miniribParabola, skinPanels } from './skin.ts';
 import { stations } from './stations.ts';
 
 /**
@@ -18,11 +20,26 @@ export function miniribPatterns(
   airfoils: ReadonlyMap<string, LepAirfoil>,
 ): MiniribPattern[] {
   return referenceMiniribs(design, airfoils, {
-    parabola: (t) => (1 - t) ** 2,
+    parabola: miniribParabola,
     stations,
     heights: (sections, ribs) => {
       const heights = cellHeights(sections, ribs);
       return (i, j) => heights[i - 1]?.[j] ?? 0;
+    },
+  });
+}
+
+/** The miniribs' seams as the reference's, each along its midline, whatever its way. */
+export function miniribSeams(
+  design: Pick<LepDesign, MiniribSections>,
+  airfoils: ReadonlyMap<string, LepAirfoil>,
+): MiniribSeam[] {
+  return referenceSeams(design, airfoils, {
+    miniribs: miniribPatterns(design, airfoils),
+    panels: skinPanels(design, airfoils),
+    direction: ([x1, y1], [x2, y2]) => {
+      const length = Math.hypot(x2 - x1, y2 - y1) || 1;
+      return [(x2 - x1) / length, (y2 - y1) / length];
     },
   });
 }

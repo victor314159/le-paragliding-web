@@ -81,7 +81,7 @@ import { ModelPreview } from './model-preview';
             }
           </ul>
         } @else {
-          <p class="sound">Rib and shaping seams match within {{ tolerance * 10 }} mm.</p>
+          <p class="sound">All seams match within {{ tolerance * 10 }} mm.</p>
         }
       </div>
     </app-model-preview>
@@ -111,7 +111,7 @@ export class AssemblyOverview {
       key === 'perspective' ? [key, label, [1.3, -1, -0.8]] : [key, label, direction],
   );
   protected readonly visible = signal<ReadonlySet<AssemblyLayer>>(
-    new Set(['extrados', 'intrados', 'rib', 'folds']),
+    new Set(['extrados', 'intrados', 'rib', 'minirib', 'lines']),
   );
   protected readonly camera = signal('perspective');
   protected readonly fitRequest = signal(0);
@@ -133,17 +133,15 @@ export class AssemblyOverview {
       faults: pieces.checks(cell).filter(this.off).length,
     }));
   });
-  /** The middle cell at first, or the chosen one while the draft keeps it. */
+  /** The first cell at first, or the chosen one while the draft keeps it. */
   protected readonly chosen = signal<number | undefined>(undefined);
   protected readonly cell = computed(() => {
     const cells = this.cells();
     const chosen = this.chosen();
-    return cells.some((entry) => entry.cell === chosen)
-      ? chosen!
-      : (cells[cells.length >> 1]?.cell ?? 0);
+    return cells.some((entry) => entry.cell === chosen) ? chosen! : (cells[0]?.cell ?? 0);
   });
   /** From the patterns laid flat, at 0, to the pieces sewn on the wing. */
-  protected readonly assembled = signal(100);
+  protected readonly assembled = signal(0);
   protected readonly model = computed(() => ({
     ...this.pieces().model(this.cell(), this.visible()),
     camera: this.cameras.find(([key]) => key === this.camera())?.[2],

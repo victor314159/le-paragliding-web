@@ -119,6 +119,8 @@ in roman numerals of dots, or none without valid ribs and airfoils:
   seams of the V and VH ribs, and the marks of the cutting table.
 - `miniribPatterns(design, airfoils)`: the miniribs of section 2, eased by
   code 3001 of section 37, with the holes of section 38.
+- `miniribSeams(design, airfoils)`: where each minirib is sewn on the panels
+  of its cell, the reference lines of §8.2.6 and their marks.
 - `unloadedRibPatterns(design, airfoils)`: the unloaded ribs of section 2,
   stretched to their cell's panels.
 - `vRibPatterns(design, airfoils)`: the H straps and the V and VH ribs of

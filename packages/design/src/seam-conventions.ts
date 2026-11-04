@@ -24,6 +24,13 @@ export const SEAM_CONVENTIONS = {
    * it, tipwards.
    */
   rib: ['innerPanel', 'rib', 'ribFlap', 'outerPanel'] as const satisfies readonly RibSeamLayer[],
+  /**
+   * How a minirib's allowance lies on a skin, 1 tipwards, -1 rootwards. A skin
+   * has no seam there: it is sewn through from outside, on the panel's
+   * reference line (Lu-Glidz, "Innennaht-Miniribs"), the allowance flat
+   * against its inside. No source says which way: to check on a wing.
+   */
+  minirib: 1 as 1 | -1,
   /** The leading edge, its inlets included, hemmed into the inside. */
   leadingEdge: 'hem' as EndSeam,
   /** Practices vary: some builders roll it, some trim it. A hem, to check on a wing. */

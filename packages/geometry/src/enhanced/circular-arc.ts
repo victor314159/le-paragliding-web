@@ -23,6 +23,13 @@ export function arcHeight(chord: number, length: number): number {
   return (chord / 2) * Math.tan(theta / 2);
 }
 
+/** The fabric of a circular arc of the supplied chord and sagitta. */
+export function arcLength(chord: number, height: number): number {
+  if (height <= 0) return chord;
+  const theta = 2 * Math.atan2(2 * height, chord);
+  return (chord * theta) / Math.sin(theta);
+}
+
 /** Equal-angle samples, evaluated without subtracting nearly equal radii. */
 export function arcPoint(chord: number, height: number, t: number): { span: number; lift: number } {
   if (height <= 0 || chord <= 0 || t === 0 || t === 1) return { span: t, lift: 0 };
