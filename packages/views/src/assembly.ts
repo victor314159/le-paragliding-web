@@ -47,6 +47,8 @@ const COLORS: Record<Kind, string | undefined> = {
 };
 /** A seam whose edges or marks differ. */
 const FAULT = '#e5484d';
+/** Where a minirib is sewn on a panel: darker than the minirib, to show on the skins. */
+const MINIRIB_SEAM = '#1f7a4d';
 /** The gap between pieces on the table, and over it as they move, of the cell's chord. */
 const GAP = 0.02;
 const CLEARANCE = 0.08;
@@ -500,7 +502,8 @@ function panelPiece(
   const ds = 1 / (stations.length - 1 || 1);
   const dt = 1 / (across.length - 1 || 1);
   const side = (line: Line, cutLine: Line, t: number, rib: CellRib, layer: number) => {
-    const at = fractions(line, cutLine);
+    // On the stations of the panel too: a point of it alone would crack the fold.
+    const at = fractions(line, cutLine, { at: stations });
     return sideFlap(
       at.map((s) => vertex(s, t)),
       at.map((s) => vertex(s, t ? t - dt : dt)),
@@ -717,40 +720,53 @@ function ribPiece(rib: CellRib, side: number, kind: Kind = 'rib'): Piece | undef
   if (vertices[0].length < 3) return undefined;
   // A rib's edge turned back onto it, tipwards, up to its middle where it is
   // thinner than that; a minirib's laid on the skin, inside it.
+  const layer = ribLayer('ribFlap') * SEAM_CONVENTIONS.layerThickness;
+  type Entry = CellRib['edges'][number][number];
+  const folding = ([i, flat]: Entry) => {
+    const edge = sewing[i];
+    const { point } = vertices[0][i];
+    const turned = place([2 * edge[0] - flat[0], 2 * edge[1] - flat[1]]) ?? point;
+    const inward = unit(minus(turned, point));
+    // Not past the other skin, where the wing is thinner than the layers.
+    const inset = along(point, inward, Math.min(layer, rib.room(point, inward) / 2));
+    return { point, inward, inset, width: distance(flat, edge), hinged: { hinge: point, flat } };
+  };
+  // A layer off the skin all its width, not only at its edge, to show as a layer.
+  const lying = (entry: Entry): Vertex => {
+    const { inset, width, hinged } = folding(entry);
+    return {
+      ...hinged,
+      point: along(inset, tipward, SEAM_CONVENTIONS.minirib * width),
+      hinge: inset,
+      open: place(entry[1]) ?? inset,
+    };
+  };
+  const turnedBack = (entry: Entry): Vertex => {
+    const { point, inward, width, hinged } = folding(entry);
+    return {
+      ...hinged,
+      point: along(
+        along(point, inward, Math.min(width, rib.room(point, inward) / 2)),
+        tipward,
+        layer,
+      ),
+      open: place(entry[1]) ?? point,
+      via: tipward,
+    };
+  };
   const flaps =
     vertices[0].length === sewing.length
-      ? edges.map((line): Flap => [
-          line.map(([i]) => vertices[0][i]),
-          line.map(([i, flat]): Vertex => {
-            const edge = sewing[i];
-            const { point } = vertices[0][i];
-            const turned = place([2 * edge[0] - flat[0], 2 * edge[1] - flat[1]]) ?? point;
-            const inward = unit(minus(turned, point));
-            const width = distance(flat, edge);
-            const layer = ribLayer('ribFlap') * SEAM_CONVENTIONS.layerThickness;
-            const open = place(flat) ?? point;
-            const hinged = { open, hinge: point, flat: [...flat] as Point };
-            return kind === 'minirib'
-              ? {
-                  ...hinged,
-                  point: along(
-                    along(point, tipward, SEAM_CONVENTIONS.minirib * width),
-                    inward,
-                    // Not past the other skin, where the wing is thinner than the layers.
-                    Math.min(layer, rib.room(point, inward) / 2),
-                  ),
-                }
-              : {
-                  ...hinged,
-                  point: along(
-                    along(point, inward, Math.min(width, rib.room(point, inward) / 2)),
-                    tipward,
-                    layer,
-                  ),
-                  via: tipward,
-                };
-          }),
-        ])
+      ? edges.map((line): Flap =>
+          kind === 'minirib'
+            ? [
+                line.map((entry): Vertex => ({
+                  point: folding(entry).inset,
+                  flat: vertices[0][entry[0]].flat,
+                })),
+                line.map(lying),
+              ]
+            : [line.map(([i]) => vertices[0][i]), line.map(turnedBack)],
+        )
       : [];
   const by = (value: (v: Vertex) => number) =>
     vertices[0].reduce((best, v) => (value(v) < value(best) ? v : best));
@@ -1161,7 +1177,7 @@ function layOut(sewn: readonly Piece[], model: PreviewModel, visible: ReadonlySe
       const seamOpening = opened([piece.seam]);
       model.lines.push({
         ...line(sewnOf([piece.seam])[0], seamOpening, (rows) => rows[0]),
-        color: COLORS.minirib,
+        color: MINIRIB_SEAM,
       });
     }
     for (const flap of visible.has(piece.kind) ? piece.flaps : []) {

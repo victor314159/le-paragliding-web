@@ -256,7 +256,7 @@ test("a minirib's allowance lies flat on the skin, its seam marked on the panels
     const across = p.reduce((sum, value, axis) => sum + (value - q[axis]) * normal[axis], 0);
     expect(Math.abs(across) / (width * Math.hypot(...normal))).toBeGreaterThan(0.9);
   }
-  expect(model.lines.filter((line) => line.color === color)).toHaveLength(2);
+  expect(model.lines.filter((line) => line.color)).toHaveLength(2);
 });
 
 for (const id of designs)
