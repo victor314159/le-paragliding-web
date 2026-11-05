@@ -156,7 +156,10 @@ export class AssemblyOverview {
   protected readonly stretches = computed(() =>
     this.pieces()
       .stretches(this.cell())
-      .map(({ surface, stretch }) => `${surface} ${(stretch * 100).toFixed(1)}%`)
+      .map(
+        ({ surface, stretch, nose }) =>
+          `${surface} ${(stretch * 100).toFixed(1)}% (nose ${(nose * 100).toFixed(1)}%)`,
+      )
       .join(', '),
   );
   protected toggle(layer: AssemblyLayer): void {

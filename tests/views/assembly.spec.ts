@@ -650,6 +650,9 @@ test("a panel's stretch comes from the overwidth that balloons its cell", () => 
     },
   };
   expect(assembly(design, airfoils).overwidthSection).toBe(31);
+  // The extrados gathers it at the nose.
+  const [{ stretch, nose }] = assembly(design, airfoils).stretches(8);
+  expect(nose).toBeGreaterThan(2 * stretch);
   expect(biggest(design)).toBeGreaterThan(0.02);
   expect(biggest(flattened)).toBeLessThan(0.01);
 });

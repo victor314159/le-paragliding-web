@@ -90,11 +90,15 @@ const INNER_MARGIN = 0.5;
 const MARK_REACH = 0.6;
 /** How far from a rib two V-ribs count as crossing, in cm: on it, they share its seam. */
 const CLEAR_OF_RIB = 1.5;
+/** The share of a surface's middle counted as its nose. */
+const NOSE = 0.25;
 
 /** A surface of a cell: how much longer its ballooning asks its middle to be than it is cut. */
 export interface PanelStretch {
   readonly surface: 'extrados' | 'intrados';
   readonly stretch: number;
+  /** Over its fabric nearest the leading edge, where it gathers. */
+  readonly nose: number;
 }
 
 /** Two edges sewn together: how much their lengths differ, and their marks at most (cm). */
@@ -145,8 +149,8 @@ interface Piece {
   readonly long?: boolean;
   /** Where a minirib is sewn on a panel. */
   readonly seam?: readonly Vertex[];
-  /** A panel's middle along the chord, cut then sewn. */
-  readonly middle?: readonly [number, number];
+  /** Each step of a panel's middle along the chord, cut then sewn. */
+  readonly middle?: readonly (readonly [number, number])[];
   /** A V-rib as it hangs between its edges, and where its fabric is on its pattern. */
   readonly strip?: {
     readonly row: number;
@@ -659,7 +663,12 @@ function panelPiece(
     marks,
     faults,
     ends: [lengthOf(sewn.first), lengthOf(sewn.last)],
-    middle: [lengthOf(middleRow.map((v) => v.flat)), lengthIn3D(middleRow.map((v) => v.point))],
+    middle: middleRow
+      .slice(1)
+      .map((v, k) => [
+        distance(v.flat, middleRow[k].flat),
+        lengthIn3D([v.point, middleRow[k].point]),
+      ]),
     // In steps, to stay on the skin.
     seam:
       minirib &&
@@ -1305,9 +1314,18 @@ export function assembly(
     ].filter((piece) => !!piece);
     // By surface: a 3D-shaping seam moves fabric from one panel to the next.
     const stretches = (['extrados', 'intrados'] as const).flatMap((surface): PanelStretch[] => {
-      const middles = sewn.flatMap((piece) => (piece?.kind === surface ? [piece.middle!] : []));
-      const [cut, sewed] = [0, 1].map((i) => middles.reduce((sum, m) => sum + m[i], 0));
-      return cut ? [{ surface, stretch: sewed / cut - 1 }] : [];
+      const steps = sewn.flatMap((piece) => (piece?.kind === surface ? piece.middle! : []));
+      // From the trailing edge: the extrados runs towards the nose, the intrados away from it.
+      const fromTail = surface === 'extrados' ? steps : [...steps].reverse();
+      const cut = fromTail.reduce((sum, [flat]) => sum + flat, 0);
+      if (!cut) return [];
+      let along = 0;
+      const nose = fromTail.filter(([flat]) => (along += flat) > (1 - NOSE) * cut);
+      const longer = (part: typeof steps) =>
+        part.reduce((sum, [, sewed]) => sum + sewed, 0) /
+          part.reduce((sum, [flat]) => sum + flat, 0) -
+        1;
+      return [{ surface, stretch: longer(fromTail), nose: longer(nose) }];
     });
     return { pieces, checks, stretches };
   };
