@@ -9,6 +9,7 @@ import {
   wingOverviewModel,
   type OverviewLayer,
 } from '@lepara/views';
+import { ProjectionSelect } from '../shared/view-projection';
 import { CAMERA_VIEWS } from './camera-views';
 import { EditorState } from './editor-state';
 import { ModelPreview } from './model-preview';
@@ -16,7 +17,7 @@ import { ModelPreview } from './model-preview';
 /** Full-size assembled draft, with independently switchable details. */
 @Component({
   selector: 'app-wing-overview',
-  imports: [MatIconButton, MatIcon, MatTooltip, ModelPreview],
+  imports: [MatIconButton, MatIcon, MatTooltip, ModelPreview, ProjectionSelect],
   template: `
     <div class="toolbar">
       <h3>Wing overview</h3>
@@ -25,6 +26,7 @@ import { ModelPreview } from './model-preview';
           <option [value]="view[0]" [selected]="view[0] === camera()">{{ view[1] }}</option>
         }
       </select>
+      <app-projection-select />
       <button
         matIconButton
         type="button"
@@ -122,7 +124,7 @@ export class WingOverview {
     () => this.editor.draft.project().design.geometry.paragliderType === 'ss',
   );
   protected readonly skinCoverage = signal(80);
-  protected readonly camera = signal('perspective');
+  protected readonly camera = signal('three-quarter');
   protected readonly fitRequest = signal(0);
   // Preserve the view while hidden without rebuilding the whole wing on each keystroke.
   private readonly drawings = linkedSignal<boolean, ReturnType<typeof wingOverviewLayers>>({

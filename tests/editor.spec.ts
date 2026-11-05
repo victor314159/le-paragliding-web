@@ -1657,6 +1657,24 @@ test('inlet, wingtip and HVR hole previews follow each mode and the engine colum
   await expect(svg.locator('path.hole')).toHaveCount(0);
 });
 
+test('the 3D views share their projection', async ({ page }) => {
+  await openExample(page, 'A8');
+  await opener(page).click();
+  await selectEditorView(page, '3D Preview');
+  const overview = page.locator('app-wing-overview');
+  const projection = overview.getByRole('combobox', { name: 'Projection', exact: true });
+  await expect(projection).toHaveValue('orthographic');
+  const orthographic = await overview.locator('canvas').screenshot();
+  await projection.selectOption('perspective');
+  expect(await overview.locator('canvas').screenshot()).not.toEqual(orthographic);
+  await selectEditorView(page, 'Assembly');
+  await expect(
+    page
+      .locator('app-assembly-overview')
+      .getByRole('combobox', { name: 'Projection', exact: true }),
+  ).toHaveValue('perspective');
+});
+
 test('A8 colored fabric stays visible from different cameras with full and cutaway skin', async ({
   page,
 }) => {
@@ -1667,7 +1685,7 @@ test('A8 colored fabric stays visible from different cameras with full and cutaw
   const coverage = overview.getByRole('slider', { name: 'Skin coverage', exact: true });
   for (const value of ['100', '80']) {
     await coverage.fill(value);
-    for (const camera of ['perspective', 'front', 'top']) {
+    for (const camera of ['three-quarter', 'front', 'top']) {
       await overview.getByRole('combobox', { name: 'Camera view' }).selectOption(camera);
       const screenshot = await overview.locator('canvas').screenshot();
       const coloredPixels = await page.evaluate(async (png) => {

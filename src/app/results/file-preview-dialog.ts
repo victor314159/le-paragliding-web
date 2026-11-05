@@ -2,6 +2,7 @@ import {
   afterNextRender,
   Component,
   DestroyRef,
+  effect,
   type ElementRef,
   inject,
   signal,
@@ -19,6 +20,7 @@ import {
 import type { DxfViewer } from 'dxf-viewer';
 import type { ResultFile } from '../compute/compute.service';
 import { themeColor } from '../shared/theme-color';
+import { ProjectionSelect, ViewProjection } from '../shared/view-projection';
 import type {
   PreviewDrawing,
   PreviewDrawingRequest,
@@ -31,7 +33,15 @@ const TEXT_LIMIT = 200_000;
 /** Text, airfoil, DXF or STL preview of one generated file. */
 @Component({
   selector: 'app-file-preview-dialog',
-  imports: [MatButton, MatIcon, MatDialogActions, MatDialogClose, MatDialogContent, MatDialogTitle],
+  imports: [
+    MatButton,
+    MatIcon,
+    MatDialogActions,
+    MatDialogClose,
+    MatDialogContent,
+    MatDialogTitle,
+    ProjectionSelect,
+  ],
   templateUrl: './file-preview-dialog.html',
   styleUrl: './file-preview-dialog.css',
 })
@@ -42,7 +52,7 @@ export class FilePreviewDialog {
   protected readonly extension = this.file.name.split('.').at(-1)?.toLowerCase() ?? '';
   protected readonly graphical = this.extension === 'dxf' || this.extension === 'stl';
   // The 2D cutting patterns open in dxf-viewer; other drawings are 3D scenes.
-  private readonly patterns = this.file.name.endsWith('leparagliding.dxf');
+  protected readonly patterns = this.file.name.endsWith('leparagliding.dxf');
   protected readonly controlsHint = this.patterns
     ? 'Drag to pan · Scroll or pinch to zoom'
     : 'Drag to rotate · Right-drag to pan · Scroll or pinch to zoom';
@@ -52,23 +62,25 @@ export class FilePreviewDialog {
   protected readonly truncated = signal(false);
   protected readonly notice = signal('');
   protected readonly profile = signal('');
-  private scene?: PreviewScene;
+  private readonly projection = inject(ViewProjection);
+  private readonly scene = signal<PreviewScene | undefined>(undefined);
   private dxfViewer?: DxfViewer;
   private worker?: Worker;
   private readonly abort = new AbortController();
 
   constructor() {
     afterNextRender(() => void this.load());
+    effect(() => this.scene()?.setProjection(this.projection.perspective()));
     this.destroyRef.onDestroy(() => {
       this.abort.abort();
       this.worker?.terminate();
-      this.scene?.dispose();
+      this.scene()?.dispose();
       this.dxfViewer?.Destroy();
     });
   }
 
   protected reset(): void {
-    this.scene?.reset();
+    this.scene()?.reset();
     const bounds = this.dxfViewer?.GetBounds();
     const origin = this.dxfViewer?.GetOrigin();
     if (bounds && origin)
@@ -98,24 +110,25 @@ export class FilePreviewDialog {
         if (this.destroyRef.destroyed) return;
         const { PreviewScene } = await import('./preview-scene');
         if (this.destroyRef.destroyed) return;
-        this.scene = new PreviewScene(
+        const scene = new PreviewScene(
           this.viewport().nativeElement,
           this.color('--mat-sys-surface'),
         );
+        this.scene.set(scene);
         if (drawing) {
-          this.scene.loadDrawing(drawing);
+          scene.loadDrawing(drawing);
           if (drawing.skipped)
             this.notice.set(
               `${drawing.skipped} invalid or unsupported elements omitted. Download the file to inspect all elements.`,
             );
         } else {
-          this.scene.loadStl(bytes);
+          scene.loadStl(bytes);
         }
       }
     } catch (error: unknown) {
       if (this.destroyRef.destroyed) return;
-      this.scene?.dispose();
-      this.scene = undefined;
+      this.scene()?.dispose();
+      this.scene.set(undefined);
       this.dxfViewer?.Destroy();
       this.dxfViewer = undefined;
       this.error.set(error instanceof Error ? error.message : 'Could not preview this file.');

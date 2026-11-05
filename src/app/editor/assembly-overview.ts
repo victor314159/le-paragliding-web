@@ -5,6 +5,7 @@ import { MatIcon } from '@angular/material/icon';
 import { MatTooltip } from '@angular/material/tooltip';
 import { ASSEMBLY_LAYERS, assembly, type AssemblyLayer, type SeamCheck } from '@lepara/views';
 import { SEAM_CONVENTIONS } from '@lepara/design';
+import { ProjectionSelect } from '../shared/view-projection';
 import { CAMERA_VIEWS } from './camera-views';
 import { EditorState } from './editor-state';
 import { ModelPreview } from './model-preview';
@@ -12,7 +13,7 @@ import { ModelPreview } from './model-preview';
 /** A cell of the draft, from its patterns laid flat to their pieces sewn on the wing. */
 @Component({
   selector: 'app-assembly-overview',
-  imports: [DecimalPipe, MatIconButton, MatIcon, MatTooltip, ModelPreview],
+  imports: [DecimalPipe, MatIconButton, MatIcon, MatTooltip, ModelPreview, ProjectionSelect],
   template: `
     <div class="toolbar">
       <h3>Assembly</h3>
@@ -28,6 +29,7 @@ import { ModelPreview } from './model-preview';
           <option [value]="view[0]" [selected]="view[0] === camera()">{{ view[1] }}</option>
         }
       </select>
+      <app-projection-select />
       <button
         matIconButton
         type="button"
@@ -114,12 +116,12 @@ export class AssemblyOverview {
   // Three-quarter from higher up, to read the pieces on their table.
   protected readonly cameras = CAMERA_VIEWS.map(
     ([key, label, direction]): (typeof CAMERA_VIEWS)[number] =>
-      key === 'perspective' ? [key, label, [1.3, -1, -0.8]] : [key, label, direction],
+      key === 'three-quarter' ? [key, label, [1.3, -1, -0.8]] : [key, label, direction],
   );
   protected readonly visible = signal<ReadonlySet<AssemblyLayer>>(
     new Set(['extrados', 'intrados', 'rib', 'minirib', 'vrib', 'reinforcement', 'lines']),
   );
-  protected readonly camera = signal('perspective');
+  protected readonly camera = signal('three-quarter');
   protected readonly fitRequest = signal(0);
   // Keep the last pieces while hidden, without recomputing them on each keystroke.
   private readonly pieces = linkedSignal<boolean, ReturnType<typeof assembly>>({

@@ -15,6 +15,9 @@
       <mat-icon svgIcon="restart_alt" />
       Reset view
     </button>
+    @if (!patterns) {
+      <app-projection-select />
+    }
   }
   <div
     #viewport

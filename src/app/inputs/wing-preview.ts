@@ -29,7 +29,12 @@ import { DesignFilesService } from './design-files.service';
         </button>
       </div>
       @if (model(); as model) {
-        <app-model-preview [model]="model" [skinCoverage]="70" [fitRequest]="fitRequest()" />
+        <app-model-preview
+          [model]="model"
+          [skinCoverage]="70"
+          [fitRequest]="fitRequest()"
+          [orthographic]="true"
+        />
       } @else {
         <p class="empty mat-text-on-surface-variant">
           {{ inputs.pending() ? 'Loading wing…' : 'Load a readable design to preview the wing.' }}

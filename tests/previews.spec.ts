@@ -128,6 +128,18 @@ test('generated files have text, airfoil, DXF and STL previews without changing 
       expect(await imageDifference(page, originalView, await canvas.screenshot())).toBeLessThan(
         0.005,
       );
+      // Perspective distorts the view; going back to orthographic restores it.
+      const projection = dialog.getByRole('combobox', { name: 'Projection', exact: true });
+      await projection.selectOption('perspective');
+      expect(await imageDifference(page, originalView, await canvas.screenshot())).toBeGreaterThan(
+        0.005,
+      );
+      await projection.selectOption('orthographic');
+      expect(await imageDifference(page, originalView, await canvas.screenshot())).toBeLessThan(
+        0.005,
+      );
+    } else {
+      await expect(dialog.getByRole('combobox', { name: 'Projection' })).toHaveCount(0);
     }
     await dialog.getByRole('button', { name: 'Reset view', exact: true }).click();
     await dialog.getByRole('button', { name: 'Close', exact: true }).click();

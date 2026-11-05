@@ -133,7 +133,11 @@ export class PreviewScene {
   private readonly renderer = new THREE.WebGLRenderer({ antialias: true });
   private readonly scene = new THREE.Scene();
   private readonly model = new THREE.Group();
-  private readonly camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 100000);
+  private readonly orthographic = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 100000);
+  private readonly perspective = new THREE.PerspectiveCamera();
+  private camera: THREE.OrthographicCamera | THREE.PerspectiveCamera = this.orthographic;
+  /** How far a fitted camera stands from its target, where both projections agree. */
+  private distance = 1;
   private readonly controls: OrbitControls;
   private readonly observer: ResizeObserver;
   private readonly textures: THREE.Texture[] = [];
@@ -167,7 +171,9 @@ export class PreviewScene {
     this.scene.add(light);
     // OrbitControls captures the camera's up axis in its constructor.
     // All 3D previews use Z-up, including after resetting the view.
-    this.camera.up.set(0, 0, 1);
+    this.orthographic.up.set(0, 0, 1);
+    this.perspective.up.set(0, 0, 1);
+    this.orthographic.position.z = this.distance;
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.cursorStyle = 'grab';
     this.controls.addEventListener('change', this.render);
@@ -564,9 +570,12 @@ export class PreviewScene {
     const radius = Math.max(bounds.getSize(new THREE.Vector3()).length() / 2, 0.01);
     const { x, y, z } = this.viewFrom ?? this.direction;
     const direction = new THREE.Vector3(x, y, z).normalize();
-    this.camera.position.copy(center).addScaledVector(direction, radius * 3);
-    this.camera.near = radius / 1000;
-    this.camera.far = radius * 10;
+    this.distance = radius * 3;
+    this.camera.position.copy(center).addScaledVector(direction, this.distance);
+    this.orthographic.near = radius / 1000;
+    this.orthographic.far = radius * 10;
+    this.perspective.near = radius / 100;
+    this.perspective.far = radius * 100;
     this.camera.zoom = 1;
     this.controls.target.copy(center);
     this.controls.update();
@@ -582,19 +591,41 @@ export class PreviewScene {
     this.resize();
   }
 
-  /** Bounds of the model's points in camera space. */
+  /** Show the model in perspective or orthographic, from the same place and at the same scale. */
+  setProjection(perspective: boolean): void {
+    const next = perspective ? this.perspective : this.orthographic;
+    if (next === this.camera) return;
+    const { target } = this.controls;
+    const offset = this.camera.position.clone().sub(target);
+    // An orthographic camera zooms at a constant distance, a perspective one moves.
+    const zoom = (this.camera.zoom * this.distance) / offset.length();
+    next.zoom = perspective ? 1 : zoom;
+    offset.setLength(perspective ? this.distance / zoom : this.distance);
+    next.position.copy(target).add(offset);
+    this.camera = this.controls.object = next;
+    this.controls.update();
+    this.resize();
+  }
+
+  /** Bounds of the model's points in camera space, at the target's scale in perspective. */
   private viewBounds(): THREE.Box3 {
     this.model.updateMatrixWorld(true);
     this.camera.updateMatrixWorld();
     const bounds = new THREE.Box3();
     const point = new THREE.Vector3();
+    const add = (toView: THREE.Matrix4) => {
+      point.applyMatrix4(toView);
+      if (this.camera === this.perspective) point.multiplyScalar(this.distance / -point.z);
+      bounds.expandByPoint(point);
+    };
     this.model.traverse((object) => {
       const toView = new THREE.Matrix4().multiplyMatrices(
         this.camera.matrixWorldInverse,
         object.matrixWorld,
       );
       if (object instanceof THREE.Sprite) {
-        bounds.expandByPoint(point.set(0, 0, 0).applyMatrix4(toView));
+        point.set(0, 0, 0);
+        add(toView);
         return;
       }
       // Their positions are those of a quad; the model's other points frame them.
@@ -604,8 +635,10 @@ export class PreviewScene {
       if (!positions) return;
       // An opening's steps too: the view holds the pieces all the way.
       for (const step of [positions, ...(geometry!.morphAttributes['position'] ?? [])])
-        for (let i = 0; i < step.count; i++)
-          bounds.expandByPoint(point.fromBufferAttribute(step, i).applyMatrix4(toView));
+        for (let i = 0; i < step.count; i++) {
+          point.fromBufferAttribute(step, i);
+          add(toView);
+        }
     });
     return bounds;
   }
@@ -649,10 +682,13 @@ export class PreviewScene {
     const height = this.container.clientHeight;
     if (!width || !height) return;
     const aspect = width / height;
-    this.camera.top = Math.max(this.fit.height, this.fit.width / aspect);
-    this.camera.bottom = -this.camera.top;
-    this.camera.right = this.camera.top * aspect;
-    this.camera.left = -this.camera.right;
+    const top = Math.max(this.fit.height, this.fit.width / aspect);
+    this.orthographic.top = top;
+    this.orthographic.bottom = -top;
+    this.orthographic.right = top * aspect;
+    this.orthographic.left = -this.orthographic.right;
+    this.perspective.aspect = aspect;
+    this.perspective.fov = THREE.MathUtils.radToDeg(2 * Math.atan(top / this.distance));
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
     for (const material of this.wide) material.resolution.set(width, height);

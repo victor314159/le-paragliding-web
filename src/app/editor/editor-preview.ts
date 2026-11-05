@@ -19,6 +19,7 @@ import {
   SECTION_SCENES,
   type PreviewViews,
 } from '@lepara/views';
+import { ProjectionSelect } from '../shared/view-projection';
 import { EditorState, type Selection } from './editor-state';
 import { ModelPreview } from './model-preview';
 import { ScenePreview } from './scene-preview';
@@ -44,6 +45,7 @@ const BUTTON_LABELS_LENGTH = 28;
     MatIcon,
     MatTooltip,
     ModelPreview,
+    ProjectionSelect,
     ScenePreview,
     SectionPreview,
   ],
@@ -107,6 +109,9 @@ const BUTTON_LABELS_LENGTH = 28;
           </div>
         }
         <div class="viewport-tools" role="group" aria-label="Preview navigation">
+          @if (view() === modelView) {
+            <app-projection-select />
+          }
           <button
             matIconButton
             type="button"

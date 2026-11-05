@@ -11,6 +11,7 @@ import {
 } from '@angular/core';
 import type { PreviewModel } from '@lepara/views';
 import type { PreviewScene } from '../results/preview-scene';
+import { ViewProjection } from '../shared/view-projection';
 import { ThemeService } from '../shared/theme.service';
 import { themeColor } from '../shared/theme-color';
 
@@ -83,7 +84,10 @@ export class ModelPreview {
   readonly opening = input(0);
   /** A standalone viewer can fit independently of the section preview dock. */
   readonly fitRequest = input(0);
+  /** Stay orthographic, whatever the projection chosen for the 3D views. */
+  readonly orthographic = input(false);
   private readonly theme = inject(ThemeService);
+  private readonly projection = inject(ViewProjection);
   private readonly viewport = viewChild.required<ElementRef<HTMLDivElement>>('viewport');
   private readonly viewer = signal<PreviewScene | undefined>(undefined);
 
@@ -102,6 +106,10 @@ export class ModelPreview {
         this.viewer.set(viewer);
       });
     });
+    // Before the model, so that its first fit is in this projection.
+    effect(() =>
+      this.viewer()?.setProjection(!this.orthographic() && this.projection.perspective()),
+    );
     let fitted = false;
     let request: number | undefined;
     effect(() => {
