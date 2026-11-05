@@ -23,6 +23,11 @@ const designs = oracleCases(
 /** How many seams of V-ribs each design leaves with marks that do not meet. */
 const UNMARKED: Readonly<Record<string, number>> = { 'gnuC-27': 2, 'gnuC2-27': 2, 'BHL7-22': 6 };
 
+/** The V-ribs each design has going through each other: Swoop2's section 12 anchors both in cell 25. */
+const CROSSED: Readonly<Record<string, readonly string[]>> = {
+  swoop2: ['24: V-rib 103 through V-rib 106'],
+};
+
 type Flat = readonly [number, number];
 const worst = (values: readonly number[]) => values.reduce((a, b) => Math.max(a, b), 0);
 const toSegment = (p: Flat, a: Flat, b: Flat) => {
@@ -203,10 +208,15 @@ for (const id of designs)
       // Type 5 is sewn along one edge, and by its feet along the other.
       const feet = found.filter(({ seam }) => seam.includes(' foot ')).length;
       const edges = 2 * ownStrips.length - ownStrips.filter(({ type }) => type === 5).length + feet;
-      expect(found).toHaveLength(2 * own.length + shaping + tail + miniribs + edges);
+      const through = found.filter(({ seam }) => seam.includes(' through ')).length;
+      expect(found).toHaveLength(2 * own.length + shaping + tail + miniribs + edges + through);
       return found;
     });
-    expect(worst(checks.map(({ difference }) => Math.abs(difference)))).toBeLessThan(
+    const [crossed, sewing] = [true, false].map((through) =>
+      checks.filter(({ seam }) => seam.includes(' through ') === through),
+    );
+    expect(crossed.map(({ cell, seam }) => `${cell}: ${seam}`)).toEqual(CROSSED[id] ?? []);
+    expect(worst(sewing.map(({ difference }) => Math.abs(difference)))).toBeLessThan(
       SEAM_CONVENTIONS.seamTolerance,
     );
     const [strips3D, sewn] = [true, false].map((strip) =>

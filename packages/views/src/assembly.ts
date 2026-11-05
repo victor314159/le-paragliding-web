@@ -88,6 +88,8 @@ const INNER_SPANS = 24;
 const INNER_MARGIN = 0.5;
 /** How far a V-rib's mark lies from an edge to be one of its seam, in cm: type 5 has more inside. */
 const MARK_REACH = 0.6;
+/** How far from a rib two V-ribs count as crossing, in cm: on it, they share its seam. */
+const CLEAR_OF_RIB = 1.5;
 
 /** A surface of a cell: how much longer its ballooning asks its middle to be than it is cut. */
 export interface PanelStretch {
@@ -145,6 +147,13 @@ interface Piece {
   readonly seam?: readonly Vertex[];
   /** A panel's middle along the chord, cut then sewn. */
   readonly middle?: readonly [number, number];
+  /** A V-rib as it hangs between its edges, and where its fabric is on its pattern. */
+  readonly strip?: {
+    readonly row: number;
+    readonly left: readonly Vertex[];
+    readonly right: readonly Vertex[];
+    readonly inFabric: (flat: Point) => boolean;
+  };
 }
 
 /** A rib or minirib of the cell in 3D: its unit normal towards its side of the wing's tip, and its index. */
@@ -1148,7 +1157,51 @@ function vRibPiece(
     flaps,
     marks: pattern.marks.map(mark),
     faults: [],
+    strip: { row: pattern.rows[0], left: sewnLeft, right: sewnRight, inFabric },
   };
+}
+
+/**
+ * How long a stretch of V-rib `a` goes through V-rib `b`, in cm: where its rungs cross
+ * the other's triangles, both in fabric and clear of the `ribs` they are both sewn on.
+ */
+function crossing(a: NonNullable<Piece['strip']>, b: NonNullable<Piece['strip']>, ribs: CellRib[]) {
+  const clear = (point: Point3) =>
+    ribs.every((rib) => {
+      const origin = rib.place([0, 0]);
+      return !origin || Math.abs(dot(minus(point, origin), rib.tipward)) > CLEAR_OF_RIB;
+    });
+  const triangles = b.left.slice(1).flatMap((_, k) => [
+    [b.left[k], b.left[k + 1], b.right[k]],
+    [b.left[k + 1], b.right[k + 1], b.right[k]],
+  ]);
+  const hits = a.left.flatMap((start, k): Point3[] => {
+    const [p, q] = [start.point, a.right[k].point];
+    const way = minus(q, p);
+    return triangles.flatMap(([v0, v1, v2]): Point3[] => {
+      const [e1, e2] = [minus(v1.point, v0.point), minus(v2.point, v0.point)];
+      const h = cross(way, e2);
+      const det = dot(e1, h);
+      if (Math.abs(det) < 1e-9) return [];
+      const s = minus(p, v0.point);
+      const u = dot(s, h) / det;
+      const r = cross(s, e1);
+      const v = dot(way, r) / det;
+      const t = dot(e2, r) / det;
+      if (u < 0 || v < 0 || u + v > 1 || t < 0 || t > 1) return [];
+      const point = along(p, way, t);
+      const onB: Point = [
+        v0.flat[0] + u * (v1.flat[0] - v0.flat[0]) + v * (v2.flat[0] - v0.flat[0]),
+        v0.flat[1] + u * (v1.flat[1] - v0.flat[1]) + v * (v2.flat[1] - v0.flat[1]),
+      ];
+      const onA = lerp(start.flat, a.right[k].flat, t);
+      return clear(point) && a.inFabric(onA) && b.inFabric(onB) ? [point] : [];
+    });
+  });
+  return hits.reduce(
+    (most, p) => Math.max(most, ...hits.map((q) => Math.hypot(...minus(p, q)))),
+    0,
+  );
 }
 
 /**
@@ -1235,6 +1288,14 @@ export function assembly(
         ? [vRibPiece(pattern, built.edges, [inner, outer], check)]
         : [];
     });
+    // V-ribs are checked on their ribs: this is what catches two going through each other.
+    const hanging = laid.flatMap((piece) => (piece?.strip ? [piece.strip] : []));
+    hanging.forEach((a, i) =>
+      hanging.slice(i + 1).forEach((b) => {
+        const length = inner && outer ? crossing(a, b, [inner, outer]) : 0;
+        if (length) check(`V-rib ${a.row} through V-rib ${b.row}`, length, 0);
+      }),
+    );
     const pieces = [
       inner && ribPiece(inner, -1),
       ...sewn,
