@@ -86,6 +86,8 @@ const CORNERS = 4;
 /** Spans of a V-rib between its points inside, and how far those keep from its outline, in cm. */
 const INNER_SPANS = 24;
 const INNER_MARGIN = 0.5;
+/** How far a V-rib's mark lies from an edge to be one of its seam, in cm: type 5 has more inside. */
+const MARK_REACH = 0.6;
 
 /** Two edges sewn together: how much their lengths differ, and their marks at most (cm). */
 export interface SeamCheck {
@@ -904,6 +906,47 @@ function onStrip(left: readonly Vertex[], right: readonly Vertex[]) {
  * layer off it.
  */
 /**
+ * How far along a V-rib's `edge`, sewn on `rib`, its `marks` next to its points `first` to `last`
+ * lie from the rib's marks at most: across it, a mark is only drawn in from its seam.
+ */
+function offMarks(
+  rib: CellRib,
+  edge: readonly Vertex[],
+  marks: readonly Point[],
+  first = 0,
+  last = edge.length - 1,
+) {
+  const { anchors, vRibs, marks: own } = rib.pattern;
+  const onRib = [
+    ...own,
+    ...(anchors?.dots ?? []),
+    ...(anchors?.lines ?? []).map(([anchor]) => anchor),
+    ...(vRibs?.table.dots ?? []),
+    ...(vRibs?.lines ?? []).flatMap((line) => [line[0], line[line.length - 1]]),
+  ]
+    .map(rib.place)
+    .filter((p) => !!p);
+  if (!onRib.length) return 0;
+  const flatEdge = edge.map((v) => v.flat);
+  return marks.reduce((worst, flat) => {
+    const gaps = flatEdge.map((p) => distance(p, flat));
+    const k = gaps.indexOf(Math.min(...gaps));
+    if (k < first || k > last || nearestOn(byPoint(flatEdge), flat).gap > MARK_REACH) return worst;
+    const [before, after] = [Math.max(k - 1, 0), Math.min(k + 1, edge.length - 1)];
+    const way = unit(minus(edge[after].point, edge[before].point));
+    const flatWay = minus([...flatEdge[after], 0], [...flatEdge[before], 0]);
+    const slid = dot(minus([...flat, 0], [...flatEdge[k], 0]), unit(flatWay));
+    // Drawn in from an end of the edge, it stands for that end.
+    const end = [edge[0], edge[edge.length - 1]].find((v) => distance(v.flat, flat) < MARK_REACH);
+    const point = end?.point ?? along(edge[k].point, way, slid);
+    const nearest = onRib.reduce((best, p) =>
+      Math.hypot(...minus(p, point)) < Math.hypot(...minus(best, point)) ? p : best,
+    );
+    return Math.max(worst, Math.abs(dot(minus(nearest, point), way)));
+  }, 0);
+}
+
+/**
  * The stretches of a cut `line` past `edge`, away from the piece's `other` edge, as a tooth's
  * tip is: each point with its index and its edge's nearest point.
  */
@@ -988,32 +1031,23 @@ function vRibPiece(
       );
     };
     if (toothed) {
-      // Only its feet are sewn: each around an anchor of the rib.
-      const anchors = [
-        ...(rib.pattern.anchors?.dots ?? []),
-        ...(rib.pattern.anchors?.lines ?? []).map(([anchor]) => anchor),
-      ]
-        .map(rib.place)
-        .filter((anchor) => !!anchor);
+      // Only its feet are sewn: each by its marks, on an anchor of the rib.
       stretches.forEach((stretch, n) => {
         const ks = stretch.map(({ k }) => k);
         const [first, last] = [Math.min(...ks), Math.max(...ks)];
-        const off = (anchor: Point3) => {
-          const gaps = edge.map((v) => Math.hypot(...minus(v.point, anchor)));
-          const k = gaps.indexOf(Math.min(...gaps));
-          const end = edge[Math.max(first, Math.min(k, last))].point;
-          return Math.hypot(...minus(edge[k].point, end));
-        };
-        seamCheck(`foot ${n + 1} `, first, last, Math.min(...anchors.map(off)));
+        seamCheck(`foot ${n + 1} `, first, last, offMarks(rib, edge, pattern.marks, first, last));
       });
     } else
       seamCheck(
         '',
         0,
         count - 1,
-        offRib(
-          rib,
-          edge.map((v) => v.point),
+        Math.max(
+          offRib(
+            rib,
+            edge.map((v) => v.point),
+          ),
+          offMarks(rib, edge, pattern.marks),
         ),
       );
     if (!stretches.length) return { edge, flaps: [] as Flap[], tips: [] };
