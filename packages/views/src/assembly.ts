@@ -144,7 +144,7 @@ interface CellRib {
   readonly chord: number;
   readonly tipward: Point3;
   readonly pattern: Pick<RibPattern, 'sewing' | 'holes' | 'marks'> &
-    Partial<Pick<RibPattern, 'vRibs'>>;
+    Partial<Pick<RibPattern, 'vRibs' | 'anchors'>>;
   /** Its allowances: each point of a cut line, with the point of the sewing line it folds on. */
   readonly edges: readonly (readonly (readonly [number, Point])[])[];
   /** A point of its pattern in 3D. */
@@ -961,17 +961,6 @@ function vRibPiece(
     };
     const rib = off(ribs[0]) < off(ribs[1]) ? ribs[0] : ribs[1];
     const into = dot(minus(other[middle].point, edge[middle].point), rib.tipward) < 0 ? -1 : 1;
-    const length3D = edge
-      .slice(1)
-      .reduce((sum, v, i) => sum + Math.hypot(...minus(v.point, edge[i].point)), 0);
-    check(
-      `V-rib ${pattern.rows[0]} on rib ${rib.index + 1}`,
-      lengthOf(edge.map((v) => v.flat)) - length3D,
-      offRib(
-        rib,
-        edge.map((v) => v.point),
-      ),
-    );
     const flatEdge = edge.map((v) => v.flat);
     const line = cuts.find(
       (points) => points.length === count + 2 && distance(points[0], flatEdge[0]) < 1e-6,
@@ -986,6 +975,47 @@ function vRibPiece(
             other.map((v) => v.flat),
           )
         : [];
+    /** Its points `first` to `last`, flat against sewn, and how far `marks` of them are off. */
+    const seamCheck = (name: string, first: number, last: number, marks: number) => {
+      const part = edge.slice(first, last + 1);
+      const sewn = part
+        .slice(1)
+        .reduce((sum, v, i) => sum + Math.hypot(...minus(v.point, part[i].point)), 0);
+      check(
+        `V-rib ${pattern.rows[0]} ${name}on rib ${rib.index + 1}`,
+        lengthOf(part.map((v) => v.flat)) - sewn,
+        marks,
+      );
+    };
+    if (toothed) {
+      // Only its feet are sewn: each around an anchor of the rib.
+      const anchors = [
+        ...(rib.pattern.anchors?.dots ?? []),
+        ...(rib.pattern.anchors?.lines ?? []).map(([anchor]) => anchor),
+      ]
+        .map(rib.place)
+        .filter((anchor) => !!anchor);
+      stretches.forEach((stretch, n) => {
+        const ks = stretch.map(({ k }) => k);
+        const [first, last] = [Math.min(...ks), Math.max(...ks)];
+        const off = (anchor: Point3) => {
+          const gaps = edge.map((v) => Math.hypot(...minus(v.point, anchor)));
+          const k = gaps.indexOf(Math.min(...gaps));
+          const end = edge[Math.max(first, Math.min(k, last))].point;
+          return Math.hypot(...minus(edge[k].point, end));
+        };
+        seamCheck(`foot ${n + 1} `, first, last, Math.min(...anchors.map(off)));
+      });
+    } else
+      seamCheck(
+        '',
+        0,
+        count - 1,
+        offRib(
+          rib,
+          edge.map((v) => v.point),
+        ),
+      );
     if (!stretches.length) return { edge, flaps: [] as Flap[], tips: [] };
     // In a rib's seam, nested in the panel's corner: under it, it would go through its allowance.
     const inSeam =

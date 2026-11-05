@@ -125,15 +125,15 @@ for (const id of designs)
         if (kind === 'flap' && (!finite(rows) || !finite(opening!.apart) || !finite(opening!.flat)))
           unfinite++;
       const minirib = miniribs.find(({ rib }) => rib - 1 === cell);
-      const own2D: { sewing: readonly Flat[]; frame?: readonly Flat[] }[] = [
+      const ownStripsD: { sewing: readonly Flat[]; frame?: readonly Flat[] }[] = [
         ribs[Math.max(cell - 1, 0)],
         ...(minirib ? [minirib] : []),
         ...strips.filter(({ ribs: on }) => Math.min(...on) === cell).map(stripOutline),
         ribs[cell],
       ];
-      expect(model.fills).toHaveLength(own2D.length);
+      expect(model.fills).toHaveLength(ownStripsD.length);
       model.fills.forEach((fill, r) => {
-        const piece = own2D[r];
+        const piece = ownStripsD[r];
         const { sewing } = piece;
         const ring = flat(fill.opening!.flat[0]);
         const move = onPattern(ring, sewing, piece.frame);
@@ -196,7 +196,10 @@ for (const id of designs)
       const shaping = own.filter((panel) => panel.piece > 0).length;
       const tail = new Set(own.map((panel) => panel.surface)).size > 1 ? 1 : 0;
       const miniribs = seams.filter((seam) => seam.cell === cell).length;
-      const edges = 2 * strips.filter(({ ribs }) => Math.min(...ribs) === cell).length;
+      const ownStrips = strips.filter(({ ribs }) => Math.min(...ribs) === cell);
+      // Type 5 is sewn along one edge, and by its feet along the other.
+      const feet = found.filter(({ seam }) => seam.includes(' foot ')).length;
+      const edges = 2 * ownStrips.length - ownStrips.filter(({ type }) => type === 5).length + feet;
       expect(found).toHaveLength(2 * own.length + shaping + tail + miniribs + edges);
       return found;
     });
@@ -590,4 +593,16 @@ test("a V-rib's edges fold on its allowances, and points inside it shape it", ()
   expect(model.surfaces.filter(({ kind }) => kind === 'flap')).toHaveLength(5);
   expect(worst(seams.map(gap))).toBeLessThan(1e-9);
   expect(body.holes!.filter((ring) => ring.length === 1).length).toBeGreaterThan(50);
+});
+
+test('each foot of a type 5 V-rib is checked on an anchor of its rib', () => {
+  const { design, airfoils } = project('oracle/designs/A8');
+  const feet = assembly(design, airfoils)
+    .checks(15)
+    .filter(({ seam }) => seam.includes(' foot '));
+  expect(feet.map(({ seam }) => seam)).toEqual(
+    [1, 2, 3, 4].map((foot) => `V-rib 41 foot ${foot} on rib 16`),
+  );
+  expect(worst(feet.map(({ marks }) => marks))).toBe(0);
+  expect(worst(feet.map(({ difference }) => Math.abs(difference)))).toBeLessThan(0.2);
 });
