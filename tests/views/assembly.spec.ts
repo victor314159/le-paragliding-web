@@ -20,6 +20,9 @@ const designs = oracleCases(
   ['swoop2'],
 ).map(({ name }) => name);
 
+const SEAM_LINE = '#1f7a4d';
+const FAULT = '#e5484d';
+
 /** The V-ribs each design has going through each other: Swoop2's section 12 anchors both in cell 25. */
 const CROSSED: Readonly<Record<string, readonly string[]>> = {
   swoop2: ['24: V-rib 103 through V-rib 106'],
@@ -74,6 +77,28 @@ function onPattern(points: readonly Flat[], pattern: readonly Flat[], frame = pa
   );
   const miss = (move: (typeof moves)[number]) => worst(points.map((p) => toRing(move(p), pattern)));
   return moves.reduce((best, move) => (miss(move) < miss(best) ? move : best));
+}
+/** A rod pocket's or mylar's `outline` as it lies on its rib: past `sewing`, on it, where it folds. */
+function onRib(outline: readonly Flat[], sewing: readonly Flat[]) {
+  return outline.map(([x, y]): Flat => {
+    const pairs = sewing.map((a, i): [Flat, Flat] => [a, sewing[(i + 1) % sewing.length]]);
+    const inside = pairs.reduce(
+      (odd, [a, b]) =>
+        a[1] > y !== b[1] > y && x < a[0] + ((y - a[1]) / (b[1] - a[1])) * (b[0] - a[0])
+          ? !odd
+          : odd,
+      false,
+    );
+    if (inside) return [x, y];
+    const nearest = pairs.map(([a, b]): Flat => {
+      const [u, v] = [b[0] - a[0], b[1] - a[1]];
+      const t = ((x - a[0]) * u + (y - a[1]) * v) / (u * u + v * v || 1);
+      const on = Math.max(0, Math.min(1, t));
+      return [a[0] + on * u, a[1] + on * v];
+    });
+    const away = ([u, v]: Flat) => Math.hypot(u - x, v - y);
+    return nearest.reduce((best, p) => (away(p) < away(best) ? p : best));
+  });
 }
 /** A strap or V-rib's lines: of type 5, its teeth, the edge it is cut along, then the feet's seam. */
 function stripOutline(strip: ReturnType<typeof vRibPatterns>[number]) {
@@ -130,11 +155,15 @@ for (const id of designs)
         if (kind === 'flap' && (!finite(rows) || !finite(opening!.apart) || !finite(opening!.flat)))
           unfinite++;
       const minirib = miniribs.find(({ rib }) => rib - 1 === cell);
+      const withPockets = (rib: (typeof ribs)[number]) => [
+        rib,
+        ...rib.rods.map(({ pocket }) => ({ sewing: onRib(pocket.slice(0, -1), rib.sewing) })),
+      ];
       const ownStripsD: { sewing: readonly Flat[]; frame?: readonly Flat[] }[] = [
-        ribs[Math.max(cell - 1, 0)],
+        ...withPockets(ribs[Math.max(cell - 1, 0)]),
         ...(minirib ? [minirib] : []),
         ...strips.filter(({ ribs: on }) => Math.min(...on) === cell).map(stripOutline),
-        ribs[cell],
+        ...withPockets(ribs[cell]),
       ];
       expect(model.fills).toHaveLength(ownStripsD.length);
       model.fills.forEach((fill, r) => {
@@ -206,13 +235,21 @@ for (const id of designs)
       const feet = found.filter(({ seam }) => seam.includes(' foot ')).length;
       const edges = 2 * ownStrips.length - ownStrips.filter(({ type }) => type === 5).length + feet;
       const through = found.filter(({ seam }) => seam.includes(' through ')).length;
-      expect(found).toHaveLength(2 * own.length + shaping + tail + miniribs + edges + through);
+      const past = found.filter(({ seam }) => seam.endsWith(' past its cut line')).length;
+      expect(found).toHaveLength(
+        2 * own.length + shaping + tail + miniribs + edges + through + past,
+      );
       return found;
     });
-    const [crossed, sewing] = [true, false].map((through) =>
-      checks.filter(({ seam }) => seam.includes(' through ') === through),
+    const faulty = (seam: string) => /^(Rod pocket|Nose mylar)| through /.test(seam);
+    const [crossed, sewing] = [true, false].map((off) =>
+      checks.filter(({ seam }) => faulty(seam) === off),
     );
-    expect(crossed.map(({ cell, seam }) => `${cell}: ${seam}`)).toEqual(CROSSED[id] ?? []);
+    expect(
+      crossed
+        .filter(({ seam }) => seam.startsWith('V-rib'))
+        .map(({ cell, seam }) => `${cell}: ${seam}`),
+    ).toEqual(CROSSED[id] ?? []);
     expect(worst(sewing.map(({ difference }) => Math.abs(difference)))).toBeLessThan(
       SEAM_CONVENTIONS.seamTolerance,
     );
@@ -432,7 +469,9 @@ test('a model draws only its visible layers', () => {
   expect(ribs.fills).toHaveLength(2);
   const miniribs = pieces.model(cell, new Set(['minirib'])).fills;
   const strips = pieces.model(cell, new Set(['vrib'])).fills;
-  expect(miniribs.length + strips.length).toBe(all.fills.length - 2);
+  const pockets = pieces.model(cell, new Set(['reinforcement'])).fills;
+  expect(pockets.length).toBeGreaterThan(0);
+  expect(miniribs.length + strips.length + pockets.length).toBe(all.fills.length - 2);
   expect(ribs.surfaces.every((surface) => surface.kind === 'flap')).toBe(true);
   const kinds = pieces.model(cell, new Set(['extrados'])).surfaces.map((surface) => surface.kind);
   expect(new Set(kinds)).toEqual(new Set(['skin', 'flap']));
@@ -598,10 +637,11 @@ test('allowances folded along a rib stay inside it, where the wing is thinner th
   };
   const meanX = (points: readonly Point3[]) =>
     points.reduce((sum, p) => sum + p[0], 0) / points.length;
+  const ribs = model.fills.filter(({ color }) => color === model.fills[0].color);
   let outside = 0;
   for (const { rows } of model.surfaces.filter((s) => s.kind === 'flap' && s.rows[0].length > 40)) {
     const x = meanX(rows[0]);
-    const { points: ring } = model.fills.reduce((a, b) =>
+    const { points: ring } = ribs.reduce((a, b) =>
       Math.abs(meanX(a.points) - x) < Math.abs(meanX(b.points) - x) ? a : b,
     );
     rows[0].forEach(([sx, sy, sz], i) => {
@@ -612,6 +652,147 @@ test('allowances folded along a rib stay inside it, where the wing is thinner th
     });
   }
   expect(outside).toBe(0);
+});
+
+for (const [id, cell] of [
+  ['A8', 0],
+  ['swoop2', 5],
+] as const)
+  test(`${id}, cell ${cell + 1}: rod pockets and mylars lie on their rib's left face, their ends marked, their seams drawn`, () => {
+    const { design, airfoils } = project(`oracle/designs/${id}`);
+    const mylars = {
+      ...design,
+      noseMylars: {
+        mode: 1,
+        groups: [{ group: 1, firstRib: 1, lastRib: 30, values: [10, 8, 1, 6, 5, 1] }],
+      },
+    } as const;
+    const ribs = ribPatterns(mylars, airfoils);
+    const sewn = [ribs[Math.max(cell - 1, 0)], ribs[cell]];
+    const shown = new Set(['rib', 'reinforcement', 'marks', 'lines'] as const);
+    const { fills, dots, lines: drawn } = assembly(mylars, airfoils).model(cell, shown);
+    const outlines = (rib: (typeof ribs)[number]) =>
+      [...rib.rods.map(({ pocket }) => pocket), rib.mylar!.outline.flat()].map((line) =>
+        onRib(line.slice(0, -1), rib.sewing),
+      );
+    const first = outlines(sewn[0]).length;
+    expect(fills).toHaveLength(2 + first + outlines(sewn[1]).length);
+    const [inner, outer] = [fills[0].points, fills[first + 1].points];
+    const centre = (points: readonly Point3[]) =>
+      [0, 1, 2].map((a) => points.reduce((sum, p) => sum + p[a], 0) / points.length);
+    /** How far `points` lie from a rib's plane, towards the pilot's left. */
+    const off = (rib: readonly Point3[], points: readonly Point3[]) => {
+      const [o, a, b] = [rib[0], rib[rib.length >> 2], rib[rib.length >> 1]];
+      const [u, v] = [a, b].map((p) => p.map((value, axis) => value - o[axis]));
+      const n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+      const over = (p: readonly number[]) =>
+        p.reduce((sum, value, axis) => sum + (value - o[axis]) * n[axis], 0) / Math.hypot(...n);
+      return over(centre(points)) * Math.sign(-n[0]);
+    };
+    [fills.slice(1, first + 1), fills.slice(first + 2)].forEach((pieces, side) => {
+      const lines = outlines(sewn[side]);
+      const rib = side ? outer : inner;
+      pieces.forEach(({ points, opening }, i) => {
+        const ring = flat(opening!.flat[0]);
+        const line = lines[i];
+        const move = onPattern(ring, line);
+        const gaps = ring.map((p, k) => {
+          const q = move(p);
+          return Math.hypot(q[0] - line[k][0], q[1] - line[k][1]);
+        });
+        expect(worst(gaps)).toBeLessThan(1e-6);
+        expect(off(rib, points)).toBeCloseTo(SEAM_CONVENTIONS.layerThickness, 3);
+      });
+    });
+    const seams = (rib: (typeof ribs)[number]) => 2 * rib.rods.length + 1;
+    expect(drawn.filter(({ color }) => color === SEAM_LINE)).toHaveLength(
+      seams(sewn[0]) + seams(sewn[1]),
+    );
+    // Each end on its piece, and on its rib where the engine marks it.
+    const ends = (rib: (typeof ribs)[number]) => 4 * rib.rods.length + 2;
+    const onRibs = sewn.reduce((sum, rib) => sum + rib.marks.length + ends(rib), 0);
+    const count = (color?: string) => dots.filter((dot) => dot.color === color).length;
+    expect(count(fills[0].color)).toBe(onRibs);
+    expect(count(fills[1].color)).toBe(ends(sewn[0]) + ends(sewn[1]));
+  });
+
+for (const id of designs)
+  test(`${id}: a rod pocket's band on its rib's allowance folds in with it, and opens out`, () => {
+    const { design, airfoils } = project(`oracle/designs/${id}`);
+    const pieces = assembly(design, airfoils);
+    const cell = pieces.cells[pieces.cells.length >> 1];
+    const { fills, surfaces } = pieces.model(cell, new Set(['rib', 'reinforcement']));
+    const [ribColor] = fills.map(({ color }) => color);
+    const bandColor = fills.find(({ color }) => color !== ribColor)!.color;
+    const inRib = (rib: readonly Point3[], [x, y, z]: Point3) => {
+      // In the rib's plane, its normal's largest axis left out: a layer off it moves a point along it.
+      const [o, a, b] = [rib[0], rib[rib.length >> 2], rib[rib.length >> 1]];
+      const [u, v] = [a, b].map((p) => p.map((value, axis) => value - o[axis]));
+      const normal = [
+        Math.abs(u[1] * v[2] - u[2] * v[1]),
+        Math.abs(u[2] * v[0] - u[0] * v[2]),
+        Math.abs(u[0] * v[1] - u[1] * v[0]),
+      ];
+      const skip = normal.indexOf(Math.max(...normal));
+      const drop = (p: Point3): Flat => {
+        const [c, d] = p.filter((_, axis) => axis !== skip);
+        return [c, d];
+      };
+      const ring = rib.map(drop);
+      const [px, py] = drop([x, y, z]);
+      return (
+        ring.reduce((odd, [x0, y0], i) => {
+          const [x1, y1] = ring[(i + 1) % ring.length];
+          const crosses = y0 > py !== y1 > py && px < x0 + ((py - y0) / (y1 - y0)) * (x1 - x0);
+          return crosses ? !odd : odd;
+        }, false) || toRing([px, py], ring) < SEAM_CONVENTIONS.layerThickness
+      );
+    };
+    const ribs = fills.filter(({ color }) => color === ribColor).map(({ points }) => points);
+    const across = (a: readonly number[], b: readonly number[]) =>
+      Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+    const bands = surfaces.filter(({ kind, color }) => kind === 'flap' && color === bandColor);
+    expect(bands.length).toBeGreaterThan(0);
+    for (const { rows, opening } of bands) {
+      const [seam, folded] = rows;
+      const [laidSeam, laidCut] = opening!.flat;
+      expect(folded.filter((p) => !ribs.some((rib) => inRib(rib, p)))).toEqual([]);
+      // As wide folded in and opened out as it is cut, from the seam it turns about.
+      folded.forEach((p, k) => {
+        const width = across(laidCut[k], laidSeam[k]);
+        expect(across(p, seam[k])).toBeCloseTo(width, 6);
+        expect(across(opening!.apart[1][k], opening!.apart[0][k])).toBeCloseTo(width, 6);
+      });
+    }
+  });
+
+test('a rod pocket off its rib shows on it, and in a cell of each of its ribs', () => {
+  const { design, airfoils } = project('oracle/designs/gnuC2-27');
+  const pieces = assembly(design, airfoils);
+  const off = (seam: string) => seam.includes('through') || seam.endsWith('past its cut line');
+  const seams = pieces.checks(5).filter(({ seam }) => off(seam));
+  // A shark nose's rods cross, and its lower pocket starts wider than the allowance there.
+  expect(seams.map(({ seam }) => seam)).toEqual([
+    'Rod pocket 5a through Rod pocket 5b',
+    'Rod pocket 5b past its cut line',
+    'Rod pocket 6a through Rod pocket 6b',
+    'Rod pocket 6b past its cut line',
+  ]);
+  const red = pieces.model(5).lines.filter(({ color }) => color === FAULT);
+  expect(red).toHaveLength(4);
+});
+
+test('a rod pocket a little into a hole is measured, not off', () => {
+  const { design, airfoils } = project('oracle/designs/swoop2');
+  const pieces = assembly(design, airfoils);
+  const holes = pieces.checks(24).filter(({ seam }) => seam.endsWith('through a hole'));
+  expect(holes.map(({ seam }) => seam)).toEqual([
+    'Rod pocket 24b through a hole',
+    'Rod pocket 25b through a hole',
+  ]);
+  expect(worst(holes.map(({ difference }) => difference))).toBeLessThan(
+    SEAM_CONVENTIONS.seamTolerance,
+  );
 });
 
 test("a V-rib's edges fold on its allowances, and points inside it shape it", () => {

@@ -32,7 +32,7 @@ import { gridLength } from './scene.ts';
 export type AssemblySections =
   SkinSections | SkinPanelSections | RibPatternSections | MiniribSections | VRibPatternSections;
 
-type Kind = 'extrados' | 'intrados' | 'rib' | 'minirib' | 'vrib';
+type Kind = 'extrados' | 'intrados' | 'rib' | 'minirib' | 'vrib' | 'reinforcement';
 
 /** What a model of the assembly can draw, with its label: each piece with its allowances. */
 export const ASSEMBLY_LAYERS = [
@@ -41,6 +41,7 @@ export const ASSEMBLY_LAYERS = [
   ['rib', 'Ribs'],
   ['minirib', 'Miniribs'],
   ['vrib', 'V-ribs'],
+  ['reinforcement', 'Rod pockets, mylars'],
   ['lines', 'Lines'],
   ['marks', 'Marks'],
 ] as const;
@@ -52,11 +53,12 @@ const COLORS: Record<Kind, string | undefined> = {
   rib: '#d9a441',
   minirib: '#6fb58a',
   vrib: '#b58ad9',
+  reinforcement: '#4fb3c8',
 };
 /** A seam whose edges or marks differ. */
 const FAULT = '#e5484d';
 /** Where a minirib is sewn on a panel: darker than the minirib, to show on the skins. */
-const MINIRIB_SEAM = '#1f7a4d';
+const SEAM_LINE = '#1f7a4d';
 /** The gap between pieces on the table, and over it as they move, of the cell's chord. */
 const GAP = 0.02;
 const CLEARANCE = 0.08;
@@ -147,8 +149,8 @@ interface Piece {
   readonly ends?: readonly [number, number];
   /** A V-rib along the whole chord, in its own column on the table. */
   readonly long?: boolean;
-  /** Where a minirib is sewn on a panel. */
-  readonly seam?: readonly Vertex[];
+  /** Where a minirib is sewn on a panel, or a rod pocket or mylar on its rib. */
+  readonly seams?: readonly (readonly Vertex[])[];
   /** Each step of a panel's middle along the chord, cut then sewn. */
   readonly middle?: readonly (readonly [number, number])[];
   /** A V-rib as it hangs between its edges, and where its fabric is on its pattern. */
@@ -167,7 +169,7 @@ interface CellRib {
   readonly chord: number;
   readonly tipward: Point3;
   readonly pattern: Pick<RibPattern, 'sewing' | 'holes' | 'marks'> &
-    Partial<Pick<RibPattern, 'vRibs' | 'anchors'>>;
+    Partial<Pick<RibPattern, 'cut' | 'vRibs' | 'anchors' | 'rods' | 'mylar'>>;
   /** Its allowances: each point of a cut line, with the point of the sewing line it folds on. */
   readonly edges: readonly (readonly (readonly [number, Point])[])[];
   /** A point of its pattern in 3D. */
@@ -670,9 +672,9 @@ function panelPiece(
         lengthIn3D([v.point, middleRow[k].point]),
       ]),
     // In steps, to stay on the skin.
-    seam:
-      minirib &&
+    seams: minirib && [
       Array.from({ length: ACROSS + 1 }, (_, k) => onMiddle(lerp(...minirib.line, k / ACROSS))),
+    ],
   };
 }
 
@@ -756,6 +758,29 @@ function cellMinirib(pattern: MiniribPattern, inner: CellRib, outer: CellRib) {
   );
 }
 
+/** What is sewn on a rib's face, named as cut: its rod pockets, then its nose mylar, and their ends. */
+function ribReinforcements({ index, pattern: { rods = [], mylar } }: CellRib) {
+  const number = index + 1;
+  return [
+    ...rods.map(({ pocket, edges }, k) => ({
+      name: `Rod pocket ${number}${rods.length > 1 ? String.fromCharCode(97 + k) : ''}`,
+      outline: pocket.slice(0, -1),
+      ends: edges.flatMap((edge) => [edge[0], edge[edge.length - 1]]),
+      seams: edges,
+    })),
+    ...(mylar
+      ? [
+          {
+            name: `Nose mylar ${number}`,
+            outline: mylar.outline.flat().slice(0, -1),
+            ends: [mylar.edge[0], mylar.edge[mylar.edge.length - 1]],
+            seams: [mylar.edge],
+          },
+        ]
+      : []),
+  ];
+}
+
 /** A rib or minirib from its pattern. */
 function ribPiece(rib: CellRib, side: number, kind: Kind = 'rib'): Piece | undefined {
   const { pattern, place, tipward, edges } = rib;
@@ -830,10 +855,12 @@ function ribPiece(rib: CellRib, side: number, kind: Kind = 'rib'): Piece | undef
       by((v) => -v.flat[1]),
     ],
     flaps,
-    marks: pattern.marks.flatMap((flat): Mark[] => {
-      const point = place(flat);
-      return point ? [{ point, flat }] : [];
-    }),
+    marks: [...pattern.marks, ...ribReinforcements(rib).flatMap(({ ends }) => ends)].flatMap(
+      (flat): Mark[] => {
+        const point = place(flat);
+        return point ? [{ point, flat }] : [];
+      },
+    ),
     faults: [],
   };
 }
@@ -875,6 +902,100 @@ function offRib(rib: CellRib, points: readonly Point3[]) {
       : [];
   });
   return Math.min(...lines, offRing(points, contourOf(rib)));
+}
+
+const inPlaneOf = (ring: readonly Point[]) => ring.map(([u, v]): Point3 => [u, v, 0]);
+
+/** How deep the points of a piece go into a closed line, in cm. */
+function depthIn(outline: readonly Point[], ring: readonly Point[]) {
+  const inside = outline.filter((p) => crossesOddly(ring, p));
+  return inside.length ? offRing(inPlaneOf(inside), inPlaneOf(ring)) : 0;
+}
+
+/**
+ * A rib's rod pockets and mylar, each off if it runs past the rib's cut line or
+ * into a hole, or a pocket into another. All on the same face of every rib, the
+ * pilot's left (towards -X), on both sides of the wing.
+ */
+function reinforcementPieces(
+  rib: CellRib,
+  side: number,
+  check: (seam: string, difference: number, marks: number) => boolean,
+): Piece[] {
+  const reinforcements = ribReinforcements(rib);
+  const pockets = rib.pattern.rods?.length ?? 0;
+  const faults = reinforcements.map(() => false);
+  const fault = (seam: string, depth: number, ...pieces: number[]) => {
+    if (depth > 0 && check(seam, depth, 0)) pieces.forEach((i) => (faults[i] = true));
+  };
+  const cut = rib.pattern.cut?.flat() ?? [];
+  const holes = rib.pattern.holes.filter((hole) => hole.length > 2);
+  reinforcements.forEach(({ name, outline }, i) => {
+    const past = outline.filter((p) => !crossesOddly(cut, p));
+    if (past.length)
+      fault(`${name} past its cut line`, offRing(inPlaneOf(past), inPlaneOf(cut)), i);
+    fault(`${name} through a hole`, Math.max(0, ...holes.map((h) => depthIn(outline, h))), i);
+    reinforcements.slice(i + 1, pockets).forEach((other, k) => {
+      const depth = Math.max(depthIn(outline, other.outline), depthIn(other.outline, outline));
+      fault(`${name} through ${other.name}`, depth, i, i + 1 + k);
+    });
+  });
+  const left = rib.tipward[0] > 0 ? along([0, 0, 0], rib.tipward, -1) : rib.tipward;
+  const place = (point: Point) => {
+    const placed = rib.place(point);
+    return placed && along(placed, left, SEAM_CONVENTIONS.layerThickness);
+  };
+  // What is sewn past the rib's sewing line lies on its allowance, and folds in with it.
+  const { sewing } = rib.pattern;
+  const seam = byPoint([...sewing, sewing[0]]);
+  const onSeam = (flat: Point) =>
+    crossesOddly(sewing, flat) ? flat : sample(seam, nearestOn(seam, flat).f);
+  const allowance = (outline: readonly Point[]): Flap[] => {
+    const start = outline.findIndex((flat) => crossesOddly(sewing, flat));
+    const ring = [...outline.slice(start), ...outline.slice(0, start), outline[start]];
+    const runs = ring.reduce<Point[][]>((rows, flat, k) => {
+      if (crossesOddly(sewing, flat)) return rows;
+      if (crossesOddly(sewing, ring[k - 1])) rows.push([ring[k - 1]]);
+      rows.at(-1)!.push(flat);
+      if (crossesOddly(sewing, ring[k + 1])) rows.at(-1)!.push(ring[k + 1]);
+      return rows;
+    }, []);
+    return runs.map((run): Flap => {
+      const entries = run.map((flat) => {
+        const edge = onSeam(flat);
+        const hinge = place(edge)!;
+        return { flat, edge, hinge, open: place(flat) ?? hinge };
+      });
+      return [
+        entries.map(({ edge, hinge }) => ({ point: hinge, flat: edge })),
+        entries.map(({ flat, edge, hinge, open }) => ({
+          point: place([2 * edge[0] - flat[0], 2 * edge[1] - flat[1]]) ?? hinge,
+          flat,
+          open,
+          hinge,
+          via: left,
+        })),
+      ];
+    });
+  };
+  const sewn = (flat: Point): Vertex[] => {
+    const point = place(onSeam(flat));
+    return point ? [{ point, flat }] : [];
+  };
+  return reinforcements.flatMap(({ outline, ends, seams }, i) => {
+    const pattern = { sewing: outline.map(onSeam), holes: [], marks: ends };
+    const piece = ribPiece({ ...rib, pattern, edges: [], place }, side, 'reinforcement');
+    return piece
+      ? [
+          {
+            ...piece,
+            flaps: allowance(outline),
+            seams: seams.map((line) => line.flatMap(sewn)),
+            faults: [faults[i]],
+          },
+        ]
+      : [];
+  });
 }
 
 /** The 3D edges of a strap or V-rib in the order of `left` and `right`. */
@@ -1244,13 +1365,18 @@ export function assembly(
 
   const piecesOf = (cell: number) => {
     const checks: SeamCheck[] = [];
+    const isOff = (difference: number, marks: number) =>
+      Math.abs(difference) > SEAM_CONVENTIONS.seamTolerance ||
+      marks > SEAM_CONVENTIONS.seamTolerance;
     const check = (seam: string, difference: number, marks: number) => {
       checks.push({ cell, seam, difference, marks });
-      return (
-        Math.abs(difference) > SEAM_CONVENTIONS.seamTolerance ||
-        marks > SEAM_CONVENTIONS.seamTolerance
-      );
+      return isOff(difference, marks);
     };
+    // The central cell's two ribs are one, with one of each piece sewn on it.
+    const checkOnce: typeof check = (seam, difference, marks) =>
+      checks.some((found) => found.seam === seam)
+        ? isOff(difference, marks)
+        : check(seam, difference, marks);
     const inner = cellRib(design, patterns[Math.max(cell - 1, 0)], cell === 0);
     const outer = cellRib(design, patterns[cell], false);
     const own = panels.filter((panel) => panel.cell === cell);
@@ -1309,12 +1435,16 @@ export function assembly(
         if (length) check(`V-rib ${a.row} through V-rib ${b.row}`, length, 0);
       }),
     );
+    const reinforced = (rib: CellRib | undefined, side: number) =>
+      rib ? reinforcementPieces(rib, side, checkOnce) : [];
     const pieces = [
       inner && ribPiece(inner, -1),
+      ...reinforced(inner, -1),
       ...sewn,
       placed && ribPiece(placed, 0, 'minirib'),
       ...laid,
       outer && ribPiece(outer, 1),
+      ...reinforced(outer, 1),
     ].filter((piece) => !!piece);
     // By surface: a 3D-shaping seam moves fabric from one panel to the next.
     const stretches = (['extrados', 'intrados'] as const).flatMap((surface): PanelStretch[] => {
@@ -1360,6 +1490,7 @@ export function assembly(
           { text: 'Ribs', color: COLORS.rib },
           { text: 'Miniribs', color: COLORS.minirib },
           { text: 'V-ribs', color: COLORS.vrib },
+          { text: 'Rod pockets, mylars', color: COLORS.reinforcement },
           { text: 'Seam off', color: FAULT },
         ],
         openingAt: OPENING_AT,
@@ -1487,7 +1618,7 @@ function turned(piece: Piece): Piece {
   const [eu, ev] = [chordU / length, chordV / length];
   const y = Math.sign(b.point[1] - a.point[1]) || 1;
   const across = (d.flat[0] - c.flat[0]) * -ev + (d.flat[1] - c.flat[1]) * eu;
-  const flat = piece.kind === 'rib' || piece.kind === 'minirib';
+  const flat = piece.kind === 'minirib' || piece.side !== 0;
   const wanted = !flat ? d.point[0] - c.point[0] : piece.kind === 'minirib' ? -1 : 1;
   const x = Math.sign(across * wanted) || 1;
   const turn = (v: Vertex): Vertex => ({
@@ -1500,7 +1631,7 @@ function turned(piece: Piece): Piece {
     axes: [turn(a), turn(b), turn(c), turn(d)],
     flaps: piece.flaps.map(([sewing, cut]): Flap => [sewing.map(turn), cut.map(turn)]),
     marks: piece.marks.map(turn),
-    seam: piece.seam?.map(turn),
+    seams: piece.seams?.map((line) => line.map(turn)),
   };
 }
 
@@ -1633,7 +1764,7 @@ function layOut(sewn: readonly Piece[], model: PreviewModel, visible: ReadonlySe
             model.lines.push(line(closed(ring), opening, (rows) => closed(rows[r + 1])));
         });
       }
-      model.lines.push(line(closed(sewn[0]), opening, (rows) => closed(rows[0])));
+      model.lines.push(line(closed(sewn[0]), opening, (rows) => closed(rows[0]), piece.faults[0]));
     } else {
       if (visible.has(piece.kind))
         model.surfaces.push({ rows: sewn, kind: 'skin', color, opening });
@@ -1646,13 +1777,14 @@ function layOut(sewn: readonly Piece[], model: PreviewModel, visible: ReadonlySe
         line(lastColumn(sewn), opening, lastColumn),
       );
     }
-    if (piece.seam && visible.has('minirib')) {
-      const seamOpening = opened([piece.seam]);
-      model.lines.push({
-        ...line(sewnOf([piece.seam])[0], seamOpening, (rows) => rows[0]),
-        color: MINIRIB_SEAM,
-      });
-    }
+    if (visible.has(piece.kind === 'reinforcement' ? piece.kind : 'minirib'))
+      for (const seamLine of piece.seams ?? []) {
+        const seamOpening = opened([seamLine]);
+        model.lines.push({
+          ...line(sewnOf([seamLine])[0], seamOpening, (rows) => rows[0]),
+          color: SEAM_LINE,
+        });
+      }
     for (const flap of visible.has(piece.kind) ? piece.flaps : []) {
       const rows = sewnOf(flap);
       const flapOpening = opened(flap);
@@ -1666,7 +1798,7 @@ function layOut(sewn: readonly Piece[], model: PreviewModel, visible: ReadonlySe
         point: mark.point,
         kind: 'mark',
         selected: false,
-        color: piece.kind === 'rib' ? COLORS.rib : undefined,
+        color: piece.kind === 'rib' || piece.kind === 'reinforcement' ? color : undefined,
         opening: through(mark),
       });
   });

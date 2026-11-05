@@ -1723,6 +1723,27 @@ test('Assembly opens a cell of the draft, chosen by its number', async ({ page }
   await expect(assembly.getByRole('checkbox', { name: 'Ribs', exact: true })).not.toBeChecked();
 });
 
+test('Assembly draws a V-rib shaped by lone points, and lists the rod pockets off', async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') errors.push(message.text());
+  });
+  await openExample(page, 'gnuC2-27');
+  await opener(page).click();
+  await selectEditorView(page, 'Assembly');
+  const assembly = page.locator('app-assembly-overview');
+  await expect(assembly.locator('canvas')).toBeVisible();
+  await expect(assembly.locator('figcaption')).toHaveText('Cell 2 assembly');
+  await expect(assembly.getByRole('list', { name: 'Seams off' })).toContainText(
+    'Rod pocket 1a through Rod pocket 1b',
+  );
+  await assembly.getByRole('slider', { name: 'Assembled', exact: true }).fill('100');
+  await expect(assembly.locator('output')).toHaveText('100%');
+  expect(errors).toEqual([]);
+});
+
 test('2D preview draws the cutting patterns of the draft, by group of pieces', async ({ page }) => {
   await openExample(page, 'swoop2');
   await opener(page).click();

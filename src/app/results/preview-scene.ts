@@ -67,7 +67,10 @@ function rounded(faces: readonly number[][], points: readonly THREE.Vector2[]) {
   const twice = (a: number, b: number, c: number) =>
     (points[b].x - points[a].x) * (points[c].y - points[a].y) -
     (points[c].x - points[a].x) * (points[b].y - points[a].y);
-  const wound = faces.map(([a, b, c]) => (twice(a, b, c) < 0 ? [a, c, b] : [a, b, c]));
+  // Earcut can leave the bridge to a lone point as a triangle with a vertex twice.
+  const wound = faces
+    .filter((face) => new Set(face).size === 3)
+    .map(([a, b, c]) => (twice(a, b, c) < 0 ? [a, c, b] : [a, b, c]));
   const inCircle = (a: number, b: number, c: number, d: number) => {
     const [ax, ay, bx, by, cx, cy] = [a, b, c].flatMap((i) => [
       points[i].x - points[d].x,
@@ -89,7 +92,8 @@ function rounded(faces: readonly number[][], points: readonly THREE.Vector2[]) {
           continue;
         }
         const d = wound[g].find((k) => k !== a && k !== b)!;
-        if (!inCircle(a, b, c, d)) {
+        // Flipped only if it stays two triangles the same way round: not folded over.
+        if (twice(c, a, d) <= 0 || twice(c, d, b) <= 0 || !inCircle(a, b, c, d)) {
           edges.set(`${a}:${b}`, f);
           continue;
         }

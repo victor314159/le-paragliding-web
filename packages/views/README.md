@@ -49,11 +49,11 @@ on the fabric or `enlarged`, its legend the styles it draws, its `unit` for
 the grid the editor draws behind it, which follows the zoom. `toSvg(scene)`
 writes an SVG document, with a light default style for the kinds of its items.
 `assembly(design, airfoils)` puts the patterns on the wing: each piece of a
-cell of its `cells` (panels, ribs, miniribs, straps and V-ribs) is its pattern, exact when laid flat, lengthwise in columns, in `model(cell, visible)`,
+cell of its `cells` (panels, ribs, miniribs, straps, V-ribs, rod pockets and nose mylars) is its pattern, exact when laid flat, lengthwise in columns, in `model(cell, visible)`,
 the `ASSEMBLY_LAYERS` it draws, on the `grid` of its table, its `opening` taking it back, panels placed by the length of their fabric along
 their ribs, so that what does not fit shows at the end of its seam. `checks(cell)`
-measures each seam (a minirib's on its panels' reference lines, a V-rib's on the lines the engine draws on its ribs, or along their contour), against `seamTolerance` of `SEAM_CONVENTIONS` of
-[`@lepara/design`](../design/README.md), which folds their allowances. The helpers the scenes build on are exported too: rib profiles
+measures each seam (a minirib's on its panels' reference lines, a V-rib's on the lines the engine draws on its ribs, or along their contour) and whether a rod pocket or mylar leaves its rib's fabric or runs through a hole or another pocket, against `seamTolerance` of `SEAM_CONVENTIONS` of
+[`@lepara/design`](../design/README.md), which folds their allowances. Rod pockets and mylars lie on the pilot's left face of every rib, as reported of one wing, and what runs past the rib's sewing line folds in with its allowance, as a real rib's band lies on it: both to confirm on more wings, neither comes from the engine. The helpers the scenes build on are exported too: rib profiles
 (`ribProfile`, `frontPoint`, `offsetProfile`), line trees, rod curves,
 reinforcement attachments, color cuts, skin tension curves, vents, wing tips
 and holes.
