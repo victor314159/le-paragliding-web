@@ -229,6 +229,7 @@ function ribPieces(
     closedCut: false,
     references: [
       { title: 'Nylon rod', lines: rib.rods.flatMap((rod) => rod.edges) },
+      { title: 'Rod pocket', lines: rib.rods.map((rod) => rod.pocket) },
       { title: 'Nose mylar', lines: rib.mylar ? [rib.mylar.edge] : [] },
       // The cutting table repeats some of them.
       { title: 'V-rib seam', lines: rib.vRibs.lines },
