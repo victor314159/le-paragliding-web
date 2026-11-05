@@ -20,15 +20,26 @@ import { traceSteps } from './vribs.ts';
 
 /**
  * The marks of an H strap or a V-rib of types 2, 3, 4 and 6, as the
- * reference's; type 6 numbers its right edge after its own rib, both edges'
- * numbers the same way in, and no anchor row, which it has not.
+ * reference's; an edge on an anchor is marked at it, the row halfway across
+ * the chord, not halfway along the fabric; type 6 numbers its right edge after its own rib, both
+ * edges' numbers the same way in, and no anchor row, which it has not.
  */
 function strapMarks(laid: Flatt, type: number, ribs: readonly [number, number], form: MarkForm) {
   const { marks, numeral } = stripMarks(laid, type, ribs, form);
-  if (type !== 6) return { marks, numeral };
   const { l1, l2, r1, r2 } = laid;
   const { h, offset: inside, allowance, spacing } = form;
   const [left, right] = [edgeAngle(l1[0], l2[19]), edgeAngle(r1[0], r2[19])];
+  const [onLeft, onRight] = [moved(l1[10], left, -inside), moved(r1[10], right, inside)];
+  if (type === 1) return { marks: [onLeft, onRight], numeral };
+  if (type === 2 || type === 3)
+    return {
+      marks:
+        ribs[1] === Math.trunc(h[3])
+          ? [...marks.slice(0, -1), onRight]
+          : [onLeft, ...marks.slice(1)],
+      numeral,
+    };
+  if (type !== 6) return { marks, numeral };
   const number = (n: number, [x, y]: Point, alpha: number) => romanDots(n, [x, -y], alpha, spacing);
   return {
     marks,

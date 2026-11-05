@@ -10,7 +10,7 @@ import {
   type Point3,
 } from '@lepara/geometry/enhanced-v1';
 import { SEAM_CONVENTIONS } from '@lepara/design';
-import { assembly } from '../../packages/views/src/index.ts';
+import { assembly, matched } from '../../packages/views/src/index.ts';
 import { DESIGNS, project } from '../format/helpers';
 import { oracleCases } from '../geometry/helpers';
 
@@ -19,9 +19,6 @@ const designs = oracleCases(
   DESIGNS.map((name) => ({ name })),
   ['swoop2'],
 ).map(({ name }) => name);
-
-/** How many seams of V-ribs each design leaves with marks that do not meet. */
-const UNMARKED: Readonly<Record<string, number>> = { 'gnuC-27': 2, 'gnuC2-27': 2, 'BHL7-22': 6 };
 
 /** The V-ribs each design has going through each other: Swoop2's section 12 anchors both in cell 25. */
 const CROSSED: Readonly<Record<string, readonly string[]>> = {
@@ -224,11 +221,27 @@ for (const id of designs)
     );
     // Laid by its fabric's length, a mark comes under a millimetre from the rib's.
     expect(worst(sewn.map(({ marks }) => marks))).toBeLessThan(0.1);
-    // Those of a V-rib too, but for straps the engine marks off their middle.
-    expect(strips3D.filter(({ marks }) => marks > SEAM_CONVENTIONS.seamTolerance)).toHaveLength(
-      UNMARKED[id] ?? 0,
-    );
+    // Those of a strap or V-rib too.
+    expect(worst(strips3D.map(({ marks }) => marks))).toBeLessThan(0.15);
   });
+
+test('BHL7-22: a strap comes the way it is cut, its corners and lengths the same either way', () => {
+  const { design, airfoils } = project('oracle/designs/BHL7-22');
+  const strips = hStraps(design, airfoils);
+  const patterns = vRibPatterns(design, airfoils);
+  expect(strips).toHaveLength(3);
+  strips.forEach(({ edges }, i) => {
+    const count = patterns[i].sewing.length >> 1;
+    const left = patterns[i].sewing.slice(0, count);
+    const right = patterns[i].sewing.slice(count).reverse();
+    const [sewn] = matched(left, right, edges);
+    // Bent at its anchor: its fabric is shorter on one side.
+    const step = (a: readonly number[], b: readonly number[]) =>
+      Math.hypot(...a.map((v, axis) => v - b[axis]));
+    expect(step(sewn[0], sewn[1])).toBeCloseTo(step(left[0], left[1]), 1);
+    expect(step(sewn.at(-2)!, sewn.at(-1)!)).toBeCloseTo(step(left.at(-2)!, left.at(-1)!), 1);
+  });
+});
 
 for (const id of designs)
   test(`${id}: pieces lie lengthwise in columns, ordered as on the wing, trailing edges level`, () => {

@@ -877,8 +877,8 @@ function offRib(rib: CellRib, points: readonly Point3[]) {
   return Math.min(...lines, offRing(points, contourOf(rib)));
 }
 
-/** The 3D edges of a strap or V-rib in the order of `left` and `right`, as far as its corners tell. */
-function matched(
+/** The 3D edges of a strap or V-rib in the order of `left` and `right`. */
+export function matched(
   left: readonly Point[],
   right: readonly Point[],
   [first, second]: readonly [readonly Point3[], readonly Point3[]],
@@ -886,9 +886,13 @@ function matched(
   const span = (a: readonly number[], b: readonly number[]) =>
     Math.hypot(...a.map((v, axis) => v - b[axis]));
   const flat = [span(left[0], right[0]), span(left.at(-1)!, right.at(-1)!)];
-  const lengths = [lengthOf(left), lengthOf(right)];
-  const length3D = (line: readonly Point3[]) =>
-    line.slice(1).reduce((sum, p, i) => sum + Math.hypot(...minus(p, line[i])), 0);
+  const steps = (line: readonly (readonly number[])[]) =>
+    line.slice(1).map((p, i) => span(p, line[i]));
+  /** Step by step: a strap's corners and lengths are the same either way round. */
+  const stepsOff = (line: readonly Point3[], laid: readonly Point[]) => {
+    const flatSteps = steps(laid);
+    return steps(line).reduce((sum, step, i) => sum + Math.abs(step - (flatSteps[i] ?? 0)), 0);
+  };
   const options = [
     [first, second],
     [second, first],
@@ -899,8 +903,8 @@ function matched(
   const miss = ([a, b]: (typeof options)[number]) =>
     Math.abs(span(a[0], b[0]) - flat[0]) +
     Math.abs(span(a.at(-1)!, b.at(-1)!) - flat[1]) +
-    Math.abs(length3D(a) - lengths[0]) +
-    Math.abs(length3D(b) - lengths[1]);
+    stepsOff(a, left) +
+    stepsOff(b, right);
   return options.reduce((best, option) => (miss(option) < miss(best) ? option : best));
 }
 

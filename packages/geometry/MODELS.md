@@ -132,6 +132,7 @@ kept one says why below.
 | `vrib-patterns.ts` `continuousCut`         | Type 5 takes the ribs' sewing allowance, not the V-ribs'.                                                                                                                                                                                                                                     | bug?     | V-ribs'             |
 | `vrib-patterns.ts` `continuousCut`         | Corners between two type 5 cutouts move across at the next one's `jconf − 1` and the previous one's `jconi − 1`.                                                                                                                                                                              | bug?     | own cutout          |
 | `vrib-patterns.ts` `ellipsePoints`         | Elliptic type 5 cutouts draw 99 of their 100 segments.                                                                                                                                                                                                                                        | bug      | closed              |
+| `vrib-patterns.ts` `stripMarks`            | H straps and types 2 and 3 mark an edge on an anchor at the middle of its fabric, not at the anchor: 7 mm off on BHL7-22, which bends there.                                                                                                                                                  | bug?     | on the anchor       |
 
 Open: on single-skin wings, the last point of a glued inlet's left cut
 line sometimes takes the other quadrant's sign in the engine (§8.3.1): the
@@ -250,7 +251,12 @@ cell and normals follow the table above.
   numbers its edges after their own ribs (the engine names i + 1 for a rib
   elsewhere, which would sew it wrong) the same way in, without the anchor
   row it does not hang on. Type 5 marks an anchor by three dots across its
-  edge, as intended, not along x.
+  edge, as intended, not along x. The band of an edge on an anchor runs the
+  same chord either side of it, so where the rib bends there its fabric
+  does not: the engine's mark at the middle of that fabric misses the
+  anchor, by 7 mm on BHL7-22's straps, whose anchor A is the tip of a
+  rib's tooth, and 3 mm on gnuC-27's type 3. Enhanced v1 marks straps and
+  types 2 and 3 at the anchor.
 - **Panels:** with two cuts on a surface, the engine stops the second and
   third pieces' marks at the first piece's length and starts the third's
   from 0: their marks no longer meet the rib's. Enhanced v1 runs each
