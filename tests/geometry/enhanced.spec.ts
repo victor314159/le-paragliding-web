@@ -843,3 +843,18 @@ test('enhanced .dat stations take section 33 thickness, their inlet ends on poin
     expect(read.points[read.upper + read.inlet - 2][0]).toBeCloseTo(row.intakeEnd / 100, 2);
   });
 });
+
+test('a single skin balloons its last station from its own fabric, not an unused intrados', () => {
+  const { design, airfoils } = project('oracle/designs/BHL7-22');
+  const near = enhancedSkin(design, airfoils).filter(({ cell }) => cell === 14);
+  const far = fortranSkin(design, airfoils).filter(({ cell }) => cell === 14);
+  const gaps = near.flatMap(({ rows }, p) =>
+    rows.flatMap((row, r) =>
+      row.map(({ point }, n) => {
+        const other = far[p].rows[r][n].point;
+        return Math.hypot(point[0] - other[0], point[1] - other[1], point[2] - other[2]);
+      }),
+    ),
+  );
+  expect(Math.max(...gaps)).toBeLessThan(5);
+});

@@ -30,11 +30,18 @@ const normals: SkinModel['normals'] = (median, inner, outer) =>
     return length > 0 ? [normal[0] / length, normal[1] / length, normal[2] / length] : [0, 0, 0];
   });
 
-/** The arc height of each station, by cell, on the corrected patterns. */
+/**
+ * The arc height of each station, by cell, on the corrected patterns: a single skin has no
+ * intrados, its last station stays on the inlet, not the unused pattern the engine reads it on.
+ */
 export const cellHeights = (
   design: Pick<LepDesign, SkinPatternSections>,
   ribs: readonly SkinRib[],
-) => skinHeights(ribs, skinPatterns(design, ribs, double, patternSteps), arcHeight);
+) => {
+  const patterns = skinPatterns(design, ribs, double, patternSteps);
+  const single = design.geometry.paragliderType === 'ss';
+  return skinHeights(ribs, single ? { ...patterns, lower: patterns.inlet } : patterns, arcHeight);
+};
 
 /**
  * Enhanced v1 retains the engine's developed panels and sewing conventions,

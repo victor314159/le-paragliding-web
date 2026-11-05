@@ -271,6 +271,11 @@ cell and normals follow the table above.
   intrados' end by the intrados. The engine reads section 4's type 11 holes
   back from a rib a later row may override, with the row's other holes;
   enhanced v1 takes the type 11 holes of the last row holding them.
+- **Single skins:** the engine takes the last station's height from the
+  intrados' pattern, which a single skin does not use, and whose search
+  finds nothing when that pattern is far wider than the cell. Enhanced v1
+  stays on the inlet: its exact arc would lift that station by 25 cm on
+  BHL7-22's cell 15.
 - **Miniribs:** on double skins, a section 2 `minirib` in `(1, 100)` (percent
   of chord from the trailing edge) sews both skins to its edge: stations
   within that length (by mean normalized chord) take two congruent arcs, of
