@@ -3,7 +3,7 @@
 // each case runs the engine (a few by default, every one with ORACLE_ALL=1,
 // as CI does).
 import { expect, test } from '@playwright/test';
-import { vRibs, type Point3 } from '@lepara/geometry/fortran-3.29';
+import { ribPatterns, vRibs, type Point3 } from '@lepara/geometry/fortran-3.29';
 import { DAT_FIXTURE, DESIGNS, designFiles, engine, project } from '../format/helpers';
 import { VARIANTS, variantFiles } from '../format/variants';
 import { oracleCases } from './helpers';
@@ -71,3 +71,10 @@ for (const { name, files } of oracleCases(cases, chosen)) {
     }
   });
 }
+
+test('a type 6 on the extrados is traced on its rib ahead of the inlet, with no intrados there', () => {
+  const { design, airfoils } = project('oracle/designs/gnuC-27');
+  const { lines } = ribPatterns(design, airfoils)[4].vRibs;
+  // Section 12's row 25, 16.1 cm around 10% of the chord: the engine draws it.
+  expect(lines.some(([[u]]) => u > 5 && u < 15)).toBe(true);
+});

@@ -21,7 +21,7 @@ const designs = oracleCases(
 ).map(({ name }) => name);
 
 /** How many seams of V-ribs each design leaves with marks that do not meet. */
-const UNMARKED: Readonly<Record<string, number>> = { 'gnuC-27': 11, 'gnuC2-27': 11, 'BHL7-22': 6 };
+const UNMARKED: Readonly<Record<string, number>> = { 'gnuC-27': 2, 'gnuC2-27': 2, 'BHL7-22': 6 };
 
 type Flat = readonly [number, number];
 const worst = (values: readonly number[]) => values.reduce((a, b) => Math.max(a, b), 0);
@@ -214,7 +214,7 @@ for (const id of designs)
     );
     // Laid by its fabric's length, a mark comes under a millimetre from the rib's.
     expect(worst(sewn.map(({ marks }) => marks))).toBeLessThan(0.1);
-    // Those of a V-rib too, but for straps the engine marks on neither or off the rib's.
+    // Those of a V-rib too, but for straps the engine marks off their middle.
     expect(strips3D.filter(({ marks }) => marks > SEAM_CONVENTIONS.seamTolerance)).toHaveLength(
       UNMARKED[id] ?? 0,
     );

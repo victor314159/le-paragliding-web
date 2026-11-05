@@ -807,21 +807,22 @@ function model(
         const [p2, p4, p9, p11] = [lower(c, u2), lower(c, u4), upper(c, u2), upper(c, u4)];
         // §16.6.5 marks the next rib only, with what it kept for it.
         const marked = steps.nextRibOnly ? c.rib === r + 1 : c.rib === end;
-        if (p2 && p4 && p9 && p11 && (c.rib === r || marked)) {
+        if (c.rib === r || marked) {
           const at = (p: { v: number }, u: number): Local => [u, p.v];
-          if (height === 0)
+          if (height === 0 && p2 && p4)
             trace(c.rib, [at(p2, u2), at(p4, u4)], code2006, [
               ...acrossAt(at(p2, u2), airfoilSlope(c, p2.j), 1),
               ...acrossAt(at(p4, u4), airfoilSlope(c, p4.j), 1),
             ]);
-          if (height > 0 && height < 100) {
+          if (height > 0 && height < 100 && p2 && p4 && p9 && p11) {
             const ends: [Local, Local] = [
               [u2, (p9.v - p2.v) * (height / 100) + p2.v],
               [u4, (p11.v - p4.v) * (height / 100) + p4.v],
             ];
             trace(c.rib, ends, code2006, alongSegment(ends, 0));
           }
-          if (height === 100)
+          // On the extrados it needs no intrados, as ahead of an inlet.
+          if (height === 100 && p9 && p11)
             trace(c.rib, [at(p9, u2), at(p11, u4)], code2006, [
               ...acrossAt(at(p9, u2), airfoilSlope(c, p9.j), -1),
               ...acrossAt(at(p11, u4), airfoilSlope(c, p11.j), -1),
