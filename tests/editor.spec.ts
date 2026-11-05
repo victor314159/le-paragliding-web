@@ -485,7 +485,8 @@ test('special parameter codes preserve numeric, text and transition values acros
   await section(page, '37 · Special parameters');
   await choose(page, 'Special parameters mode', '1');
   await page.getByRole('button', { name: 'Add special parameter', exact: true }).click();
-  const entry = page.getByRole('group', { name: /^Special parameter \d+$/ }).last();
+  // The new record, after the six of Swoop2: until it renders, the editor still shows the first.
+  const entry = page.getByRole('group', { name: 'Special parameter 7', exact: true });
   await entry.getByRole('textbox', { name: 'Parameter value', exact: true }).fill('1');
   await choose(page, 'Parameter code', '2000', entry);
   await entry.getByRole('textbox', { name: 'Edition date', exact: true }).fill('2026-10-23');
