@@ -616,3 +616,30 @@ test('each foot of a type 5 V-rib is checked on an anchor of its rib', () => {
   expect(worst(feet.map(({ marks }) => marks))).toBeLessThan(0.2);
   expect(worst(feet.map(({ difference }) => Math.abs(difference)))).toBeLessThan(0.2);
 });
+
+test("a panel's stretch comes from the overwidth that balloons its cell", () => {
+  const { design, airfoils } = project('oracle/designs/A8');
+  const { skinTensionGroups: groups } = design;
+  if (groups.mode !== 1) throw new Error('A8 has its overwidth in section 31');
+  const biggest = (source: typeof design) => {
+    const pieces = assembly(source, airfoils);
+    return worst(pieces.cells.flatMap((cell) => pieces.stretches(cell).map((s) => s.stretch)));
+  };
+  const flattened = {
+    ...design,
+    skinTensionGroups: {
+      ...groups,
+      groups: groups.groups.map((group) => ({
+        ...group,
+        points: group.points.map((point) => ({
+          ...point,
+          extradosOverwidth: 0,
+          intradosOverwidth: 0,
+        })),
+      })),
+    },
+  };
+  expect(assembly(design, airfoils).overwidthSection).toBe(31);
+  expect(biggest(design)).toBeGreaterThan(0.02);
+  expect(biggest(flattened)).toBeLessThan(0.01);
+});

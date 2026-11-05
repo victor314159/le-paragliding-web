@@ -89,6 +89,12 @@ const INNER_MARGIN = 0.5;
 /** How far a V-rib's mark lies from an edge to be one of its seam, in cm: type 5 has more inside. */
 const MARK_REACH = 0.6;
 
+/** A surface of a cell: how much longer its ballooning asks its middle to be than it is cut. */
+export interface PanelStretch {
+  readonly surface: 'extrados' | 'intrados';
+  readonly stretch: number;
+}
+
 /** Two edges sewn together: how much their lengths differ, and their marks at most (cm). */
 export interface SeamCheck {
   readonly cell: number;
@@ -137,6 +143,8 @@ interface Piece {
   readonly long?: boolean;
   /** Where a minirib is sewn on a panel. */
   readonly seam?: readonly Vertex[];
+  /** A panel's middle along the chord, cut then sewn. */
+  readonly middle?: readonly [number, number];
 }
 
 /** A rib or minirib of the cell in 3D: its unit normal towards its side of the wing's tip, and its index. */
@@ -177,6 +185,8 @@ const unit = (v: Point3): Point3 => along([0, 0, 0], v, 1 / (Math.hypot(...v) ||
 const distance = (a: Point, b: Point) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 const lengthOf = (points: readonly Point[]) =>
   points.slice(1).reduce((sum, p, i) => sum + distance(points[i], p), 0);
+const lengthIn3D = (points: readonly Point3[]) =>
+  points.slice(1).reduce((sum, p, i) => sum + Math.hypot(...minus(p, points[i])), 0);
 const lerp = (a: Point, b: Point, t: number): Point => [
   a[0] + (b[0] - a[0]) * t,
   a[1] + (b[1] - a[1]) * t,
@@ -621,6 +631,7 @@ function panelPiece(
     side(lines[1], cuts[1], 1, outer, ribLayer('innerPanel')),
   ];
   const cornersAt = (k: number) => [sides[0][1].at(k)!, sides[1][1].at(k)!] as const;
+  const middleRow = rows[rows.length >> 1];
   return {
     kind: panel.surface,
     side: 0,
@@ -639,6 +650,7 @@ function panelPiece(
     marks,
     faults,
     ends: [lengthOf(sewn.first), lengthOf(sewn.last)],
+    middle: [lengthOf(middleRow.map((v) => v.flat)), lengthIn3D(middleRow.map((v) => v.point))],
     // In steps, to stay on the skin.
     seam:
       minirib &&
@@ -1021,12 +1033,9 @@ function vRibPiece(
     /** Its points `first` to `last`, flat against sewn, and how far `marks` of them are off. */
     const seamCheck = (name: string, first: number, last: number, marks: number) => {
       const part = edge.slice(first, last + 1);
-      const sewn = part
-        .slice(1)
-        .reduce((sum, v, i) => sum + Math.hypot(...minus(v.point, part[i].point)), 0);
       check(
         `V-rib ${pattern.rows[0]} ${name}on rib ${rib.index + 1}`,
-        lengthOf(part.map((v) => v.flat)) - sewn,
+        lengthOf(part.map((v) => v.flat)) - lengthIn3D(part.map((v) => v.point)),
         marks,
       );
     };
@@ -1233,12 +1242,21 @@ export function assembly(
       ...laid,
       outer && ribPiece(outer, 1),
     ].filter((piece) => !!piece);
-    return { pieces, checks };
+    // By surface: a 3D-shaping seam moves fabric from one panel to the next.
+    const stretches = (['extrados', 'intrados'] as const).flatMap((surface): PanelStretch[] => {
+      const middles = sewn.flatMap((piece) => (piece?.kind === surface ? [piece.middle!] : []));
+      const [cut, sewed] = [0, 1].map((i) => middles.reduce((sum, m) => sum + m[i], 0));
+      return cut ? [{ surface, stretch: sewed / cut - 1 }] : [];
+    });
+    return { pieces, checks, stretches };
   };
 
   return {
     cells: [...new Set(panels.map((panel) => panel.cell))],
     checks: (cell: number) => piecesOf(cell).checks,
+    stretches: (cell: number) => piecesOf(cell).stretches,
+    /** The section whose overwidth balloons the cells, and so stretches the panels. */
+    overwidthSection: design.skinTensionGroups.mode === 0 ? 5 : 31,
     model(
       cell: number,
       visible: ReadonlySet<AssemblyLayer> = new Set(ASSEMBLY_LAYERS.map(([key]) => key)),

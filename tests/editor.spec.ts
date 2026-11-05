@@ -1716,6 +1716,7 @@ test('Assembly opens a cell of the draft, chosen by its number', async ({ page }
   await expect(assembly.getByText(/^Grid \d+ cm$/)).toBeVisible();
   await expect(assembly.getByRole('checkbox', { name: 'Marks', exact: true })).not.toBeChecked();
   await expect(assembly.getByText('All seams match within 2 mm.')).toBeVisible();
+  await expect(assembly.getByText(/longer mid-cell than cut: extrados \d/)).toBeVisible();
   await expect(assembly.getByRole('button', { name: 'Fit view', exact: true })).toBeVisible();
   await assembly.getByRole('combobox', { name: 'Camera view', exact: true }).selectOption('Top');
   await assembly.getByRole('checkbox', { name: 'Ribs', exact: true }).uncheck();

@@ -83,6 +83,12 @@ import { ModelPreview } from './model-preview';
         } @else {
           <p class="sound">All seams match within {{ tolerance * 10 }} mm.</p>
         }
+        @if (stretches()) {
+          <p class="sound">
+            Ballooned by section {{ pieces().overwidthSection }}, longer mid-cell than cut:
+            {{ stretches() }}.
+          </p>
+        }
       </div>
     </app-model-preview>
   `,
@@ -147,6 +153,12 @@ export class AssemblyOverview {
     camera: this.cameras.find(([key]) => key === this.camera())?.[2],
   }));
   protected readonly faults = computed(() => this.pieces().checks(this.cell()).filter(this.off));
+  protected readonly stretches = computed(() =>
+    this.pieces()
+      .stretches(this.cell())
+      .map(({ surface, stretch }) => `${surface} ${(stretch * 100).toFixed(1)}%`)
+      .join(', '),
+  );
   protected toggle(layer: AssemblyLayer): void {
     this.visible.update((visible) => {
       const next = new Set(visible);
