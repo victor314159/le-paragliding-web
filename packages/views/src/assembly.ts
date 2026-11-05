@@ -903,6 +903,28 @@ function onStrip(left: readonly Vertex[], right: readonly Vertex[]) {
  * each allowance goes on the way the piece comes, flat on the rib's face, a
  * layer off it.
  */
+/**
+ * The stretches of a cut `line` past `edge`, away from the piece's `other` edge, as a tooth's
+ * tip is: each point with its index and its edge's nearest point.
+ */
+function outsideEdge(line: readonly Point[], edge: readonly Point[], other: readonly Point[]) {
+  const placed = line.map((flat, at) => {
+    const k = edge.reduce(
+      (best, p, i) => (distance(p, flat) < distance(edge[best], flat) ? i : best),
+      0,
+    );
+    const [x, y] = [flat[0] - edge[k][0], flat[1] - edge[k][1]];
+    const past = x * (edge[k][0] - other[k][0]) + y * (edge[k][1] - other[k][1]);
+    return { flat, at, k, past: past > 0 && Math.hypot(x, y) > SEAM_CONVENTIONS.seamTolerance };
+  });
+  return placed.reduce<(typeof placed)[]>((stretches, point, i) => {
+    if (!point.past) return stretches;
+    if (placed[i - 1]?.past) stretches.at(-1)!.push(point);
+    else stretches.push([point]);
+    return stretches;
+  }, []);
+}
+
 /** Whether a ray from `p` crosses a closed `ring` an odd number of times. */
 function crossesOddly(ring: readonly Point[], [x, y]: Point) {
   return ring.reduce((odd, [x0, y0], i) => {
@@ -928,6 +950,8 @@ function vRibPiece(
   const right = flatRight.map((flat, k) => vertex(flat, right3D[k]));
   const middle = count >> 1;
   const cuts = cut.slice(2);
+  // Type 5 is cut in teeth along one edge, sewn at their tips: its outline, not that edge.
+  const teeth = cuts.find(({ length }) => length !== count + 2);
   const sides = [left, right].map((edge, side) => {
     const other = side ? left : right;
     // Its edge's rib, by which of the cell's ribs it runs nearest.
@@ -948,11 +972,21 @@ function vRibPiece(
         edge.map((v) => v.point),
       ),
     );
-    const line = cuts.find(
-      (points) => points.length === count + 2 && distance(points[0], edge[0].flat) < 1e-6,
-    );
-    if (!line) return { edge, flaps: [] as Flap[] };
     const flatEdge = edge.map((v) => v.flat);
+    const line = cuts.find(
+      (points) => points.length === count + 2 && distance(points[0], flatEdge[0]) < 1e-6,
+    );
+    const toothed = !line && !!teeth && distance(teeth[0], flatEdge[0]) < 1e-6;
+    const stretches = line
+      ? [line.map((flat, at) => ({ flat, at, k: Math.max(0, Math.min(at - 1, count - 1)) }))]
+      : toothed
+        ? outsideEdge(
+            teeth,
+            flatEdge,
+            other.map((v) => v.flat),
+          )
+        : [];
+    if (!stretches.length) return { edge, flaps: [] as Flap[], tips: [] };
     // In a rib's seam, nested in the panel's corner: under it, it would go through its allowance.
     const inSeam =
       offRing(
@@ -961,6 +995,9 @@ function vRibPiece(
       ) <= SEAM_CONVENTIONS.seamTolerance;
     const panel = rib === ribs[0] && !rib.mirrored ? 'outerPanel' : 'innerPanel';
     const layers = inSeam ? ribLayer(panel) + into : into;
+    const inset = (k: number) =>
+      along(edge[k].point, rib.tipward, layers * SEAM_CONVENTIONS.layerThickness);
+    const sewnAt = (k: number): Vertex => ({ point: inset(k), flat: edge[k].flat });
     /** Square to its edge at point `k`, in the rib's plane. */
     const square = (k: number) =>
       unit(
@@ -970,41 +1007,47 @@ function vRibPiece(
         ),
       );
     const onwardAt = (k: number) => unit(minus(edge[k].point, other[k].point));
-    // On the way the piece comes, unless that leaves the rib, as off a strap along the skin.
-    const way = dot(square(middle), onwardAt(middle)) < 0 ? -1 : 1;
-    const widest = Math.max(...line.map((flat) => nearestOn(byPoint(flatEdge), flat).gap));
-    const fits = rib.room(edge[middle].point, along([0, 0, 0], square(middle), way)) >= widest;
-    const lying = (flat: Point, i: number) => {
-      const k = Math.max(0, Math.min(i - 1, count - 1));
-      const inset = along(edge[k].point, rib.tipward, layers * SEAM_CONVENTIONS.layerThickness);
-      const width = distance(flat, edge[k].flat);
-      return {
-        seam: { point: inset, flat: edge[k].flat },
-        cut: {
-          point: along(inset, square(k), (fits ? way : -way) * width),
-          open: along(inset, onwardAt(k), width),
-          hinge: inset,
-          flat: [...flat] as Point,
-        },
-      };
-    };
-    const rows = line.map(lying);
-    const seam = rows.map((row) => row.seam);
+    const rows = stretches.map((stretch) => {
+      const { k: mid } = stretch[stretch.length >> 1];
+      // On the way the piece comes, unless that leaves the rib, as off a strap along the skin.
+      const way = dot(square(mid), onwardAt(mid)) < 0 ? -1 : 1;
+      const widest = Math.max(...stretch.map(({ flat, k }) => distance(flat, flatEdge[k])));
+      const fits = rib.room(edge[mid].point, along([0, 0, 0], square(mid), way)) >= widest;
+      return stretch.map(({ flat, k }) => {
+        const width = distance(flat, flatEdge[k]);
+        return {
+          seam: sewnAt(k),
+          cut: {
+            point: along(inset(k), square(k), (fits ? way : -way) * width),
+            open: along(inset(k), onwardAt(k), width),
+            hinge: inset(k),
+            flat: [...flat] as Point,
+          },
+        };
+      });
+    });
     // Its edge on the layer of its allowance: apart, the two would cross.
     return {
-      edge: seam.slice(1, -1),
-      flaps: [[seam, rows.map((row) => row.cut)]] as Flap[],
+      edge: edge.map((_, k) => sewnAt(k)),
+      flaps: rows.map((row) => [row.map(({ seam }) => seam), row.map(({ cut }) => cut)] as Flap),
+      tips: toothed
+        ? stretches.flatMap((stretch, r) =>
+            stretch.map(({ at }, j) => [at, rows[r][j].seam] as const),
+          )
+        : [],
     };
   });
   const [sewnLeft, sewnRight] = sides.map(({ edge }) => edge);
   const flaps = sides.flatMap((side) => side.flaps);
   const place = onStrip(sewnLeft, sewnRight);
   const mark = (flat: Point): Vertex => vertex(flat, place(flat));
-  // Type 5 is cut in teeth along one edge, sewn at their tips: its outline, not that edge.
-  const teeth = cuts.find(({ length }) => length !== count + 2);
   const startsLeft = teeth && distance(teeth[0], left[0].flat) < 1e-6;
+  const tips = new Map(sides.flatMap((side) => side.tips));
   const outline = teeth
-    ? [...teeth.map(mark), ...[...(startsLeft ? sewnRight : sewnLeft)].reverse()]
+    ? [
+        ...teeth.map((flat, i) => tips.get(i) ?? mark(flat)),
+        ...[...(startsLeft ? sewnRight : sewnLeft)].reverse(),
+      ]
     : [...sewnLeft, ...[...sewnRight].reverse()];
   // Twisted: on its outline alone, triangles would cut across it.
   const rings = [outline.map((v) => v.flat), ...pattern.holes];

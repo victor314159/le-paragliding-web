@@ -35,8 +35,8 @@ export const SEAM_CONVENTIONS = {
    * A V-rib or strap, sewn on a rib's face (NOVA, "Needle-eye Ribs"), lies
    * that way too: its allowance goes on the way the piece comes, a layer off
    * the rib, or along a rib's seam on the panel's allowance, nested in its
-   * corner: under it, the piece would go through it. No source says more: to
-   * check on a wing.
+   * corner: under it, the piece would go through it. The feet of a type 5
+   * too, each on its own. No source says more: to check on a wing.
    */
   /** The leading edge, its inlets included, hemmed into the inside. */
   leadingEdge: 'hem' as EndSeam,

@@ -41,9 +41,12 @@ function farthest(points: readonly Flat[]) {
     }
   return pair;
 }
-/** The rigid move, turned over or not, of `points` of the table onto the closed line `pattern`. */
-function onPattern(points: readonly Flat[], pattern: readonly Flat[]) {
-  const [c, d] = farthest(pattern);
+/**
+ * The rigid move, turned over or not, of `points` of the table onto the closed line `pattern`,
+ * by the ends of `frame`, those of the same points on it.
+ */
+function onPattern(points: readonly Flat[], pattern: readonly Flat[], frame = pattern) {
+  const [c, d] = farthest(frame);
   const f = Math.atan2(d[1] - c[1], d[0] - c[0]);
   const [a, b] = farthest(points);
   const moves = [
@@ -67,15 +70,17 @@ function onPattern(points: readonly Flat[], pattern: readonly Flat[]) {
   const miss = (move: (typeof moves)[number]) => worst(points.map((p) => toRing(move(p), pattern)));
   return moves.reduce((best, move) => (miss(move) < miss(best) ? move : best));
 }
-/** A strap or V-rib's outline: of type 5, its teeth, then the edge it is cut along. */
+/** A strap or V-rib's lines: of type 5, its teeth, the edge it is cut along, then the feet's seam. */
 function stripOutline(strip: ReturnType<typeof vRibPatterns>[number]) {
   if (strip.type !== 5) return strip;
   const count = strip.sewing.length >> 1;
   const teeth = strip.cut.slice(2).find(({ length }) => length !== count + 2)!;
   const [start] = teeth;
   const fromLeft = Math.hypot(start[0] - strip.sewing[0][0], start[1] - strip.sewing[0][1]) < 1e-9;
-  const edge = fromLeft ? strip.sewing.slice(count) : strip.sewing.slice(0, count).reverse();
-  return { ...strip, sewing: [...teeth, ...edge] };
+  const [left, right] = [strip.sewing.slice(0, count), strip.sewing.slice(count)];
+  const edge = fromLeft ? right : [...left].reverse();
+  const feet = fromLeft ? left : [...right].reverse();
+  return { ...strip, sewing: [...teeth, ...edge, ...feet], frame: [...edge, ...feet] };
 }
 const finite = (rings: readonly (readonly Point3[])[]) =>
   rings.every((ring) => ring.every((p) => p.every(Number.isFinite)));
@@ -120,7 +125,7 @@ for (const id of designs)
         if (kind === 'flap' && (!finite(rows) || !finite(opening!.apart) || !finite(opening!.flat)))
           unfinite++;
       const minirib = miniribs.find(({ rib }) => rib - 1 === cell);
-      const own2D = [
+      const own2D: { sewing: readonly Flat[]; frame?: readonly Flat[] }[] = [
         ribs[Math.max(cell - 1, 0)],
         ...(minirib ? [minirib] : []),
         ...strips.filter(({ ribs: on }) => Math.min(...on) === cell).map(stripOutline),
@@ -128,12 +133,18 @@ for (const id of designs)
       ];
       expect(model.fills).toHaveLength(own2D.length);
       model.fills.forEach((fill, r) => {
-        const { sewing } = own2D[r];
+        const piece = own2D[r];
+        const { sewing } = piece;
         const ring = flat(fill.opening!.flat[0]);
-        const move = onPattern(ring, sewing);
+        const move = onPattern(ring, sewing, piece.frame);
         ring.forEach((p, i) => {
           const q = move(p);
-          gaps.push(Math.hypot(q[0] - sewing[i][0], q[1] - sewing[i][1]));
+          // Type 5's feet stop at their seam: on its lines, not point for point.
+          gaps.push(
+            ring.length === sewing.length
+              ? Math.hypot(q[0] - sewing[i][0], q[1] - sewing[i][1])
+              : toRing(q, sewing),
+          );
         });
       });
     }
@@ -575,7 +586,8 @@ test("a V-rib's edges fold on its allowances, and points inside it shape it", ()
   const gap = (p: Point3) =>
     Math.min(...body.points.map((q) => Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2])));
   const seams = model.surfaces.filter(({ kind }) => kind === 'flap').flatMap(({ rows }) => rows[0]);
-  expect(seams.length).toBeGreaterThan(0);
+  // Its edge along the rib, and its four feet.
+  expect(model.surfaces.filter(({ kind }) => kind === 'flap')).toHaveLength(5);
   expect(worst(seams.map(gap))).toBeLessThan(1e-9);
   expect(body.holes!.filter((ring) => ring.length === 1).length).toBeGreaterThan(50);
 });
