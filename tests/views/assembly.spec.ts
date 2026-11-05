@@ -566,3 +566,16 @@ test('allowances folded along a rib stay inside it, where the wing is thinner th
   }
   expect(outside).toBe(0);
 });
+
+test("a V-rib's edges fold on its allowances, and points inside it shape it", () => {
+  const { design, airfoils } = project('oracle/designs/A8');
+  const pieces = assembly(design, airfoils);
+  const model = pieces.model(15, new Set(['vrib']));
+  const body = model.fills[0];
+  const gap = (p: Point3) =>
+    Math.min(...body.points.map((q) => Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2])));
+  const seams = model.surfaces.filter(({ kind }) => kind === 'flap').flatMap(({ rows }) => rows[0]);
+  expect(seams.length).toBeGreaterThan(0);
+  expect(worst(seams.map(gap))).toBeLessThan(1e-9);
+  expect(body.holes!.filter((ring) => ring.length === 1).length).toBeGreaterThan(50);
+});

@@ -54,7 +54,53 @@ function triangulate(outline: readonly Point3[], holes: readonly (readonly Point
   const [contour, ...cutouts] = rings.map((ring) =>
     ring.map((p) => new THREE.Vector2(point.set(...p).dot(u), point.dot(v))),
   );
-  return { vertices, faces: THREE.ShapeUtils.triangulateShape(contour, cutouts) };
+  const faces = THREE.ShapeUtils.triangulateShape(contour, cutouts);
+  const shaped = rings.some((ring) => ring.length === 1);
+  return { vertices, faces: shaped ? rounded(faces, [contour, ...cutouts].flat()) : faces };
+}
+
+/**
+ * `faces` with their shared edges flipped until no point lies in a neighbour's circle
+ * (Delaunay): a polygon's triangulation joins points inside it in slivers, that shade badly.
+ */
+function rounded(faces: readonly number[][], points: readonly THREE.Vector2[]) {
+  const twice = (a: number, b: number, c: number) =>
+    (points[b].x - points[a].x) * (points[c].y - points[a].y) -
+    (points[c].x - points[a].x) * (points[b].y - points[a].y);
+  const wound = faces.map(([a, b, c]) => (twice(a, b, c) < 0 ? [a, c, b] : [a, b, c]));
+  const inCircle = (a: number, b: number, c: number, d: number) => {
+    const [ax, ay, bx, by, cx, cy] = [a, b, c].flatMap((i) => [
+      points[i].x - points[d].x,
+      points[i].y - points[d].y,
+    ]);
+    const [al, bl, cl] = [ax * ax + ay * ay, bx * bx + by * by, cx * cx + cy * cy];
+    return ax * (by * cl - bl * cy) - ay * (bx * cl - bl * cx) + al * (bx * cy - by * cx) > 1e-9;
+  };
+  for (let flipped = true; flipped;) {
+    flipped = false;
+    const edges = new Map<string, number>();
+    const touched = new Set<number>();
+    wound.forEach((_, f) => {
+      for (let i = 0; i < 3 && !touched.has(f); i++) {
+        const [a, b, c] = [0, 1, 2].map((k) => wound[f][(i + k) % 3]);
+        const g = edges.get(`${b}:${a}`);
+        if (g === undefined || touched.has(g)) {
+          edges.set(`${a}:${b}`, f);
+          continue;
+        }
+        const d = wound[g].find((k) => k !== a && k !== b)!;
+        if (!inCircle(a, b, c, d)) {
+          edges.set(`${a}:${b}`, f);
+          continue;
+        }
+        wound[f] = [c, a, d];
+        wound[g] = [c, d, b];
+        touched.add(f).add(g);
+        flipped = true;
+      }
+    });
+  }
+  return wound;
 }
 
 /** How strong the table's grid is. */

@@ -83,6 +83,9 @@ const GRID_LIFT = 0.1;
 const GRID_SQUARES = 30;
 /** The marks of a panel's corners, before those along its sides. */
 const CORNERS = 4;
+/** Spans of a V-rib between its points inside, and how far those keep from its outline, in cm. */
+const INNER_SPANS = 24;
+const INNER_MARGIN = 0.5;
 
 /** Two edges sewn together: how much their lengths differ, and their marks at most (cm). */
 export interface SeamCheck {
@@ -111,7 +114,10 @@ type Flap = readonly [readonly Vertex[], readonly Vertex[]];
 /** A mark of a piece, sewn and on its pattern. */
 type Mark = Vertex;
 
-/** A piece of the cell: `vertices` a grid on a panel, elsewhere its outline and its holes. */
+/**
+ * A piece of the cell: `vertices` a grid on a panel, elsewhere its outline and its holes,
+ * a hole of one point being a point inside it to shape it.
+ */
 interface Piece {
   readonly kind: Kind;
   /** Its side of the cell, for a rib. */
@@ -897,6 +903,15 @@ function onStrip(left: readonly Vertex[], right: readonly Vertex[]) {
  * each allowance goes on the way the piece comes, flat on the rib's face, a
  * layer off it.
  */
+/** Whether a ray from `p` crosses a closed `ring` an odd number of times. */
+function crossesOddly(ring: readonly Point[], [x, y]: Point) {
+  return ring.reduce((odd, [x0, y0], i) => {
+    const [x1, y1] = ring[(i + 1) % ring.length];
+    const crosses = y0 > y !== y1 > y && x < x0 + ((y - y0) / (y1 - y0)) * (x1 - x0);
+    return crosses ? !odd : odd;
+  }, false);
+}
+
 function vRibPiece(
   pattern: VRibPattern,
   edges: readonly [readonly Point3[], readonly Point3[]],
@@ -911,10 +926,9 @@ function vRibPiece(
   const vertex = (flat: Point, point: Point3): Vertex => ({ point, flat: [...flat] });
   const left = flatLeft.map((flat, k) => vertex(flat, left3D[k]));
   const right = flatRight.map((flat, k) => vertex(flat, right3D[k]));
-  const place = onStrip(left, right);
   const middle = count >> 1;
   const cuts = cut.slice(2);
-  const flaps = [left, right].flatMap((edge, side): Flap[] => {
+  const sides = [left, right].map((edge, side) => {
     const other = side ? left : right;
     // Its edge's rib, by which of the cell's ribs it runs nearest.
     const off = (rib: CellRib) => {
@@ -937,7 +951,7 @@ function vRibPiece(
     const line = cuts.find(
       (points) => points.length === count + 2 && distance(points[0], edge[0].flat) < 1e-6,
     );
-    if (!line) return [];
+    if (!line) return { edge, flaps: [] as Flap[] };
     const flatEdge = edge.map((v) => v.flat);
     // In a rib's seam, nested in the panel's corner: under it, it would go through its allowance.
     const inSeam =
@@ -975,21 +989,46 @@ function vRibPiece(
       };
     };
     const rows = line.map(lying);
-    return [[rows.map((row) => row.seam), rows.map((row) => row.cut)]];
+    const seam = rows.map((row) => row.seam);
+    // Its edge on the layer of its allowance: apart, the two would cross.
+    return {
+      edge: seam.slice(1, -1),
+      flaps: [[seam, rows.map((row) => row.cut)]] as Flap[],
+    };
   });
+  const [sewnLeft, sewnRight] = sides.map(({ edge }) => edge);
+  const flaps = sides.flatMap((side) => side.flaps);
+  const place = onStrip(sewnLeft, sewnRight);
   const mark = (flat: Point): Vertex => vertex(flat, place(flat));
   // Type 5 is cut in teeth along one edge, sewn at their tips: its outline, not that edge.
   const teeth = cuts.find(({ length }) => length !== count + 2);
   const startsLeft = teeth && distance(teeth[0], left[0].flat) < 1e-6;
   const outline = teeth
-    ? [...teeth.map(mark), ...[...(startsLeft ? right : left)].reverse()]
-    : [...left, ...[...right].reverse()];
+    ? [...teeth.map(mark), ...[...(startsLeft ? sewnRight : sewnLeft)].reverse()]
+    : [...sewnLeft, ...[...sewnRight].reverse()];
+  // Twisted: on its outline alone, triangles would cut across it.
+  const rings = [outline.map((v) => v.flat), ...pattern.holes];
+  const inFabric = (p: Point) =>
+    rings.every((ring) => nearestOn(byPoint(ring), p).gap > INNER_MARGIN) &&
+    rings.reduce((odd, ring) => odd !== crossesOddly(ring, p), false);
+  const inner = Array.from({ length: INNER_SPANS - 1 }, (_, i) => {
+    const k = Math.round(((i + 1) * (count - 1)) / INNER_SPANS);
+    return Array.from({ length: ACROSS - 1 }, (_, j) =>
+      lerp(left[k].flat, right[k].flat, (j + 1) / ACROSS),
+    );
+  })
+    .flat()
+    .filter(inFabric);
   return {
     kind: 'vrib',
     side: 0,
     long: !!teeth,
-    vertices: [outline, ...pattern.holes.map((hole) => hole.map(mark))],
-    axes: [left[0], left[count - 1], left[middle], right[middle]],
+    vertices: [
+      outline,
+      ...pattern.holes.map((hole) => hole.map(mark)),
+      ...inner.map((p) => [mark(p)]),
+    ],
+    axes: [sewnLeft[0], sewnLeft[count - 1], sewnLeft[middle], sewnRight[middle]],
     flaps,
     marks: pattern.marks.map(mark),
     faults: [],
@@ -1381,11 +1420,10 @@ function layOut(sewn: readonly Piece[], model: PreviewModel, visible: ReadonlySe
           opening,
         });
         // Its holes are cut, not folded.
-        sewn
-          .slice(1)
-          .forEach((ring, r) =>
-            model.lines.push(line(closed(ring), opening, (rows) => closed(rows[r + 1]))),
-          );
+        sewn.slice(1).forEach((ring, r) => {
+          if (ring.length > 1)
+            model.lines.push(line(closed(ring), opening, (rows) => closed(rows[r + 1])));
+        });
       }
       model.lines.push(line(closed(sewn[0]), opening, (rows) => closed(rows[0])));
     } else {
