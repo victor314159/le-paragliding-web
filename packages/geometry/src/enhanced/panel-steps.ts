@@ -11,7 +11,7 @@ import {
   type LaserForm,
   type MarkRun,
   type PieceSides,
-  type TableMarks,
+  type PanelAnchorMarks,
 } from '../fortran/marks.ts';
 import type { PanelSteps, SeamDot } from '../fortran/skin-panels.ts';
 import { skinPatterns, type PatternSteps } from '../fortran/skin-patterns.ts';
@@ -131,9 +131,10 @@ export function anchorMarks(
   form: LaserForm,
   offset: number,
   allowance: number,
-): TableMarks {
+): PanelAnchorMarks {
   const dots: Point[] = [];
   const lines: Point[][] = [];
+  const plan: Point[][] = [];
   const spacing = (0.5 * (allowance - 20 * offset)) / 10;
   for (const {
     side,
@@ -146,12 +147,13 @@ export function anchorMarks(
       x + s * (from + d) * Math.sin(alpha),
       y + s * (from + d) * Math.cos(alpha),
     ];
+    plan.push([out(0, 0), out(-0.4 * allowance, 0)]);
     if (form.type === 1) dots.push(...[0, 1, 2].map((k) => out(offset, k * spacing)));
     if (form.type === 2) dots.push(...[0, 1, 2].map((k) => out(form.offset, k * form.size)));
     if (form.type === 3)
       lines.push(triangle(out(form.offset, 0), form.size, s < 0 ? -alpha : Math.PI - alpha));
   }
-  return { dots, lines };
+  return { dots, lines, plan };
 }
 
 export const panelSteps: PanelSteps = {

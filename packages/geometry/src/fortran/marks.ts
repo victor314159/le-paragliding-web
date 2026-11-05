@@ -364,13 +364,19 @@ export function panelAnchors(
   return anchors;
 }
 
+/** A panel's anchors: on the cutting table, and each one's line into the panel on its plan. */
+export interface PanelAnchorMarks extends TableMarks {
+  readonly plan: readonly (readonly Point[])[];
+}
+
 /**
  * iam: the anchors of a piece of intrados panel (`panelAnchors`), marked on
  * the cutting table by section 20's row 5, outwards: three dots (types 1
  * and 2; type 1 spaced to fill the rib allowance, `allowance` in mm, from a
  * mark offset to the other) or a triangle (type 3). Type 2 moves both
  * sides' dots the same way, inwards on the right; the left triangle moves
- * along its side's v the right one's way.
+ * along its side's v the right one's way. On the plan, a line of 0.4 `allowance`
+ * into the panel.
  */
 export function panelAnchorMarks(
   piece: PieceSides,
@@ -379,9 +385,10 @@ export function panelAnchorMarks(
   form: LaserForm,
   offset: number,
   allowance: number,
-): TableMarks {
+): PanelAnchorMarks {
   const dots: Point[] = [];
   const lines: Point[][] = [];
+  const plan: Point[][] = [];
   const spacing = (0.5 * (allowance - 20 * offset)) / 10;
   for (const {
     side,
@@ -391,6 +398,11 @@ export function panelAnchorMarks(
     const [sin, cos] = [Math.sin(alpha), Math.cos(alpha)];
     // Left, the marks go along (-sin, -cos); right, along (sin, cos).
     const s = side === 'left' ? -1 : 1;
+    const reach = 0.4 * allowance;
+    plan.push([
+      [x, y],
+      [x - s * reach * sin, y - s * reach * cos],
+    ]);
     const three = (from: Point, step: number) =>
       [0, 1, 2].map((k): Point => [from[0] + s * k * step * sin, from[1] + s * k * step * cos]);
     if (form.type === 1) dots.push(...three([x + s * offset * sin, y + s * offset * cos], spacing));
@@ -405,5 +417,5 @@ export function panelAnchorMarks(
         ),
       );
   }
-  return { dots, lines };
+  return { dots, lines, plan };
 }

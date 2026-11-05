@@ -30,17 +30,10 @@ const inside = (ring: readonly Point[], [x, y]: Point) =>
 
 /**
  * What the engine draws and the port does not hold, on no seam: a rib's plumb lines down to
- * its chord; a panel's 6 cm lines from its anchors, and 3 cm diagonals nobody has traced yet;
- * the rounded ends of BHL7-22's rods, which rib-patterns.spec.ts leaves out too.
+ * its chord; a panel's crosses where its fabric changes color (sections 15 and 16, §15.1); the
+ * rounded ends of BHL7-22's rods, which rib-patterns.spec.ts leaves out too.
  */
-const KNOWN = new Set([
-  'rib line 7',
-  'panel line 30',
-  'panel line 7',
-  'rib line 30',
-  'rib line 150',
-  'rib dot 160',
-]);
+const KNOWN = new Set(['rib line 7', 'panel line 7', 'rib line 30', 'rib line 150', 'rib dot 160']);
 const BUCKET = 50;
 /** How far a drawn dot lies from its point, and a mark's lines at most, in cm. */
 const DOT = 0.06;

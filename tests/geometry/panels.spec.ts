@@ -240,6 +240,7 @@ for (const { name, directory, edit } of oracleCases(cases, chosen))
     ].map((colors) => colors.flatMap((c) => lines(text, c)));
     const crosses = crossCentres([3, 4].flatMap((c) => lines(text, c)));
     const dots = dxfDots(text, 7);
+    const lines30 = lines(text, 30);
     const [anchorDots, triangles] = [dxfDots(text, 30), dxfSegments(text, 1)];
     const table = 2520 * design.geometry.drawingScale;
     // A segment is drawn when a line covers it: the engine draws some ends in one line.
@@ -296,6 +297,15 @@ for (const { name, directory, edit } of oracleCases(cases, chosen))
         )
         .reduce((a, b) => (b.length < a.length ? b : a));
       expect(undotted, `${label} numeral`).toEqual([]);
+      // Each anchor's line into the panel, on its plan.
+      const unplotted = placed
+        .map((shift) =>
+          panel.anchors.plan
+            .flatMap(polyline)
+            .flatMap((line, k) => (isDrawn(lines30, line, shift) ? [] : [k])),
+        )
+        .reduce((a, b) => (b.length < a.length ? b : a));
+      expect(unplotted, `${label} anchor lines`).toEqual([]);
       // The cutting table, 2520 cm further at plan scale.
       const unanchored = placed
         .map(([dx, dy]): Point => [dx + table, dy])

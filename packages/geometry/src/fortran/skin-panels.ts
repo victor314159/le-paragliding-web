@@ -13,7 +13,7 @@ import {
   sideMarks,
   type MarkRun,
   type PieceSides,
-  type TableMarks,
+  type PanelAnchorMarks,
 } from './marks.ts';
 import { middle, slope, type Point } from '../shared/points.ts';
 import type { CellCuts } from './skin-shaping.ts';
@@ -61,8 +61,8 @@ export interface SkinPanel {
    * 3D-shaping seam (romanoparc).
    */
   readonly numeral: readonly Point[];
-  /** On the intrados, the anchors of both ribs on the cutting table (iam). */
-  readonly anchors: TableMarks;
+  /** On the intrados, the anchors of both ribs (iam). */
+  readonly anchors: PanelAnchorMarks;
   /**
    * Where the unloaded rib of its cell (section 2) is sewn, along the
    * cell's midline (§9.9.10): its ends, then marks every section 7 spacing.
@@ -714,8 +714,8 @@ export function panelOutlines(
       }));
       strips.forEach((piece, k) => {
         const after = lengths.slice(k + 1);
-        let anchors: TableMarks = extrados
-          ? { dots: [], lines: [] }
+        let anchors: PanelAnchorMarks = extrados
+          ? { dots: [], lines: [], plan: [] }
           : steps.anchors(
               piece.sewing,
               {
@@ -750,6 +750,7 @@ export function panelOutlines(
             anchors = {
               dots: [...anchors.dots, ...marks.dots.map(place)],
               lines: [...anchors.lines, ...marks.lines.map((line) => line.map(place))],
+              plan: [...anchors.plan, ...marks.plan.map((line) => line.map(place))],
             };
           }
         }
