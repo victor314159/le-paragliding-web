@@ -31,6 +31,22 @@ circle {
   stroke: var(--mat-sys-tertiary);
   stroke-width: 1.5;
 }
+.fabric {
+  fill: var(--mat-sys-secondary-container);
+  fill-rule: evenodd;
+  stroke: none;
+}
+.seam {
+  fill: none;
+  stroke: var(--mat-sys-primary);
+  stroke-width: 1;
+  stroke-dasharray: 5 4;
+}
+.cut {
+  fill: none;
+  stroke: var(--mat-sys-primary);
+  stroke-width: 1.5;
+}
 .allowance {
   fill: none;
   stroke: var(--mat-sys-tertiary);

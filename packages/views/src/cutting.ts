@@ -12,7 +12,7 @@ import {
   type UnloadedRibSections,
   type VRibPatternSections,
 } from '@lepara/geometry/enhanced-v1';
-import type { Point } from './geometry.ts';
+import { finite, pointPath, type Point } from './geometry.ts';
 import { PreviewDrawing, type PreviewScene } from './scene.ts';
 
 /** The groups of cutting patterns: value and label. */
@@ -32,6 +32,7 @@ const ASPECT = 2;
 interface Piece {
   readonly number: string;
   readonly title: string;
+  /** Its sewing line, if it has one. */
   readonly sewing: readonly Point[];
   readonly cuts: readonly (readonly Point[])[];
   /** Whether the engine closes its cut lines. */
@@ -142,13 +143,20 @@ export function cuttingScene(
       const [piece, box, width] = [pieces[i], boxes[i], widths[i]];
       const place = (points: readonly Point[]) =>
         flip(points).map(([u, v]): Point => [x + u - box.left, y + v - box.top]);
-      d.path(place(piece.sewing), 'outline', false, piece.title, true);
-      // Over the piece: V-ribs are cut out inside it.
-      for (const cut of piece.cuts)
-        d.path(place(cut), 'allowance', false, 'Cut line', piece.closedCut);
+      // The fabric within its cut lines, less its holes; dashed where it is sewn, solid where cut.
+      const fabric = [chained(piece.cuts), ...piece.holes].map(place);
+      d.shape(
+        fabric.map((loop) => pointPath(loop, true)).join(' '),
+        fabric.flat(),
+        'fabric',
+        false,
+        piece.title,
+      );
+      d.path(place(piece.sewing), 'seam', false, 'Sewing line', true);
+      for (const cut of piece.cuts) d.path(place(cut), 'cut', false, 'Cut line', piece.closedCut);
       for (const { title, lines } of piece.references)
         for (const line of lines) d.path(place(line), 'rib', false, title);
-      for (const hole of piece.holes) d.path(place(hole), 'allowance', false, 'Hole', true);
+      for (const hole of piece.holes) d.path(place(hole), 'cut', false, 'Hole', true);
       for (const mark of place(piece.marks)) d.dot(mark, radius, 'Sewing mark', false, 'mark');
       for (const dot of place(piece.numeral)) d.dot(dot, radius, numeral, false, 'numeral');
       for (const { title, dots, lines } of piece.table) {
@@ -171,16 +179,36 @@ export function cuttingScene(
     y += Math.max(...row.map((i) => boxes[i].bottom - boxes[i].top)) + 2 * font + gap;
   }
   const scene = d.finish();
-  // A pocket or a mylar is drawn by its outline alone, without a sewing line.
-  const outline = group === 'reinforcements' ? 'Outline' : 'Sewing line';
-  return { ...scene, legend: cuttingLegend(scene, outline), unit: 'cm' };
+  return { ...scene, legend: cuttingLegend(scene), unit: 'cm' };
 }
 
-/** One entry per style the scene draws, naming what its items show. */
-function cuttingLegend({ paths, dots }: PreviewScene, outline: string): PreviewScene['legend'] {
+/**
+ * A piece's cut lines as one closed outline: each line followed by the one
+ * whose end is nearest, either way round, the gaps between them straight.
+ */
+function chained(lines: readonly (readonly Point[])[]): Point[] {
+  const left = lines.map((line) => line.filter((p) => p.every(finite))).filter((l) => l.length);
+  const outline = left.shift() ?? [];
+  while (left.length) {
+    const [x, y] = outline.at(-1)!;
+    const gap = ([u, v]: Point) => Math.hypot(u - x, v - y);
+    const [i, reversed] = left
+      .flatMap((line, i) => [
+        [i, false, gap(line[0])] as const,
+        [i, true, gap(line.at(-1)!)] as const,
+      ])
+      .reduce((best, next) => (next[2] < best[2] ? next : best));
+    const [line] = left.splice(i, 1);
+    outline.push(...(reversed ? line.reverse() : line));
+  }
+  return outline;
+}
+
+/** One entry per style the scene draws, naming what its items show; the fabric needs none. */
+function cuttingLegend({ paths, dots }: PreviewScene): PreviewScene['legend'] {
   const shown = new Map<string, Set<string>>();
   for (const { kind, title } of [...paths, ...dots])
-    shown.set(kind, (shown.get(kind) ?? new Set()).add(kind === 'outline' ? outline : title));
+    if (kind !== 'fabric') shown.set(kind, (shown.get(kind) ?? new Set()).add(title));
   return [...shown].map(([kind, titles]) => ({
     text: [...titles].join(' · '),
     sample: { kind, dot: dots.some((dot) => dot.kind === kind) },
@@ -283,8 +311,9 @@ function reinforcementPieces(
   ): Piece => ({
     number,
     title,
-    sewing: outline,
-    cuts: [],
+    // Cut on its outline, without a sewing line.
+    sewing: [],
+    cuts: [outline],
     closedCut: true,
     references: [],
     holes: [],

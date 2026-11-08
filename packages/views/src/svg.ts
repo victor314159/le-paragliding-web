@@ -9,6 +9,8 @@ text { fill: #1b1b1f; font-family: sans-serif }
 .baseline, .axis, .chord { stroke: #74777f; stroke-width: 1; stroke-dasharray: 4 4 }
 .rib, .connection, .dimension, .panel, .zero { stroke: #74777f; stroke-width: 1 }
 .tick-grid { stroke: #c4c6d0; stroke-width: 0.6 }
+.fabric { fill: #dfe4f6; fill-rule: evenodd; stroke: none }
+.seam { stroke-width: 1; stroke-dasharray: 5 4 }
 .allowance { stroke: #8e4585; stroke-width: 1; stroke-dasharray: 5 4 }
 .original { stroke: #8e4585; stroke-dasharray: 6 4 }
 .hole, .cell-selection { fill: #f2dcee; stroke: #8e4585 }

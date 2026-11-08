@@ -28,11 +28,11 @@ for (const id of DESIGNS)
         ({ surface }) => surface === group,
       ).length;
       expect(scene.viewBox).not.toContain('NaN');
-      const sewing = scene.paths.filter((path) => path.kind === 'outline');
+      const sewing = scene.paths.filter((path) => path.kind === 'fabric');
       expect(sewing.map((path) => path.title)).toEqual(
         expected.map((panel) => `Panel ${panelNumber(panels, panel)}`),
       );
-      expect(scene.paths.filter((path) => path.kind === 'allowance')).toHaveLength(
+      expect(scene.paths.filter((path) => path.kind === 'cut')).toHaveLength(
         expected.reduce((sum, panel) => sum + 1 + panel.holes.length, 0),
       );
       expect(
@@ -63,14 +63,12 @@ for (const id of DESIGNS)
     const scene = cuttingScene(design, airfoils, 'ribs');
     expect(scene.viewBox).not.toContain('NaN');
     const miniribs = miniribPatterns(design, airfoils);
-    expect(scene.paths.filter((path) => path.kind === 'outline').map((path) => path.title)).toEqual(
-      [
-        ...ribs.map((rib) => `Rib ${rib.rib + 1}`),
-        ...miniribs.map((minirib) => `Minirib ${minirib.rib}`),
-      ],
-    );
+    expect(scene.paths.filter((path) => path.kind === 'fabric').map((path) => path.title)).toEqual([
+      ...ribs.map((rib) => `Rib ${rib.rib + 1}`),
+      ...miniribs.map((minirib) => `Minirib ${minirib.rib}`),
+    ]);
     if (design.geometry.paragliderType === 'ds') expect(miniribs.length).toBeGreaterThan(0);
-    const cuts = scene.paths.filter((path) => path.kind === 'allowance');
+    const cuts = scene.paths.filter((path) => path.kind === 'cut');
     expect(cuts).toHaveLength(
       ribs.reduce((sum, rib) => sum + rib.cut.length + rib.holes.length, 0) +
         miniribs.reduce((sum, minirib) => sum + minirib.cut.length + minirib.holes.length, 0),
@@ -109,7 +107,7 @@ for (const id of DESIGNS)
     const ribs = ribPatterns(design, airfoils);
     const scene = cuttingScene(design, airfoils, 'reinforcements');
     expect(scene.viewBox).not.toContain('NaN');
-    const outlines = scene.paths.filter((path) => path.kind === 'outline');
+    const outlines = scene.paths.filter((path) => path.kind === 'fabric');
     expect(outlines.map((path) => path.title)).toEqual(
       ribs.flatMap(({ rib, rods, mylar }) => [
         ...rods.map(
@@ -137,7 +135,12 @@ for (const id of DESIGNS)
     const pieces = vRibPatterns(design, airfoils);
     const scene = cuttingScene(design, airfoils, 'vribs');
     expect(scene.viewBox).not.toContain('NaN');
-    expect(scene.paths.filter((path) => path.kind === 'outline').map((path) => path.title)).toEqual(
+    const fabric = scene.paths.filter((path) => path.kind === 'fabric');
+    // One outline chained from the cut lines, less the holes.
+    expect(fabric.map((path) => path.d.split('M').length - 1)).toEqual(
+      pieces.map((piece) => 1 + piece.holes.length),
+    );
+    expect(fabric.map((path) => path.title)).toEqual(
       pieces.map(
         ({ type, ribs }) =>
           `${type === 1 ? 'H strap' : 'V-rib'} ${ribs.join('-')}${type === 1 ? '' : `, type ${type}`}`,
@@ -171,7 +174,7 @@ test('unloaded ribs follow the miniribs, numbered u', () => {
   expect(unloaded.map((rib) => rib.rib)).toEqual([6, 7]);
   const scene = cuttingScene(design, airfoils, 'ribs');
   expect(scene.viewBox).not.toContain('NaN');
-  const titles = scene.paths.filter((path) => path.kind === 'outline').map((path) => path.title);
+  const titles = scene.paths.filter((path) => path.kind === 'fabric').map((path) => path.title);
   expect(titles.slice(-2)).toEqual(['Unloaded rib 6', 'Unloaded rib 7']);
   expect(titles).not.toContain('Minirib 6');
   expect(scene.labels.map((label) => label.text)).toContain('u7');
@@ -196,7 +199,7 @@ test('a "pc" wing draws its ribs, their inlets closed', () => {
   expect(ribs).toHaveLength(design.geometry.ribs.length);
   const scene = cuttingScene(design, airfoils, 'ribs');
   expect(scene.viewBox).not.toContain('NaN');
-  expect(scene.paths.filter((path) => path.kind === 'outline')[0].title).toBe('Rib 1');
+  expect(scene.paths.filter((path) => path.kind === 'fabric')[0].title).toBe('Rib 1');
   // The inlet's inner points are left out of the sewing line.
   const [ds] = ribPatterns(input, airfoils);
   expect(ds.sewing.length - ribs[0].sewing.length).toBeGreaterThan(0);
@@ -207,15 +210,16 @@ test('the legend of the cutting patterns explains the styles each group draws', 
   for (const [group] of PATTERN_GROUPS) {
     const scene = cuttingScene(design, airfoils, group);
     const kinds = new Set([...scene.paths, ...scene.dots].map((item) => item.kind));
+    kinds.delete('fabric');
     expect(new Set(scene.legend.map((entry) => entry.sample?.kind))).toEqual(kinds);
     expect(scene.legend.every((entry) => entry.text)).toBe(true);
   }
   const { legend } = cuttingScene(design, airfoils, 'extrados');
   expect(legend[0]).toEqual({
     text: 'Sewing line',
-    sample: { kind: 'outline', dot: false },
+    sample: { kind: 'seam', dot: false },
   });
-  expect(legend.find((entry) => entry.sample?.kind === 'allowance')?.text).toContain('Cut line');
+  expect(legend.find((entry) => entry.sample?.kind === 'cut')?.text).toContain('Cut line');
   expect(legend.find((entry) => entry.sample?.kind === 'mark')?.sample?.dot).toBe(true);
   expect(toSvg(cuttingScene(design, airfoils, 'extrados'))).toContain('>Sewing line</text>');
 });
