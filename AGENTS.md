@@ -6,6 +6,8 @@ Before each commit, review the diff, take a step back, and ensure that:
 - The code follows best practices and shared logic is refactored where appropriate.
 - The solution addresses the root problem and achieves the intended goal in the best possible way.
 
+Tests are now quite heavy, so run only specific ones (not full suite) when needed. Only tun them after a final diff JUST BEFORE comitting.
+
 Setup, build and test commands are in [README.md](README.md).
 
 - Build, lint and test in containers (`docker compose`, `docker build`), never
