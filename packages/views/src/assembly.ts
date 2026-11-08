@@ -1478,7 +1478,7 @@ export function assembly(
       const model: PreviewModel = {
         title: `Cell ${cell + 1} assembly`,
         note: pieces.length
-          ? 'Each piece is its pattern: laid flat lengthwise, turned as little as it can be from the wing, placed on the wing by the length of its fabric. Allowances folded by the seam conventions, thicker than fabric.'
+          ? 'Each piece is its pattern: laid flat lengthwise, turned as little as it can be from the wing, placed on the wing by the length of its fabric. Allowances folded by the seam conventions, thicker than fabric. Dashed: sewing lines · Solid: cut lines.'
           : 'The pieces need valid ribs and airfoils with matching points.',
         surfaces: [],
         fills: [],
@@ -1733,6 +1733,7 @@ function layOut(sewn: readonly Piece[], model: PreviewModel, visible: ReadonlySe
       opening: Opening<Point3[][]>,
       pick: (rows: Point3[][]) => Point3[],
       fault?: boolean,
+      kind: 'seam' | 'cut' = 'seam',
     ) =>
       seam(
         points,
@@ -1743,6 +1744,7 @@ function layOut(sewn: readonly Piece[], model: PreviewModel, visible: ReadonlySe
           flat: pick(opening.flat),
         },
         fault,
+        kind,
       );
     const sewnOf = (rings: readonly (readonly Vertex[])[]) =>
       rings.map((ring) => ring.map((v) => v.point));
@@ -1761,7 +1763,9 @@ function layOut(sewn: readonly Piece[], model: PreviewModel, visible: ReadonlySe
         // Its holes are cut, not folded.
         sewn.slice(1).forEach((ring, r) => {
           if (ring.length > 1)
-            model.lines.push(line(closed(ring), opening, (rows) => closed(rows[r + 1])));
+            model.lines.push(
+              line(closed(ring), opening, (rows) => closed(rows[r + 1]), false, 'cut'),
+            );
         });
       }
       model.lines.push(line(closed(sewn[0]), opening, (rows) => closed(rows[0]), piece.faults[0]));
@@ -1791,7 +1795,7 @@ function layOut(sewn: readonly Piece[], model: PreviewModel, visible: ReadonlySe
       model.surfaces.push({ rows, kind: 'flap', color, opening: flapOpening });
       // A rib's cut line closes across its trailing edge.
       const edge = (steps: Point3[][]) => (piece.kind === 'rib' ? closed(steps[1]) : steps[1]);
-      model.lines.push(line(edge(rows), flapOpening, edge));
+      model.lines.push(line(edge(rows), flapOpening, edge, false, 'cut'));
     }
     for (const mark of visible.has('marks') ? piece.marks : [])
       model.dots.push({
@@ -1837,15 +1841,16 @@ function tableGrid(boxes: readonly ReturnType<typeof bounds>[], z: number) {
 
 const closed = (ring: Point3[]) => [...ring, ring[0]];
 
-/** A line through a piece's steps, marked when its seam is off. */
+/** A line through a piece's steps, a sewing line unless it is cut, marked when its seam is off. */
 function seam(
   points: Point3[],
   opening: Opening<Point3[]>,
   fault = false,
+  kind: 'seam' | 'cut' = 'seam',
 ): PreviewModel['lines'][number] {
   return {
     points,
-    kind: 'seam',
+    kind,
     selected: false,
     color: fault ? FAULT : undefined,
     opening,

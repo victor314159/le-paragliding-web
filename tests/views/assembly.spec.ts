@@ -323,6 +323,18 @@ test('the table has a grid around the pieces laid flat', () => {
   expect(worst(xs.map((x) => Math.abs(x / length - Math.round(x / length))))).toBeLessThan(1e-9);
 });
 
+test('sewing lines and cut lines are told apart, as on the patterns', () => {
+  const { design, airfoils } = project('oracle/designs/A8');
+  const pieces = assembly(design, airfoils);
+  const model = pieces.model(pieces.cells[0], new Set(['rib', 'lines']));
+  const kinds = (kind: string) => model.lines.filter((line) => line.kind === kind).length;
+  // Each rib: its sewing line and the seams on it; the cut lines of its holes and its allowance.
+  const holes = model.fills.reduce((sum, fill) => sum + (fill.holes?.length ?? 0), 0);
+  expect(kinds('seam')).toBeGreaterThanOrEqual(model.fills.length);
+  expect(kinds('cut')).toBeGreaterThan(holes);
+  expect(kinds('seam') + kinds('cut')).toBe(model.lines.length);
+});
+
 for (const id of designs)
   test(`${id}: pieces rest on the table, and never go through it`, () => {
     const { design, airfoils } = project(`oracle/designs/${id}`);

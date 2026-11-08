@@ -17,6 +17,11 @@ export interface ModelColors {
 
 type Point3 = PreviewModel['dots'][number]['point'];
 
+/** The kinds of lines drawn dashed: sewing lines, cut lines being solid. */
+const DASHED = new Set(['seam']);
+/** A dash and a gap of a sewing line, in the model's units (cm for the assembly). */
+const DASH = 1;
+
 /**
  * A closed outline without its last point when it repeats the first, to
  * rounding: such near duplicates, as of an ellipse at 0 and 2π, make the
@@ -352,47 +357,57 @@ export class PreviewScene {
           mesh.renderOrder = cutaway ? (color ? 2 : 1) : selected ? 1 : 0;
           this.model.add(mesh);
         }
-        const segments: number[] = [];
-        const segmentSteps: number[][] = [];
-        const segmentColors: number[] = [];
         const color = new THREE.Color();
-        for (const line of model.lines.filter(
-          (l) => l.selected === selected && !!l.cutaway === cutaway,
-        )) {
-          color.set(line.color ?? (selected ? colors.selected : colors.line));
-          for (let i = 1; i < line.points.length; i++) {
-            segments.push(...line.points[i - 1], ...line.points[i]);
-            segmentColors.push(color.r, color.g, color.b, color.r, color.g, color.b);
-            addSteps(segmentSteps, line.opening, (step) => [step[i - 1], step[i]]);
+        // Sewing lines dashed, as on the patterns; selected lines stay whole.
+        for (const dashed of selected ? [false] : [false, true]) {
+          const segments: number[] = [];
+          const segmentSteps: number[][] = [];
+          const segmentColors: number[] = [];
+          for (const line of model.lines.filter(
+            (l) =>
+              l.selected === selected &&
+              !!l.cutaway === cutaway &&
+              (selected || DASHED.has(l.kind) === dashed),
+          )) {
+            color.set(line.color ?? (selected ? colors.selected : colors.line));
+            for (let i = 1; i < line.points.length; i++) {
+              segments.push(...line.points[i - 1], ...line.points[i]);
+              segmentColors.push(color.r, color.g, color.b, color.r, color.g, color.b);
+              addSteps(segmentSteps, line.opening, (step) => [step[i - 1], step[i]]);
+            }
           }
-        }
-        if (segments.length && selected) {
-          // WebGL lines are a pixel wide: the selected ones are wide lines, in pixels, of
-          // quads that the model's mirrored Z turns over.
-          const material = new LineMaterial({
-            vertexColors: true,
-            linewidth: 2.5,
-            depthTest: false,
-            side: THREE.DoubleSide,
-          });
-          material.resolution.set(this.container.clientWidth, this.container.clientHeight);
-          this.wide.push(material);
-          const lines = new LineSegments2(
-            new LineSegmentsGeometry().setPositions(segments).setColors(segmentColors),
-            material,
-          );
-          lines.renderOrder = 2;
-          this.model.add(lines);
-        } else if (segments.length) {
-          const geometry = new THREE.BufferGeometry();
-          geometry.setAttribute('position', new THREE.Float32BufferAttribute(segments, 3));
-          geometry.setAttribute('color', new THREE.Float32BufferAttribute(segmentColors, 3));
-          if (segmentSteps.length) this.addOpening(geometry, segmentSteps);
-          const material = new THREE.LineBasicMaterial({ vertexColors: true });
-          this.applySkinCut(material, cutaway);
-          const lines = new THREE.LineSegments(geometry, material);
-          lines.renderOrder = cutaway ? 2 : 0;
-          this.model.add(lines);
+          if (segments.length && selected) {
+            // WebGL lines are a pixel wide: the selected ones are wide lines, in pixels, of
+            // quads that the model's mirrored Z turns over.
+            const material = new LineMaterial({
+              vertexColors: true,
+              linewidth: 2.5,
+              depthTest: false,
+              side: THREE.DoubleSide,
+            });
+            material.resolution.set(this.container.clientWidth, this.container.clientHeight);
+            this.wide.push(material);
+            const lines = new LineSegments2(
+              new LineSegmentsGeometry().setPositions(segments).setColors(segmentColors),
+              material,
+            );
+            lines.renderOrder = 2;
+            this.model.add(lines);
+          } else if (segments.length) {
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(segments, 3));
+            geometry.setAttribute('color', new THREE.Float32BufferAttribute(segmentColors, 3));
+            if (segmentSteps.length) this.addOpening(geometry, segmentSteps);
+            const material = dashed
+              ? new THREE.LineDashedMaterial({ vertexColors: true, dashSize: DASH, gapSize: DASH })
+              : new THREE.LineBasicMaterial({ vertexColors: true });
+            this.applySkinCut(material, cutaway);
+            const lines = new THREE.LineSegments(geometry, material);
+            // Dashes measured along the lines as sewn: they stretch a little as the pieces open.
+            if (dashed) lines.computeLineDistances();
+            lines.renderOrder = cutaway ? 2 : 0;
+            this.model.add(lines);
+          }
         }
         const dots = model.dots.filter((d) => d.selected === selected && !!d.cutaway === cutaway);
         if (dots.length) {
