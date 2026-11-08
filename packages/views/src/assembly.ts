@@ -1103,17 +1103,16 @@ function offMarks(
 
 /**
  * The stretches of a cut `line` past `edge`, away from the piece's `other` edge, as a tooth's
- * tip is: each point with its index and its edge's nearest point.
+ * tip is: each point with its index, and where it folds on `edge`, as a fractional index `k`.
  */
 function outsideEdge(line: readonly Point[], edge: readonly Point[], other: readonly Point[]) {
+  const [onEdge, onOther] = [byPoint(edge), byPoint(other)];
   const placed = line.map((flat, at) => {
-    const k = edge.reduce(
-      (best, p, i) => (distance(p, flat) < distance(edge[best], flat) ? i : best),
-      0,
-    );
-    const [x, y] = [flat[0] - edge[k][0], flat[1] - edge[k][1]];
-    const past = x * (edge[k][0] - other[k][0]) + y * (edge[k][1] - other[k][1]);
-    return { flat, at, k, past: past > 0 && Math.hypot(x, y) > SEAM_CONVENTIONS.seamTolerance };
+    const { f, gap } = nearestOn(onEdge, flat);
+    const [on, away] = [sample(onEdge, f), sample(onOther, f)];
+    const past = (flat[0] - on[0]) * (on[0] - away[0]) + (flat[1] - on[1]) * (on[1] - away[1]);
+    const k = f * (edge.length - 1);
+    return { flat, at, k, past: past > 0 && gap > SEAM_CONVENTIONS.seamTolerance };
   });
   return placed.reduce<(typeof placed)[]>((stretches, point, i) => {
     if (!point.past) return stretches;
@@ -1186,7 +1185,7 @@ function vRibPiece(
       // Only its feet are sewn: each by its marks, on an anchor of the rib.
       stretches.forEach((stretch, n) => {
         const ks = stretch.map(({ k }) => k);
-        const [first, last] = [Math.min(...ks), Math.max(...ks)];
+        const [first, last] = [Math.floor(Math.min(...ks)), Math.ceil(Math.max(...ks))];
         seamCheck(`foot ${n + 1} `, first, last, offMarks(rib, edge, pattern.marks, first, last));
       });
     } else
@@ -1211,26 +1210,40 @@ function vRibPiece(
       ) <= SEAM_CONVENTIONS.seamTolerance;
     const panel = rib === ribs[0] && !rib.mirrored ? 'outerPanel' : 'innerPanel';
     const layers = inSeam ? ribLayer(panel) + into : into;
+    /** At `k` along its edge, between its points: a tooth folds where it meets the edge. */
+    const between = (f: (k: number) => Point3, k: number) => {
+      const i = Math.max(0, Math.min(Math.floor(k), count - 2));
+      return along(f(i), minus(f(i + 1), f(i)), k - i);
+    };
+    const flatAt = (k: number) => sample(byPoint(flatEdge), k / (count - 1));
+    const pointAt = (k: number) => between((i) => edge[i].point, k);
     const inset = (k: number) =>
-      along(edge[k].point, rib.tipward, layers * SEAM_CONVENTIONS.layerThickness);
-    const sewnAt = (k: number): Vertex => ({ point: inset(k), flat: edge[k].flat });
+      along(pointAt(k), rib.tipward, layers * SEAM_CONVENTIONS.layerThickness);
+    const sewnAt = (k: number): Vertex => ({ point: inset(k), flat: flatAt(k) });
     /** Square to its edge at point `k`, in the rib's plane. */
     const square = (k: number) =>
       unit(
-        cross(
-          rib.tipward,
-          minus(edge[Math.min(k + 1, count - 1)].point, edge[Math.max(k - 1, 0)].point),
+        between(
+          (i) =>
+            unit(
+              cross(
+                rib.tipward,
+                minus(edge[Math.min(i + 1, count - 1)].point, edge[Math.max(i - 1, 0)].point),
+              ),
+            ),
+          k,
         ),
       );
-    const onwardAt = (k: number) => unit(minus(edge[k].point, other[k].point));
+    const onwardAt = (k: number) =>
+      unit(between((i) => unit(minus(edge[i].point, other[i].point)), k));
     const rows = stretches.map((stretch) => {
       const { k: mid } = stretch[stretch.length >> 1];
       // On the way the piece comes, unless that leaves the rib, as off a strap along the skin.
       const way = dot(square(mid), onwardAt(mid)) < 0 ? -1 : 1;
-      const widest = Math.max(...stretch.map(({ flat, k }) => distance(flat, flatEdge[k])));
-      const fits = rib.room(edge[mid].point, along([0, 0, 0], square(mid), way)) >= widest;
+      const widest = Math.max(...stretch.map(({ flat, k }) => distance(flat, flatAt(k))));
+      const fits = rib.room(pointAt(mid), along([0, 0, 0], square(mid), way)) >= widest;
       return stretch.map(({ flat, k }) => {
-        const width = distance(flat, flatEdge[k]);
+        const width = distance(flat, flatAt(k));
         return {
           seam: sewnAt(k),
           cut: {
@@ -1261,7 +1274,11 @@ function vRibPiece(
   const tips = new Map(sides.flatMap((side) => side.tips));
   const outline = teeth
     ? [
-        ...teeth.map((flat, i) => tips.get(i) ?? mark(flat)),
+        // A foot's tip sewn on its seam, laid flat where it is cut.
+        ...teeth.map((flat, i) => {
+          const tip = tips.get(i);
+          return tip ? vertex(flat, tip.point) : mark(flat);
+        }),
         ...[...(startsLeft ? sewnRight : sewnLeft)].reverse(),
       ]
     : [...sewnLeft, ...[...sewnRight].reverse()];

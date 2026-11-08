@@ -100,7 +100,7 @@ function onRib(outline: readonly Flat[], sewing: readonly Flat[]) {
     return nearest.reduce((best, p) => (away(p) < away(best) ? p : best));
   });
 }
-/** A strap or V-rib's lines: of type 5, its teeth, the edge it is cut along, then the feet's seam. */
+/** A strap or V-rib's outline laid flat: of type 5, its teeth as cut, then the edge it is sewn along. */
 function stripOutline(strip: ReturnType<typeof vRibPatterns>[number]) {
   if (strip.type !== 5) return strip;
   const count = strip.sewing.length >> 1;
@@ -108,9 +108,7 @@ function stripOutline(strip: ReturnType<typeof vRibPatterns>[number]) {
   const [start] = teeth;
   const fromLeft = Math.hypot(start[0] - strip.sewing[0][0], start[1] - strip.sewing[0][1]) < 1e-9;
   const [left, right] = [strip.sewing.slice(0, count), strip.sewing.slice(count)];
-  const edge = fromLeft ? right : [...left].reverse();
-  const feet = fromLeft ? left : [...right].reverse();
-  return { ...strip, sewing: [...teeth, ...edge, ...feet], frame: [...edge, ...feet] };
+  return { ...strip, sewing: [...teeth, ...(fromLeft ? right : [...left].reverse())] };
 }
 const finite = (rings: readonly (readonly Point3[])[]) =>
   rings.every((ring) => ring.every((p) => p.every(Number.isFinite)));
@@ -159,7 +157,7 @@ for (const id of designs)
         rib,
         ...rib.rods.map(({ pocket }) => ({ sewing: onRib(pocket.slice(0, -1), rib.sewing) })),
       ];
-      const ownStripsD: { sewing: readonly Flat[]; frame?: readonly Flat[] }[] = [
+      const ownStripsD: { sewing: readonly Flat[] }[] = [
         ...withPockets(ribs[Math.max(cell - 1, 0)]),
         ...(minirib ? [minirib] : []),
         ...strips.filter(({ ribs: on }) => Math.min(...on) === cell).map(stripOutline),
@@ -170,20 +168,107 @@ for (const id of designs)
         const piece = ownStripsD[r];
         const { sewing } = piece;
         const ring = flat(fill.opening!.flat[0]);
-        const move = onPattern(ring, sewing, piece.frame);
+        const move = onPattern(ring, sewing);
+        // Point for point: laid flat, a piece is its pattern exactly.
+        expect(ring).toHaveLength(sewing.length);
         ring.forEach((p, i) => {
           const q = move(p);
-          // Type 5's feet stop at their seam: on its lines, not point for point.
-          gaps.push(
-            ring.length === sewing.length
-              ? Math.hypot(q[0] - sewing[i][0], q[1] - sewing[i][1])
-              : toRing(q, sewing),
-          );
+          gaps.push(Math.hypot(q[0] - sewing[i][0], q[1] - sewing[i][1]));
         });
       });
     }
     expect(unfinite).toBe(0);
     expect(worst(gaps)).toBeLessThan(1e-6);
+  });
+
+/** Whether `p` is inside the closed `ring`. */
+const inRing = (ring: readonly Flat[], [x, y]: Flat) =>
+  ring.reduce((odd, [x0, y0], i) => {
+    const [x1, y1] = ring[(i + 1) % ring.length];
+    return y0 > y !== y1 > y && x < x0 + ((y - y0) / (y1 - y0)) * (x1 - x0) ? !odd : odd;
+  }, false);
+/** A piece's cut lines as one outline, as the 2D preview chains them: each to the nearest end. */
+function cutOutline(lines: readonly (readonly Flat[])[]) {
+  const left = lines.map((line) => [...line]);
+  const outline = left.shift()!;
+  while (left.length) {
+    const end = outline.at(-1)!;
+    const gap = (p: Flat) => Math.hypot(p[0] - end[0], p[1] - end[1]);
+    const [i, reversed] = left
+      .flatMap((line, i) => [
+        [i, false, gap(line[0])] as const,
+        [i, true, gap(line.at(-1)!)] as const,
+      ])
+      .reduce((best, next) => (next[2] < best[2] ? next : best));
+    const [line] = left.splice(i, 1);
+    outline.push(...(reversed ? line.reverse() : line));
+  }
+  return outline;
+}
+const VRIB = '#b58ad9';
+
+for (const id of designs)
+  test(`${id}: laid flat, a strap or V-rib covers its cut outline, and nothing past it`, () => {
+    const { design, airfoils } = project(`oracle/designs/${id}`);
+    const pieces = assembly(design, airfoils);
+    const strips = vRibPatterns(design, airfoils);
+    // Sampled every 5 mm, clear of the cut line by a millimetre.
+    const [STEP, CLEAR] = [0.5, 0.1];
+    const wrong: string[] = [];
+    for (const cell of pieces.cells) {
+      const model = pieces.model(cell);
+      const own = strips.filter(({ ribs }) => Math.min(...ribs) === cell);
+      const fills = model.fills.filter((fill) => fill.color === VRIB);
+      expect(fills).toHaveLength(own.length);
+      const flaps = model.surfaces
+        .filter((surface) => surface.kind === 'flap' && surface.color === VRIB)
+        .map((surface) => surface.opening!.flat.map(flat));
+      const rings = fills.map((fill) => flat(fill.opening!.flat[0]));
+      // Each allowance with the piece it folds on: its sewing line along the piece's outline.
+      const owner = (rows: Flat[][]) =>
+        rings.reduce(
+          (best, ring, i) =>
+            worst(rows[0].map((p) => toRing(p, ring))) <
+            worst(rows[0].map((p) => toRing(p, rings[best])))
+              ? i
+              : best,
+          0,
+        );
+      const owners = flaps.map(owner);
+      own.forEach((strip, i) => {
+        const move = onPattern(rings[i], stripOutline(strip).sewing);
+        const outline = rings[i].map(move);
+        const holes = fills[i].opening!.flat.slice(1).filter((ring) => ring.length > 2);
+        const triangles = flaps
+          .filter((_, f) => owners[f] === i)
+          .flatMap(([seam, cut]) =>
+            seam
+              .slice(1)
+              .flatMap((_, k) => [
+                [seam[k], seam[k + 1], cut[k]].map(move),
+                [seam[k + 1], cut[k + 1], cut[k]].map(move),
+              ]),
+          );
+        const laid = (p: Flat) =>
+          (inRing(outline, p) && holes.every((hole) => !inRing(flat(hole).map(move), p))) ||
+          triangles.some((triangle) => inRing(triangle, p));
+        const cut = cutOutline(strip.cut);
+        const xs = cut.map((p) => p[0]);
+        const ys = cut.map((p) => p[1]);
+        for (let x = Math.min(...xs); x < Math.max(...xs); x += STEP)
+          for (let y = Math.min(...ys); y < Math.max(...ys); y += STEP) {
+            const p: Flat = [x, y];
+            if (toRing(p, cut) < CLEAR || strip.holes.some((hole) => toRing(p, hole) < CLEAR))
+              continue;
+            const fabric = inRing(cut, p) && strip.holes.every((hole) => !inRing(hole, p));
+            if (fabric !== laid(p))
+              wrong.push(
+                `${cell}: V-rib ${strip.rows[0]} ${fabric ? 'misses' : 'past'} ${x.toFixed(1)},${y.toFixed(1)}`,
+              );
+          }
+      });
+    }
+    expect(wrong.slice(0, 10)).toEqual([]);
   });
 
 for (const id of designs)
